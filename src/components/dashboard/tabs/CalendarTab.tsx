@@ -145,7 +145,7 @@ function EventDialog({ open, onClose, defaultDate, existingEvent }: EventDialogP
             </div>
             <div className="space-y-1.5">
               <Label>Statut</Label>
-              <Select value={status} onValueChange={setStatus}>
+              <Select value={status} onValueChange={(v) => setStatus(v as any)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="scheduled">Planifié</SelectItem>
