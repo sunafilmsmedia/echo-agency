@@ -1,1003 +1,603 @@
 import { useState, useRef } from "react";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
-import { ExternalLink, Copy, ChevronRight, ChevronLeft, Upload, Loader2, Trophy, AlertTriangle, Lightbulb, Star, FileText, Mic, Compass, Target, Package, Crown, Zap, Clock, ChevronDown, ChevronUp, Sparkles, Filter } from "lucide-react";
+import {
+  ChevronDown, ChevronRight, Copy, Loader2, Upload, Send,
+  Mic, FileText, Star, Trophy, AlertTriangle, Lightbulb,
+  Compass, Package, Crown, Zap, Clock, Filter, Sparkles,
+  ChevronUp, Check,
+} from "lucide-react";
 import Anthropic from "@anthropic-ai/sdk";
 
-const ADVISORS = [
+// ── Claude helper ─────────────────────────────────────────────────────────────
+
+async function askClaude(prompt: string, onStream?: (t: string) => void): Promise<string> {
+  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error("Clé Anthropic manquante dans .env");
+  const anthropic = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
+  const response = await anthropic.messages.create({
+    model: "claude-opus-4-6", max_tokens: 2000,
+    messages: [{ role: "user", content: prompt }],
+  });
+  return response.content[0].type === "text" ? response.content[0].text : "";
+}
+
+// ── Skill definitions ─────────────────────────────────────────────────────────
+
+interface Skill {
+  id: string;
+  emoji: string;
+  label: string;
+  description: string;
+  systemPrompt: string;
+  starters: string[];
+  component?: "sales" | "category" | "automation";
+}
+
+interface SkillGroup {
+  id: string;
+  emoji: string;
+  label: string;
+  children: Skill[];
+}
+
+type NavItem = Skill | SkillGroup;
+function isGroup(item: NavItem): item is SkillGroup { return "children" in item; }
+
+const NAV: NavItem[] = [
   {
     id: "scaling",
     emoji: "🚀",
-    title: "Scaling Advisor",
-    description: "Stratégies de croissance et scaling pour agences",
-    single: true,
-    linkKey: "scaling",
+    label: "Scaling",
+    description: "Stratégies pour faire passer ton agence au niveau supérieur",
+    systemPrompt: "Tu es un expert en scaling d'agences de marketing vidéo. Tu aides les fondateurs à structurer leur croissance, automatiser leurs opérations, recruter les bonnes personnes et atteindre leurs objectifs de revenus. Réponds de façon concrète et actionnables.",
+    starters: [
+      "Comment passer de 10k à 30k$/mois avec mon agence vidéo?",
+      "Quelle est la meilleure structure d'équipe pour scaler?",
+      "Comment créer des systèmes pour ne plus tout faire moi-même?",
+      "Quand et comment recruter mon premier employé?",
+    ],
   },
   {
     id: "ads",
     emoji: "🎯",
-    title: "Ads Strategy",
-    description: "Optimisez vos publicités payantes",
-    single: false,
-    options: [
-      { label: "Scripting", key: "adsScripting" },
-      { label: "Ads Statique", key: "adsStatique" },
+    label: "Ads Strategy",
+    children: [
+      {
+        id: "ads-scripting",
+        emoji: "🎬",
+        label: "Scripting vidéo",
+        description: "Écris des scripts publicitaires qui convertissent",
+        systemPrompt: "Tu es un expert en scripting de publicités vidéo pour agences. Tu crées des scripts courts et percutants qui captent l'attention en 3 secondes, créent de l'émotion et poussent à l'action. Format: Hook → Problème → Solution → Preuve → CTA.",
+        starters: [
+          "Écris un script de 30 secondes pour un restaurant qui veut plus de réservations",
+          "Crée un hook ultra-accrocheur pour une pub e-commerce",
+          "Script pour une publicité de service local (plombier, électricien...)",
+          "Comment structurer une pub vidéo UGC qui convertit?",
+        ],
+      },
+      {
+        id: "ads-static",
+        emoji: "🖼️",
+        label: "Ads Statique",
+        description: "Stratégie et copywriting pour visuels publicitaires",
+        systemPrompt: "Tu es un expert en création de publicités statiques (images, carousels) pour les réseaux sociaux. Tu maîtrises le copywriting publicitaire, la hiérarchie visuelle et les principes de conversion. Tu donnes des conseils sur le texte, la structure et la stratégie.",
+        starters: [
+          "Quel texte mettre sur une pub statique pour un coach fitness?",
+          "Comment structurer un carousel Facebook qui génère des leads?",
+          "Les meilleures accroches pour des ads immobilier",
+          "Comment A/B tester mes visuels publicitaires efficacement?",
+        ],
+      },
     ],
   },
   {
     id: "content",
     emoji: "✍️",
-    title: "Content Coach",
-    description: "Stratégie de contenu et personal branding",
-    single: false,
-    options: [
-      { label: "Personal Brand Strategist", key: "contentBrand" },
-      { label: "Content Ideas Builder", key: "contentIdeas" },
+    label: "Content Coach",
+    children: [
+      {
+        id: "content-brand",
+        emoji: "🌟",
+        label: "Personal Brand",
+        description: "Construis ta marque personnelle et ton autorité",
+        systemPrompt: "Tu es un expert en personal branding pour entrepreneurs et fondateurs d'agences. Tu aides à définir un positionnement unique, créer du contenu qui attire des clients et construire une audience engagée. Tu connais les stratégies LinkedIn, Instagram et TikTok.",
+        starters: [
+          "Comment me différencier en tant que fondateur d'agence vidéo?",
+          "Quel type de contenu poster pour attirer des clients haut de gamme?",
+          "Crée un plan de contenu pour les 30 prochains jours",
+          "Comment raconter mon histoire de façon authentique et magnétique?",
+        ],
+      },
+      {
+        id: "content-ideas",
+        emoji: "💡",
+        label: "Idées de contenu",
+        description: "Génère des idées de contenu infinies pour ton niche",
+        systemPrompt: "Tu es un générateur d'idées de contenu créatif pour agences et entrepreneurs. Tu produis des idées originales, des angles uniques et des formats engageants adaptés aux différentes plateformes (Instagram, TikTok, LinkedIn, YouTube).",
+        starters: [
+          "Donne-moi 10 idées de Reels pour une agence vidéo",
+          "Idées de contenu viral pour attirer des clients restaurants",
+          "20 accroches LinkedIn pour un fondateur d'agence marketing",
+          "Idées de contenu éducatif qui montrent mon expertise",
+        ],
+      },
     ],
   },
   {
     id: "helper",
     emoji: "🤝",
-    title: "Little Helper",
-    description: "Assistant général et feedback",
-    single: true,
-    linkKey: "helper",
+    label: "Little Helper",
+    description: "Assistant général — rédaction, feedback, questions diverses",
+    systemPrompt: "Tu es un assistant intelligent pour une agence de marketing vidéo. Tu peux aider avec la rédaction d'emails, de propositions commerciales, de contrats, donner du feedback sur des idées, répondre à des questions générales sur le business et la gestion d'agence.",
+    starters: [
+      "Rédige un email de relance professionnel pour un prospect qui n'a pas répondu",
+      "Aide-moi à améliorer cette proposition commerciale",
+      "Comment répondre à un client qui se plaint du prix?",
+      "Rédige des CGV simples pour mon agence",
+    ],
   },
   {
     id: "sales",
     emoji: "🏆",
-    title: "Sales Mastery",
-    description: "Analyse tes appels de vente et améliore ton closing",
-    single: false,
-    custom: true,
+    label: "Sales Mastery",
+    description: "Analyse tes appels et accède à tes scripts de vente",
+    systemPrompt: "",
+    starters: [],
+    component: "sales",
   },
   {
     id: "category",
     emoji: "👑",
-    title: "Category Architect",
-    description: "Crée ton offre, trouve ta niche et deviens le #1 dans ta catégorie",
-    single: false,
-    custom: true,
+    label: "Category Architect",
+    description: "Niche, offre irrésistible et positionnement #1",
+    systemPrompt: "",
+    starters: [],
+    component: "category",
   },
   {
     id: "automation",
     emoji: "⚡",
-    title: "Automation Advisor",
-    description: "Les meilleures automatisations pour ton agence — Zapier, GHL, Make, Claude",
-    single: false,
-    custom: true,
+    label: "Automation Advisor",
+    description: "Automatise ton agence — Zapier, GHL, Make, Claude",
+    systemPrompt: "",
+    starters: [],
+    component: "automation",
   },
 ];
 
-function getLinks(): Record<string, string> {
-  try { return JSON.parse(localStorage.getItem("gptLinks") || "{}"); }
-  catch { return {}; }
+// Flatten for lookup
+function allSkills(nav: NavItem[]): Skill[] {
+  return nav.flatMap(item => isGroup(item) ? item.children : [item]);
 }
 
-function isInIframe() {
-  try { return window.self !== window.top; }
-  catch { return true; }
-}
+// ── Generic Claude Chat Panel ─────────────────────────────────────────────────
 
-// ─── Sales Mastery View ───────────────────────────────────────────────────────
-
-interface AnalysisResult {
-  score: number;
-  scoreLabel: string;
-  strengths: string[];
-  improvements: string[];
-  objections: string[];
-  closing: string;
-  topTip: string;
-}
-
-const SCRIPTS = [
-  {
-    id: "warm",
-    emoji: "🔥",
-    label: "Warm Call",
-    description: "Premier contact avec un prospect qui te connaît déjà",
-    prompt: "Écris un script de warm call (appel à chaud) pour une agence de marketing vidéo qui contacte un prospect qui a déjà interagi avec son contenu ou rempli un formulaire. Le script doit: ouvrir naturellement, qualifier le prospect, pitcher la valeur en 30 secondes, et obtenir un RDV. Inclus les réponses aux objections courantes. Format: sections claires avec [OUVERTURE], [QUALIFICATION], [PITCH], [OBJECTIONS], [CLOSING RDV].",
-  },
-  {
-    id: "closing",
-    emoji: "🤝",
-    label: "Closing Call",
-    description: "Appel final pour convertir le prospect en client",
-    prompt: "Écris un script de closing call pour une agence de marketing vidéo. Le prospect a déjà eu un call de découverte et reçu une proposition. Le script doit: récapituler la valeur, gérer les dernières hésitations sur le prix, utiliser des techniques de closing efficaces (urgence, réciprocité, social proof), et obtenir la signature. Format: [RÉCAP VALEUR], [GESTION PRIX], [TECHNIQUES DE CLOSING], [OBJECTIONS FINALES], [SIGNATURE].",
-  },
-  {
-    id: "discovery",
-    emoji: "🔍",
-    label: "Discovery Call",
-    description: "Premier appel pour comprendre les besoins du prospect",
-    prompt: "Écris un script de discovery call pour une agence de marketing vidéo. L'objectif est de comprendre les besoins, qualifier le budget et créer une relation de confiance. Inclus les meilleures questions de découverte, comment identifier les pain points, et comment positionner l'agence comme solution. Format: [INTRO], [QUESTIONS DE DÉCOUVERTE], [IDENTIFICATION PAIN POINTS], [PRÉSENTATION AGENCE], [PROCHAINES ÉTAPES].",
-  },
-  {
-    id: "followup",
-    emoji: "📞",
-    label: "Follow-up Call",
-    description: "Relance après une proposition ou un silence",
-    prompt: "Écris un script de follow-up call pour une agence de marketing vidéo qui relance un prospect après l'envoi d'une proposition sans réponse. Le script doit être court, direct, créer de l'urgence sans être agressif, et rouvrir la conversation. Inclus aussi un script de follow-up par message texte/WhatsApp. Format: [CALL SCRIPT], [MESSAGE TEXTE], [EMAIL COURT].",
-  },
-  {
-    id: "objections",
-    emoji: "🛡️",
-    label: "Gestion Objections",
-    description: "Réponses aux objections les plus fréquentes",
-    prompt: "Écris un guide complet de gestion des objections pour une agence de marketing vidéo. Couvre ces objections: 1) C'est trop cher 2) J'ai besoin d'y réfléchir 3) Je vais en parler à mon associé 4) On a déjà quelqu'un pour ça 5) Je ne vois pas le ROI 6) On n'a pas le budget maintenant. Pour chaque objection: la réponse idéale + une question de recadrage. Format clair avec l'objection en titre.",
-  },
-];
-
-function ScriptsSection() {
-  const [selected, setSelected] = useState<string | null>(null);
-  const [script, setScript] = useState("");
+function ClaudeChat({ skill }: { skill: Skill }) {
+  const [input, setInput] = useState("");
+  const [response, setResponse] = useState("");
   const [loading, setLoading] = useState(false);
-  const [context, setContext] = useState("");
+  const [usedStarter, setUsedStarter] = useState<string | null>(null);
 
-  const generate = async (scriptDef: typeof SCRIPTS[0]) => {
-    const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
-    if (!apiKey) { toast.error("Clé Anthropic manquante dans .env"); return; }
-    setSelected(scriptDef.id);
+  const ask = async (question: string) => {
+    if (!question.trim() || loading) return;
     setLoading(true);
-    setScript("");
+    setResponse("");
+    setUsedStarter(question);
     try {
-      const anthropic = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
-      const contextNote = context.trim() ? `\n\nContexte de l'agence: ${context}` : "";
-      const response = await anthropic.messages.create({
-        model: "claude-opus-4-6",
-        max_tokens: 1500,
-        messages: [{ role: "user", content: scriptDef.prompt + contextNote }],
-      });
-      const text = response.content[0].type === "text" ? response.content[0].text : "";
-      setScript(text);
-    } catch {
-      toast.error("Erreur lors de la génération");
+      const fullPrompt = `${skill.systemPrompt}\n\n${question}`;
+      const result = await askClaude(fullPrompt);
+      setResponse(result);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erreur Claude");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="space-y-4">
-      {/* Optional context */}
-      <Card className="border-border/40">
-        <CardContent className="pt-3 pb-3">
-          <p className="text-xs text-muted-foreground mb-1.5">Contexte de ton agence (optionnel — personnalise les scripts)</p>
-          <Input
-            placeholder="Ex: agence vidéo pour restaurants, ticket moyen 3000$/mois..."
-            value={context}
-            onChange={(e) => setContext(e.target.value)}
-            className="text-xs h-8"
-          />
-        </CardContent>
-      </Card>
+    <div className="space-y-5">
+      {/* Starters */}
+      {!response && !loading && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {skill.starters.map((s) => (
+            <button key={s} onClick={() => { setInput(s); ask(s); }}
+              className="text-left text-xs px-3 py-2.5 rounded-lg border border-border/50 bg-muted/30 hover:border-primary/40 hover:bg-primary/5 text-muted-foreground hover:text-foreground transition-all">
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
 
-      {/* Script cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {SCRIPTS.map((s) => (
-          <Card
-            key={s.id}
-            className="cursor-pointer hover:border-primary/40 hover:shadow-glow transition-all group"
-            onClick={() => generate(s)}
-          >
-            <CardContent className="pt-4 pb-4">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-lg mb-1">{s.emoji}</p>
-                  <p className="font-semibold text-sm text-foreground">{s.label}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{s.description}</p>
-                </div>
-                {loading && selected === s.id
-                  ? <Loader2 className="w-4 h-4 animate-spin text-primary flex-shrink-0" />
-                  : <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
-                }
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+      {/* Input */}
+      <div className="flex gap-2">
+        <Textarea
+          placeholder={`Pose une question à Claude sur ${skill.label}...`}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(input); } }}
+          className="resize-none h-20 text-sm"
+          disabled={loading}
+        />
+        <Button onClick={() => ask(input)} disabled={loading || !input.trim()} className="flex-shrink-0 h-20 px-4">
+          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+        </Button>
       </div>
 
-      {/* Generated script */}
-      {script && (
-        <Card className="border-primary/20">
-          <CardContent className="pt-4 pb-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold text-primary">
-                {SCRIPTS.find((s) => s.id === selected)?.emoji} {SCRIPTS.find((s) => s.id === selected)?.label}
-              </p>
-              <Button
-                size="sm" variant="outline" className="gap-1.5 text-xs h-7"
-                onClick={() => { navigator.clipboard.writeText(script); toast.success("Script copié!"); }}
-              >
+      {/* Loading */}
+      {loading && (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          Claude réfléchit...
+        </div>
+      )}
+
+      {/* Response */}
+      {response && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-medium text-muted-foreground">{usedStarter}</p>
+            <div className="flex gap-1.5">
+              <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs"
+                onClick={() => { navigator.clipboard.writeText(response); toast.success("Copié!"); }}>
                 <Copy className="w-3 h-3" /> Copier
               </Button>
+              <Button size="sm" variant="ghost" className="h-7 text-xs"
+                onClick={() => { setResponse(""); setInput(""); setUsedStarter(null); }}>
+                Nouvelle question
+              </Button>
             </div>
-            <div className="text-xs text-foreground whitespace-pre-wrap leading-relaxed max-h-96 overflow-y-auto bg-muted/20 rounded-lg p-3 border border-border/30">
-              {script}
-            </div>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="text-sm text-foreground whitespace-pre-wrap leading-relaxed bg-muted/20 rounded-xl p-4 border border-border/30 max-h-[500px] overflow-y-auto">
+            {response}
+          </div>
+        </div>
       )}
     </div>
   );
 }
 
-function SalesMasteryView({ onBack }: { onBack: () => void }) {
+// ── Sales Mastery ─────────────────────────────────────────────────────────────
+
+interface AnalysisResult {
+  score: number; scoreLabel: string; strengths: string[];
+  improvements: string[]; objections: string[]; closing: string; topTip: string;
+}
+
+const SCRIPTS = [
+  { id: "warm", emoji: "🔥", label: "Warm Call", description: "Premier contact avec un prospect chaud", prompt: "Écris un script de warm call pour une agence de marketing vidéo. Format: [OUVERTURE], [QUALIFICATION], [PITCH], [OBJECTIONS], [CLOSING RDV]." },
+  { id: "closing", emoji: "🤝", label: "Closing Call", description: "Appel final pour convertir en client", prompt: "Écris un script de closing call pour une agence vidéo. Format: [RÉCAP VALEUR], [GESTION PRIX], [TECHNIQUES DE CLOSING], [OBJECTIONS FINALES], [SIGNATURE]." },
+  { id: "discovery", emoji: "🔍", label: "Discovery Call", description: "Comprendre les besoins du prospect", prompt: "Écris un script de discovery call pour une agence vidéo. Format: [INTRO], [QUESTIONS DE DÉCOUVERTE], [IDENTIFICATION PAIN POINTS], [PRÉSENTATION AGENCE], [PROCHAINES ÉTAPES]." },
+  { id: "followup", emoji: "📞", label: "Follow-up", description: "Relance après un silence", prompt: "Écris un script de follow-up call + message texte pour une agence vidéo après une proposition sans réponse. Format: [CALL SCRIPT], [MESSAGE TEXTE], [EMAIL COURT]." },
+  { id: "objections", emoji: "🛡️", label: "Objections", description: "Réponses aux objections fréquentes", prompt: "Guide complet de gestion des objections pour agence vidéo: 1) Trop cher 2) J'y réfléchis 3) J'en parle à mon associé 4) On a déjà quelqu'un 5) Pas de budget maintenant. Réponse idéale + question de recadrage pour chaque." },
+];
+
+function SalesMasteryPanel() {
   const [tab, setTab] = useState<"analyze" | "scripts">("analyze");
   const [transcript, setTranscript] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [selectedScript, setSelectedScript] = useState<string | null>(null);
+  const [scriptText, setScriptText] = useState("");
+  const [scriptLoading, setScriptLoading] = useState(false);
+  const [context, setContext] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => setTranscript(ev.target?.result as string);
-    reader.readAsText(file);
-  };
-
   const analyze = async () => {
-    if (!transcript.trim()) { toast.error("Colle ou uploade un transcript d'abord"); return; }
-    if (transcript.length < 100) { toast.error("Le transcript est trop court"); return; }
-
-    const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
-    if (!apiKey) { toast.error("Clé Anthropic manquante dans .env"); return; }
-
-    setLoading(true);
-    setResult(null);
-
+    if (!transcript.trim() || transcript.length < 100) { toast.error("Transcript trop court"); return; }
+    setLoading(true); setResult(null);
     try {
-      const anthropic = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
-
-      const response = await anthropic.messages.create({
-        model: "claude-opus-4-6",
-        max_tokens: 1500,
-        messages: [{
-          role: "user",
-          content: `Tu es un expert en vente et closing pour agences de marketing vidéo. Analyse ce transcript d'appel de vente et réponds UNIQUEMENT en JSON valide avec cette structure exacte:
-
-{
-  "score": <nombre entre 0 et 100>,
-  "scoreLabel": <"Excellent" | "Bon" | "Moyen" | "À améliorer">,
-  "strengths": [<3 points forts max, phrases courtes>],
-  "improvements": [<3 points à améliorer max, phrases courtes>],
-  "objections": [<2-3 objections soulevées et comment elles ont été gérées>],
-  "closing": <1 phrase sur la technique de closing utilisée>,
-  "topTip": <1 conseil actionnable le plus important pour le prochain appel>
-}
-
-TRANSCRIPT:
-${transcript.slice(0, 8000)}`,
-        }],
-      });
-
-      const text = response.content[0].type === "text" ? response.content[0].text : "";
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error("Réponse invalide");
-      const parsed = JSON.parse(jsonMatch[0]) as AnalysisResult;
-      setResult(parsed);
-    } catch {
-      toast.error("Erreur lors de l'analyse. Réessaie.");
-    } finally {
-      setLoading(false);
-    }
+      const text = await askClaude(`Tu es un expert en vente pour agences vidéo. Analyse ce transcript et réponds UNIQUEMENT en JSON:
+{"score":<0-100>,"scoreLabel":"Excellent|Bon|Moyen|À améliorer","strengths":[<3 max>],"improvements":[<3 max>],"objections":[<2-3>],"closing":"<technique utilisée>","topTip":"<conseil #1>"}
+TRANSCRIPT: ${transcript.slice(0, 8000)}`);
+      const match = text.match(/\{[\s\S]*\}/);
+      if (!match) throw new Error();
+      setResult(JSON.parse(match[0]));
+    } catch { toast.error("Erreur d'analyse. Réessaie."); }
+    finally { setLoading(false); }
   };
 
-  const scoreColor = (score: number) => {
-    if (score >= 80) return "text-emerald-400";
-    if (score >= 60) return "text-primary";
-    if (score >= 40) return "text-amber-400";
-    return "text-destructive";
+  const generateScript = async (s: typeof SCRIPTS[0]) => {
+    setSelectedScript(s.id); setScriptLoading(true); setScriptText("");
+    try {
+      const ctx = context.trim() ? `\nContexte agence: ${context}` : "";
+      setScriptText(await askClaude(s.prompt + ctx));
+    } catch { toast.error("Erreur génération"); }
+    finally { setScriptLoading(false); }
   };
+
+  const scoreColor = (n: number) => n >= 80 ? "text-emerald-400" : n >= 60 ? "text-primary" : n >= 40 ? "text-amber-400" : "text-destructive";
 
   return (
-    <div className="p-6 space-y-5 max-w-2xl">
-      <button onClick={onBack} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
-        <ChevronLeft className="w-4 h-4" /> Retour
-      </button>
-      <div className="flex items-center gap-3">
-        <span className="text-2xl">🏆</span>
-        <div>
-          <h2 className="text-lg font-semibold">Sales Mastery</h2>
-          <p className="text-xs text-muted-foreground">Analyse tes appels et accède à tes scripts</p>
-        </div>
-      </div>
-
-      {/* Tab toggle */}
+    <div className="space-y-5">
+      {/* Tabs */}
       <div className="flex gap-1 bg-muted/50 rounded-lg p-1 w-fit">
-        <button
-          onClick={() => setTab("analyze")}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${tab === "analyze" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-        >
-          <Mic className="w-3.5 h-3.5" /> Analyser un appel
-        </button>
-        <button
-          onClick={() => setTab("scripts")}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${tab === "scripts" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-        >
-          <FileText className="w-3.5 h-3.5" /> Scripts de vente
-        </button>
-      </div>
-
-      {/* Scripts tab */}
-      {tab === "scripts" && <ScriptsSection />}
-
-      {/* Analyze tab */}
-      {tab === "analyze" && <div className="space-y-5">
-      <Card>
-        <CardContent className="pt-4 pb-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-medium text-muted-foreground">Transcript de l'appel</p>
-            <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={() => fileRef.current?.click()}>
-              <Upload className="w-3.5 h-3.5" /> Importer .txt
-            </Button>
-            <input ref={fileRef} type="file" accept=".txt" className="hidden" onChange={handleFile} />
-          </div>
-          <Textarea
-            placeholder="Colle le transcript ici... (ex: Vendeur: Bonjour, comment ça va? Client: Bien merci...)"
-            value={transcript}
-            onChange={(e) => setTranscript(e.target.value)}
-            className="resize-none h-40 text-xs"
-          />
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">{transcript.length} caractères</span>
-            <Button onClick={analyze} disabled={loading || !transcript.trim()} className="gap-2 shadow-glow">
-              {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Analyse en cours...</> : "🔍 Analyser l'appel"}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Results */}
-      {result && (
-        <div className="space-y-4">
-          {/* Score */}
-          <Card className="border-primary/20">
-            <CardContent className="pt-5 pb-5 flex items-center gap-6">
-              <div className="text-center">
-                <p className={`text-5xl font-bold ${scoreColor(result.score)}`}>{result.score}</p>
-                <p className="text-xs text-muted-foreground mt-1">/100</p>
-              </div>
-              <div>
-                <p className={`text-xl font-semibold ${scoreColor(result.score)}`}>{result.scoreLabel}</p>
-                <p className="text-sm text-muted-foreground mt-1">{result.closing}</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Top tip */}
-          <Card className="border-primary/30 bg-primary/5">
-            <CardContent className="pt-4 pb-4 flex gap-3">
-              <Lightbulb className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-xs font-semibold text-primary mb-1">Conseil #1 pour ton prochain appel</p>
-                <p className="text-sm text-foreground">{result.topTip}</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Strengths */}
-            <Card>
-              <CardContent className="pt-4 pb-4 space-y-2">
-                <div className="flex items-center gap-2 mb-3">
-                  <Trophy className="w-3.5 h-3.5 text-emerald-400" />
-                  <p className="text-xs font-semibold text-emerald-400">Points forts</p>
-                </div>
-                {result.strengths.map((s, i) => (
-                  <div key={i} className="flex items-start gap-2">
-                    <Star className="w-3 h-3 text-emerald-400 flex-shrink-0 mt-0.5" />
-                    <p className="text-xs text-foreground">{s}</p>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-
-            {/* Improvements */}
-            <Card>
-              <CardContent className="pt-4 pb-4 space-y-2">
-                <div className="flex items-center gap-2 mb-3">
-                  <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-                  <p className="text-xs font-semibold text-amber-400">À améliorer</p>
-                </div>
-                {result.improvements.map((s, i) => (
-                  <div key={i} className="flex items-start gap-2">
-                    <span className="text-amber-400 text-xs flex-shrink-0 mt-0.5">→</span>
-                    <p className="text-xs text-foreground">{s}</p>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Objections */}
-          {result.objections.length > 0 && (
-            <Card>
-              <CardContent className="pt-4 pb-4 space-y-2">
-                <p className="text-xs font-semibold text-muted-foreground mb-3">Objections & gestion</p>
-                {result.objections.map((o, i) => (
-                  <div key={i} className="flex items-start gap-2">
-                    <span className="text-destructive text-xs flex-shrink-0 mt-0.5">•</span>
-                    <p className="text-xs text-foreground">{o}</p>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Re-analyze */}
-          <Button variant="outline" className="w-full" onClick={() => { setResult(null); setTranscript(""); }}>
-            Analyser un autre appel
-          </Button>
-        </div>
-      )}
-      </div>}
-    </div>
-  );
-}
-
-// ─── Category Architect View ─────────────────────────────────────────────────
-
-const CATEGORY_TABS = [
-  { id: "niche",    label: "Trouver ta Niche",     Icon: Compass },
-  { id: "offer",   label: "Construire ton Offre",  Icon: Package },
-  { id: "category", label: "Créer ta Catégorie",   Icon: Crown },
-];
-
-const NICHE_QUESTIONS = [
-  { id: "service",   label: "Quel service offres-tu?",                  placeholder: "Ex: vidéos marketing pour des clients locaux..." },
-  { id: "who",       label: "À qui tu parles en ce moment?",            placeholder: "Ex: restaurants, coaches, e-commerce..." },
-  { id: "result",    label: "Quel résultat concret tu livres?",         placeholder: "Ex: +30% de réservations en 90 jours..." },
-  { id: "problem",   label: "Quel est leur plus grand problème?",       placeholder: "Ex: ils ont du mal à attirer de nouveaux clients..." },
-  { id: "why",       label: "Pourquoi toi et pas un autre?",            placeholder: "Ex: je suis moi-même dans cette industrie..." },
-];
-
-function CategoryArchitectView({ onBack }: { onBack: () => void }) {
-  const [tab, setTab] = useState("niche");
-  const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState("");
-
-  const callClaude = async (prompt: string) => {
-    const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
-    if (!apiKey) { toast.error("Clé Anthropic manquante dans .env"); return; }
-    setLoading(true);
-    setResult("");
-    try {
-      const anthropic = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
-      const response = await anthropic.messages.create({
-        model: "claude-opus-4-6",
-        max_tokens: 2000,
-        messages: [{ role: "user", content: prompt }],
-      });
-      const text = response.content[0].type === "text" ? response.content[0].text : "";
-      setResult(text);
-    } catch {
-      toast.error("Erreur. Réessaie.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const context = NICHE_QUESTIONS.map((q) => `${q.label}: ${answers[q.id] || "Non renseigné"}`).join("\n");
-
-  const handleNiche = () => callClaude(`Tu es un expert en positionnement et création de marché pour agences. Basé sur ces informations:
-
-${context}
-
-Génère:
-1. **3 sous-niches spécifiques** où cette agence peut devenir #1 (avec score de potentiel /10)
-2. **La sous-niche recommandée** avec justification
-3. **Le profil client idéal** ultra-précis (ICP)
-4. **Les signaux d'achat** à chercher
-5. **Pourquoi cette niche est sous-servie** et représente une opportunité
-
-Sois ultra-concret et actionnable. Pas de généralités.`);
-
-  const handleOffer = () => callClaude(`Tu es un expert en création d'offres irrésistibles pour agences. Basé sur ces informations:
-
-${context}
-
-Construis une offre complète:
-1. **Nom de l'offre** (accrocheur, orienté résultat)
-2. **Le Grand Promise** (résultat principal en 1 phrase)
-3. **Ce qui est inclus** (livrables précis)
-4. **Les bonifications** (ce qui rend l'offre irrésistible)
-5. **La garantie** (pour éliminer le risque)
-6. **Le prix suggéré** et justification
-7. **Le pitch en 2 phrases** pour vendre cette offre
-
-Rends l'offre si bonne que les prospects se sentent idiots de refuser.`);
-
-  const handleCategory = () => callClaude(`Tu es un expert en création de catégories et positionnement (Category Design). Basé sur ces informations:
-
-${context}
-
-Aide à créer une nouvelle catégorie:
-1. **Nom de la catégorie** (quelque chose qui n'existe pas encore)
-2. **Le problème qu'elle résout** (que personne d'autre ne nomme)
-3. **Le manifeste de la catégorie** (pourquoi l'ancien monde est cassé)
-4. **Comment se positionner comme le "Category King"**
-5. **Le langage propriétaire** à utiliser (termes que tu inventes et possèdes)
-6. **La stratégie de contenu** pour éduquer le marché sur cette catégorie
-7. **Exemples de marques** qui ont réussi cela dans d'autres industries
-
-Pense comme un Category Designer, pas comme un marketeur.`);
-
-  const handleGenerate = () => {
-    if (tab === "niche") handleNiche();
-    else if (tab === "offer") handleOffer();
-    else handleCategory();
-  };
-
-  const filledCount = NICHE_QUESTIONS.filter((q) => answers[q.id]?.trim()).length;
-
-  return (
-    <div className="p-6 space-y-5 max-w-2xl">
-      <button onClick={onBack} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
-        <ChevronLeft className="w-4 h-4" /> Retour
-      </button>
-      <div className="flex items-center gap-3">
-        <span className="text-2xl">👑</span>
-        <div>
-          <h2 className="text-lg font-semibold">Category Architect & Positioning</h2>
-          <p className="text-xs text-muted-foreground">Crée ton offre, ta niche et deviens le #1 dans ta catégorie</p>
-        </div>
-      </div>
-
-      {/* Tab toggle */}
-      <div className="flex gap-1 bg-muted/50 rounded-lg p-1 w-fit flex-wrap">
-        {CATEGORY_TABS.map(({ id, label, Icon }) => (
-          <button
-            key={id}
-            onClick={() => { setTab(id); setResult(""); }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${tab === id ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-          >
-            <Icon className="w-3.5 h-3.5" /> {label}
+        {[{id:"analyze",label:"Analyser un appel",icon:Mic},{id:"scripts",label:"Scripts de vente",icon:FileText}].map(t=>(
+          <button key={t.id} onClick={()=>setTab(t.id as any)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${tab===t.id?"bg-card text-foreground shadow-sm":"text-muted-foreground hover:text-foreground"}`}>
+            <t.icon className="w-3.5 h-3.5"/> {t.label}
           </button>
         ))}
       </div>
 
-      {/* Context form — always visible */}
-      <Card>
-        <CardContent className="pt-4 pb-4 space-y-3">
-          <div className="flex items-center justify-between mb-1">
-            <p className="text-xs font-semibold text-muted-foreground">Contexte de ton agence</p>
-            <span className="text-xs text-muted-foreground">{filledCount}/{NICHE_QUESTIONS.length} remplis</span>
-          </div>
-          {NICHE_QUESTIONS.map((q) => (
-            <div key={q.id} className="space-y-1">
-              <label className="text-xs text-foreground font-medium">{q.label}</label>
-              <Input
-                placeholder={q.placeholder}
-                value={answers[q.id] ?? ""}
-                onChange={(e) => setAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))}
-                className="text-xs h-8"
-              />
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-
-      {/* Generate button */}
-      <Button
-        onClick={handleGenerate}
-        disabled={loading || filledCount < 2}
-        className="w-full gap-2 shadow-glow"
-      >
-        {loading
-          ? <><Loader2 className="w-4 h-4 animate-spin" /> Analyse en cours...</>
-          : tab === "niche" ? "🔍 Trouver mes meilleures niches"
-          : tab === "offer" ? "📦 Construire mon offre irrésistible"
-          : "👑 Créer ma catégorie"
-        }
-      </Button>
-      {filledCount < 2 && <p className="text-xs text-muted-foreground text-center">Remplis au moins 2 champs pour commencer</p>}
-
-      {/* Result */}
-      {result && (
-        <Card className="border-primary/20">
-          <CardContent className="pt-4 pb-4 space-y-3">
+      {tab === "analyze" && (
+        <div className="space-y-4">
+          <Card><CardContent className="pt-4 pb-4 space-y-3">
             <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold text-primary">
-                {tab === "niche" ? "🔍 Analyse de niches" : tab === "offer" ? "📦 Ton offre" : "👑 Ta catégorie"}
-              </p>
-              <Button size="sm" variant="outline" className="gap-1.5 text-xs h-7"
-                onClick={() => { navigator.clipboard.writeText(result); toast.success("Copié!"); }}>
-                <Copy className="w-3 h-3" /> Copier
+              <p className="text-xs font-medium text-muted-foreground">Transcript de l'appel</p>
+              <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={()=>fileRef.current?.click()}>
+                <Upload className="w-3.5 h-3.5"/> Importer .txt
+              </Button>
+              <input ref={fileRef} type="file" accept=".txt" className="hidden"
+                onChange={e=>{const f=e.target.files?.[0];if(!f)return;const r=new FileReader();r.onload=ev=>setTranscript(ev.target?.result as string);r.readAsText(f);}}/>
+            </div>
+            <Textarea placeholder="Colle le transcript ici..." value={transcript} onChange={e=>setTranscript(e.target.value)} className="h-36 text-xs resize-none"/>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">{transcript.length} caractères</span>
+              <Button onClick={analyze} disabled={loading||!transcript.trim()} className="gap-2 shadow-glow">
+                {loading?<><Loader2 className="w-4 h-4 animate-spin"/>Analyse...</>:"🔍 Analyser l'appel"}
               </Button>
             </div>
-            <div className="text-xs text-foreground whitespace-pre-wrap leading-relaxed max-h-[500px] overflow-y-auto bg-muted/20 rounded-lg p-3 border border-border/30">
-              {result}
+          </CardContent></Card>
+
+          {result && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <Card className="border-primary/20"><CardContent className="pt-5 pb-5 flex items-center gap-4">
+                  <div className="text-center">
+                    <p className={`text-5xl font-bold ${scoreColor(result.score)}`}>{result.score}</p>
+                    <p className="text-xs text-muted-foreground mt-1">/100</p>
+                  </div>
+                  <div>
+                    <p className={`text-xl font-semibold ${scoreColor(result.score)}`}>{result.scoreLabel}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{result.closing}</p>
+                  </div>
+                </CardContent></Card>
+                <Card className="border-primary/30 bg-primary/5"><CardContent className="pt-4 pb-4 flex gap-3">
+                  <Lightbulb className="w-4 h-4 text-primary flex-shrink-0 mt-0.5"/>
+                  <div><p className="text-xs font-semibold text-primary mb-1">Conseil #1</p><p className="text-sm">{result.topTip}</p></div>
+                </CardContent></Card>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <Card><CardContent className="pt-4 pb-4 space-y-2">
+                  <div className="flex items-center gap-2 mb-2"><Trophy className="w-3.5 h-3.5 text-emerald-400"/><p className="text-xs font-semibold text-emerald-400">Points forts</p></div>
+                  {result.strengths.map((s,i)=><div key={i} className="flex gap-2"><Star className="w-3 h-3 text-emerald-400 flex-shrink-0 mt-0.5"/><p className="text-xs">{s}</p></div>)}
+                </CardContent></Card>
+                <Card><CardContent className="pt-4 pb-4 space-y-2">
+                  <div className="flex items-center gap-2 mb-2"><AlertTriangle className="w-3.5 h-3.5 text-amber-400"/><p className="text-xs font-semibold text-amber-400">À améliorer</p></div>
+                  {result.improvements.map((s,i)=><div key={i} className="flex gap-2"><span className="text-amber-400 text-xs flex-shrink-0">→</span><p className="text-xs">{s}</p></div>)}
+                </CardContent></Card>
+              </div>
+              <Button variant="outline" className="w-full" onClick={()=>{setResult(null);setTranscript("");}}>Analyser un autre appel</Button>
             </div>
-            <Button variant="outline" size="sm" className="w-full" onClick={() => setResult("")}>
-              Recommencer
-            </Button>
-          </CardContent>
-        </Card>
+          )}
+        </div>
+      )}
+
+      {tab === "scripts" && (
+        <div className="space-y-4">
+          <Card className="border-border/40"><CardContent className="pt-3 pb-3">
+            <p className="text-xs text-muted-foreground mb-1.5">Contexte (optionnel)</p>
+            <Input placeholder="Ex: agence vidéo pour restaurants, ticket 3000$/mois..." value={context} onChange={e=>setContext(e.target.value)} className="text-xs h-8"/>
+          </CardContent></Card>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {SCRIPTS.map(s=>(
+              <Card key={s.id} className="cursor-pointer hover:border-primary/40 transition-all group" onClick={()=>generateScript(s)}>
+                <CardContent className="pt-4 pb-4 flex items-start justify-between">
+                  <div><p className="text-base mb-1">{s.emoji}</p><p className="font-semibold text-sm">{s.label}</p><p className="text-xs text-muted-foreground mt-0.5">{s.description}</p></div>
+                  {scriptLoading&&selectedScript===s.id?<Loader2 className="w-4 h-4 animate-spin text-primary"/>:<ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors"/>}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          {scriptText && (
+            <Card className="border-primary/20"><CardContent className="pt-4 pb-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-primary">{SCRIPTS.find(s=>s.id===selectedScript)?.emoji} {SCRIPTS.find(s=>s.id===selectedScript)?.label}</p>
+                <Button size="sm" variant="outline" className="gap-1.5 text-xs h-7" onClick={()=>{navigator.clipboard.writeText(scriptText);toast.success("Copié!");}}>
+                  <Copy className="w-3 h-3"/> Copier
+                </Button>
+              </div>
+              <div className="text-xs whitespace-pre-wrap leading-relaxed max-h-96 overflow-y-auto bg-muted/20 rounded-lg p-3 border border-border/30">{scriptText}</div>
+            </Card>
+          )}
+        </div>
       )}
     </div>
   );
 }
 
-// ─── Automation Advisor View ─────────────────────────────────────────────────
+// ── Category Architect ────────────────────────────────────────────────────────
 
-type Difficulty = "Facile" | "Moyen" | "Avancé";
-
-interface Automation {
-  id: string;
-  name: string;
-  description: string;
-  tools: string[];
-  timeSaved: string;
-  difficulty: Difficulty;
-  category: string;
-  steps: string[];
-}
-
-const AUTOMATIONS: Automation[] = [
-  // Lead & Prospection
-  {
-    id: "lead-dm",
-    name: "Auto-DM aux nouveaux followers",
-    description: "Envoie automatiquement un message de bienvenue à chaque nouveau follower Instagram avec une offre ou un CTA.",
-    tools: ["ManyChat", "Instagram"],
-    timeSaved: "3h/sem",
-    difficulty: "Facile",
-    category: "Lead Generation",
-    steps: [
-      "Crée un compte ManyChat et connecte ton Instagram Business",
-      "Va dans Automation → New Flow → Trigger: New Follower",
-      "Rédige ton message de bienvenue (ex: 'Salut [Prénom]! Merci de me suivre...')",
-      "Ajoute un bouton CTA vers ton lien de prise de RDV ou lead magnet",
-      "Active le flow et teste avec un compte test",
-    ],
-  },
-  {
-    id: "form-crm",
-    name: "Formulaire → CRM automatique",
-    description: "Quand un prospect remplit ton formulaire (Typeform, Tally, etc.), il est automatiquement ajouté dans ton CRM avec toutes ses infos.",
-    tools: ["Zapier", "Typeform", "GHL / Notion"],
-    timeSaved: "2h/sem",
-    difficulty: "Facile",
-    category: "Lead Generation",
-    steps: [
-      "Crée un Zap: Trigger = 'New Entry in Typeform'",
-      "Action = 'Create Contact in GoHighLevel' (ou ta DB Supabase via webhook)",
-      "Mappe les champs: Prénom, Email, Téléphone, Message",
-      "Ajoute une 2e action: envoie un email de confirmation au prospect",
-      "Test le Zap avec une vraie soumission",
-    ],
-  },
-  {
-    id: "ig-comment-dm",
-    name: "Commentaire Instagram → DM automatique",
-    description: "Quand quelqu'un commente un mot-clé sur tes posts (ex: 'INFO'), il reçoit automatiquement un DM avec ton lien.",
-    tools: ["ManyChat"],
-    timeSaved: "4h/sem",
-    difficulty: "Facile",
-    category: "Lead Generation",
-    steps: [
-      "Dans ManyChat, crée un Flow avec Trigger: Comment on Post",
-      "Définis le mot-clé déclencheur (ex: 'GUIDE', 'PRIX', 'INFO')",
-      "Configure la réponse publique courte sous le commentaire",
-      "Configure le DM avec le lien ou le contenu promis",
-      "Publie un post en demandant de commenter ce mot-clé pour tester",
-    ],
-  },
-  // Onboarding
-  {
-    id: "onboarding-sequence",
-    name: "Séquence d'onboarding automatique",
-    description: "Quand un client signe et paie, une séquence d'emails s'envoie automatiquement sur 7 jours (bienvenue, accès, kickoff, etc.).",
-    tools: ["GHL", "Zapier", "Stripe"],
-    timeSaved: "5h/sem",
-    difficulty: "Moyen",
-    category: "Onboarding Client",
-    steps: [
-      "Dans GHL, crée un Pipeline et une étape 'Client signé'",
-      "Crée un Workflow déclenché quand un contact passe à cette étape",
-      "Ajoute les emails: J+0 bienvenue, J+1 accès Drive, J+3 questionnaire, J+7 check-in",
-      "Connecte Stripe via Zapier: paiement reçu → déplacer contact dans le pipeline",
-      "Teste avec un contact fictif et vérifie les délais",
-    ],
-  },
-  {
-    id: "contract-sign",
-    name: "Signature contrat → notification + tâches auto",
-    description: "Dès qu'un contrat est signé sur DocuSign/PandaDoc, crée automatiquement les tâches de démarrage dans ton outil de gestion.",
-    tools: ["Zapier", "PandaDoc", "Notion / Trello"],
-    timeSaved: "1h/contrat",
-    difficulty: "Moyen",
-    category: "Onboarding Client",
-    steps: [
-      "Zap Trigger: Document Completed in PandaDoc",
-      "Action 1: Créer une page client dans Notion avec template prédéfini",
-      "Action 2: Créer les tâches standard (setup Drive, envoyer bienvenue, planifier kickoff)",
-      "Action 3: Envoyer une notif Slack/WhatsApp à ton équipe",
-      "Action 4: Envoyer l'email de bienvenue au client",
-    ],
-  },
-  // Contenu & Livraison
-  {
-    id: "video-delivery",
-    name: "Livraison vidéo automatique",
-    description: "Quand tu déposes une vidéo finalisée dans un dossier Drive, le client reçoit automatiquement un email avec le lien.",
-    tools: ["Zapier", "Google Drive", "Gmail"],
-    timeSaved: "2h/sem",
-    difficulty: "Facile",
-    category: "Contenu & Livraison",
-    steps: [
-      "Zap Trigger: New File in Google Drive Folder (dossier 'Livraisons')",
-      "Action: Envoyer un email Gmail au client avec le lien du fichier",
-      "Personnalise le message: 'Ta vidéo [nom du fichier] est prête!'",
-      "Optionnel: ajoute une action pour notifier sur Slack",
-      "Organise ton Drive avec un sous-dossier par client pour filtrer",
-    ],
-  },
-  {
-    id: "content-repurpose",
-    name: "Repurposing de contenu automatisé",
-    description: "Quand tu publies une vidéo YouTube, un résumé et des extraits sont automatiquement générés et programmés sur tes autres réseaux.",
-    tools: ["Make (Integromat)", "YouTube", "Claude API", "Buffer"],
-    timeSaved: "6h/sem",
-    difficulty: "Avancé",
-    category: "Contenu & Livraison",
-    steps: [
-      "Dans Make, crée un scénario: Trigger = New Video on YouTube",
-      "Récupère la transcription automatique via YouTube Data API",
-      "Envoie la transcription à Claude API avec prompt: 'Génère 5 tweets, 1 post LinkedIn et 3 hooks pour ce contenu'",
-      "Envoie les posts générés dans Buffer/Later pour programmation",
-      "Optionnel: crée aussi une description de Reel pour IG",
-    ],
-  },
-  // Reporting & Admin
-  {
-    id: "weekly-report",
-    name: "Rapport client hebdomadaire automatique",
-    description: "Chaque semaine, un rapport est généré et envoyé à tous tes clients actifs avec leurs métriques de la semaine.",
-    tools: ["Make", "Google Sheets", "Claude API", "Gmail"],
-    timeSaved: "5h/sem",
-    difficulty: "Avancé",
-    category: "Reporting & Admin",
-    steps: [
-      "Crée un Google Sheet avec les métriques par client (vues, engagement, leads)",
-      "Dans Make, programme un scénario chaque vendredi à 17h",
-      "Récupère les données du Sheet pour chaque client",
-      "Envoie à Claude API: 'Rédige un résumé en 3 points de ces métriques'",
-      "Envoie l'email formaté à chaque client avec leur résumé personnalisé",
-    ],
-  },
-  {
-    id: "invoice-auto",
-    name: "Facturation automatique mensuelle",
-    description: "Le 1er de chaque mois, une facture est automatiquement créée et envoyée à chaque client actif.",
-    tools: ["Zapier", "Stripe", "QuickBooks / Wave"],
-    timeSaved: "3h/mois",
-    difficulty: "Moyen",
-    category: "Reporting & Admin",
-    steps: [
-      "Dans Stripe, active la facturation récurrente pour tes abonnements",
-      "Stripe envoie automatiquement les factures par email",
-      "Zap optionnel: Invoice Paid → ajouter la transaction dans ton Sheet de suivi",
-      "Zap optionnel: Invoice Failed → envoyer un rappel personnalisé au client",
-      "Configure les relances automatiques (1j, 3j, 7j après échec)",
-    ],
-  },
-  // Suivi & Rétention
-  {
-    id: "churn-detection",
-    name: "Détection de churn et relance automatique",
-    description: "Si un client n'a pas eu de livrables ou d'interaction depuis X jours, tu reçois une alerte et une séquence de re-engagement se déclenche.",
-    tools: ["GHL", "Zapier"],
-    timeSaved: "Prévient la perte de clients",
-    difficulty: "Moyen",
-    category: "Suivi & Rétention",
-    steps: [
-      "Dans GHL, crée un tag 'Inactif 30 jours'",
-      "Workflow: si aucune activité depuis 30 jours → ajouter le tag",
-      "Déclenche une séquence: email J+0 check-in, J+3 partage de valeur, J+7 appel de suivi",
-      "Envoie-toi une notification pour appeler personnellement si pas de réponse",
-      "Retire le tag automatiquement si le client répond",
-    ],
-  },
-  {
-    id: "review-request",
-    name: "Demande d'avis automatique",
-    description: "30 jours après le début d'un client, envoie automatiquement une demande d'avis Google ou témoignage vidéo.",
-    tools: ["GHL", "Zapier"],
-    timeSaved: "1h/sem",
-    difficulty: "Facile",
-    category: "Suivi & Rétention",
-    steps: [
-      "Dans GHL, crée un Workflow: Trigger = Contact créé depuis 30 jours",
-      "Envoie un email/SMS avec le lien Google Review",
-      "Optionnel: propose une petite récompense (ressource gratuite) pour l'avis",
-      "Suivi J+7 si pas de réponse: rappel bienveillant",
-      "Ajoute les avis reçus dans un Sheet de témoignages pour les réutiliser",
-    ],
-  },
+const CAT_TABS = [
+  { id:"niche", label:"Trouver ta Niche", Icon:Compass },
+  { id:"offer", label:"Construire ton Offre", Icon:Package },
+  { id:"category", label:"Créer ta Catégorie", Icon:Crown },
+];
+const CAT_QUESTIONS = [
+  { id:"service", label:"Quel service offres-tu?", placeholder:"Ex: vidéos marketing pour clients locaux..." },
+  { id:"who", label:"À qui tu parles?", placeholder:"Ex: restaurants, coaches, e-commerce..." },
+  { id:"result", label:"Quel résultat concret tu livres?", placeholder:"Ex: +30% de réservations en 90 jours..." },
+  { id:"problem", label:"Leur plus grand problème?", placeholder:"Ex: du mal à attirer de nouveaux clients..." },
+  { id:"why", label:"Pourquoi toi et pas un autre?", placeholder:"Ex: je suis moi-même dans cette industrie..." },
 ];
 
-const DIFFICULTY_COLORS: Record<Difficulty, string> = {
-  "Facile": "text-emerald-400 bg-emerald-400/10 border-emerald-400/20",
-  "Moyen": "text-amber-400 bg-amber-400/10 border-amber-400/20",
-  "Avancé": "text-red-400 bg-red-400/10 border-red-400/20",
-};
+function CategoryArchitectPanel() {
+  const [tab, setTab] = useState("niche");
+  const [answers, setAnswers] = useState<Record<string,string>>({});
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState("");
+  const filled = CAT_QUESTIONS.filter(q=>answers[q.id]?.trim()).length;
 
-const CATEGORIES = ["Toutes", ...Array.from(new Set(AUTOMATIONS.map((a) => a.category)))];
+  const ctx = CAT_QUESTIONS.map(q=>`${q.label}: ${answers[q.id]||"Non renseigné"}`).join("\n");
 
-function AutomationAdvisorView({ onBack }: { onBack: () => void }) {
+  const prompts: Record<string,string> = {
+    niche: `Expert en positionnement pour agences. Basé sur:\n${ctx}\n\nGénère: 1. 3 sous-niches spécifiques avec score /10 2. La sous-niche recommandée 3. ICP ultra-précis 4. Signaux d'achat 5. Pourquoi cette niche est sous-servie.`,
+    offer: `Expert en offres irrésistibles pour agences. Basé sur:\n${ctx}\n\nConstruis: 1. Nom de l'offre 2. Le Grand Promise 3. Ce qui est inclus 4. Bonifications 5. Garantie 6. Prix suggéré 7. Pitch en 2 phrases.`,
+    category: `Expert en Category Design. Basé sur:\n${ctx}\n\nCrée: 1. Nom de la catégorie 2. Le problème qu'elle résout 3. Manifeste 4. Positionnement Category King 5. Langage propriétaire 6. Stratégie de contenu 7. Exemples inspirants.`,
+  };
+
+  const generate = async () => {
+    setLoading(true); setResult("");
+    try { setResult(await askClaude(prompts[tab])); }
+    catch(e:any){ toast.error(e?.message??"Erreur"); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className="flex gap-1 bg-muted/50 rounded-lg p-1 w-fit flex-wrap">
+        {CAT_TABS.map(({id,label,Icon})=>(
+          <button key={id} onClick={()=>{setTab(id);setResult("");}}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${tab===id?"bg-card text-foreground shadow-sm":"text-muted-foreground hover:text-foreground"}`}>
+            <Icon className="w-3.5 h-3.5"/> {label}
+          </button>
+        ))}
+      </div>
+      <Card><CardContent className="pt-4 pb-4 space-y-3">
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-xs font-semibold text-muted-foreground">Contexte</p>
+          <span className="text-xs text-muted-foreground">{filled}/{CAT_QUESTIONS.length}</span>
+        </div>
+        {CAT_QUESTIONS.map(q=>(
+          <div key={q.id} className="space-y-1">
+            <label className="text-xs text-foreground font-medium">{q.label}</label>
+            <Input placeholder={q.placeholder} value={answers[q.id]??""} onChange={e=>setAnswers(p=>({...p,[q.id]:e.target.value}))} className="text-xs h-8"/>
+          </div>
+        ))}
+      </CardContent></Card>
+      <Button onClick={generate} disabled={loading||filled<2} className="w-full gap-2 shadow-glow">
+        {loading?<><Loader2 className="w-4 h-4 animate-spin"/>Génération...</>
+          :tab==="niche"?"🔍 Trouver mes meilleures niches"
+          :tab==="offer"?"📦 Construire mon offre irrésistible"
+          :"👑 Créer ma catégorie"}
+      </Button>
+      {filled<2&&<p className="text-xs text-muted-foreground text-center">Remplis au moins 2 champs</p>}
+      {result&&(
+        <Card className="border-primary/20"><CardContent className="pt-4 pb-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold text-primary">{tab==="niche"?"🔍 Analyse":tab==="offer"?"📦 Offre":"👑 Catégorie"}</p>
+            <Button size="sm" variant="outline" className="gap-1.5 text-xs h-7" onClick={()=>{navigator.clipboard.writeText(result);toast.success("Copié!");}}>
+              <Copy className="w-3 h-3"/> Copier
+            </Button>
+          </div>
+          <div className="text-xs whitespace-pre-wrap leading-relaxed max-h-[500px] overflow-y-auto bg-muted/20 rounded-lg p-3 border border-border/30">{result}</div>
+          <Button variant="outline" size="sm" className="w-full" onClick={()=>setResult("")}>Recommencer</Button>
+        </CardContent></Card>
+      )}
+    </div>
+  );
+}
+
+// ── Automation Advisor ────────────────────────────────────────────────────────
+
+type Difficulty = "Facile"|"Moyen"|"Avancé";
+interface Automation { id:string;name:string;description:string;tools:string[];timeSaved:string;difficulty:Difficulty;category:string;steps:string[]; }
+
+const AUTOMATIONS: Automation[] = [
+  { id:"lead-dm", name:"Auto-DM nouveaux followers", description:"Message de bienvenue automatique à chaque nouveau follower Instagram.", tools:["ManyChat","Instagram"], timeSaved:"3h/sem", difficulty:"Facile", category:"Lead Generation", steps:["Crée un compte ManyChat et connecte ton Instagram Business","Va dans Automation → New Flow → Trigger: New Follower","Rédige ton message de bienvenue avec CTA","Ajoute un bouton vers ton lien de prise de RDV","Active et teste avec un compte test"] },
+  { id:"form-crm", name:"Formulaire → CRM automatique", description:"Quand un prospect remplit ton formulaire, il est ajouté dans ton CRM.", tools:["Zapier","Typeform","GHL"], timeSaved:"2h/sem", difficulty:"Facile", category:"Lead Generation", steps:["Zap Trigger: New Entry in Typeform","Action: Create Contact in GoHighLevel","Mappe les champs (Prénom, Email, Téléphone)","Ajoute une action: email de confirmation au prospect","Teste avec une vraie soumission"] },
+  { id:"ig-comment", name:"Commentaire → DM automatique", description:"Un mot-clé en commentaire déclenche un DM automatique.", tools:["ManyChat"], timeSaved:"4h/sem", difficulty:"Facile", category:"Lead Generation", steps:["Dans ManyChat, Trigger: Comment on Post","Définis le mot-clé (GUIDE, PRIX, INFO)","Configure la réponse publique sous le commentaire","Configure le DM avec le lien promis","Publie un post en demandant de commenter"] },
+  { id:"onboarding", name:"Séquence onboarding automatique", description:"Quand un client signe, une séquence emails s'envoie sur 7 jours.", tools:["GHL","Zapier","Stripe"], timeSaved:"5h/sem", difficulty:"Moyen", category:"Onboarding", steps:["Dans GHL, crée une étape 'Client signé' dans ton Pipeline","Crée un Workflow déclenché à cette étape","Ajoute emails: J+0 bienvenue, J+1 accès Drive, J+3 questionnaire","Connecte Stripe via Zapier: paiement → déplacer contact","Teste avec un contact fictif"] },
+  { id:"video-delivery", name:"Livraison vidéo automatique", description:"Quand tu déposes une vidéo dans Drive, le client reçoit un email.", tools:["Zapier","Google Drive","Gmail"], timeSaved:"2h/sem", difficulty:"Facile", category:"Contenu", steps:["Zap Trigger: New File in Google Drive Folder 'Livraisons'","Action: envoyer Gmail au client avec le lien","Personnalise: 'Ta vidéo [nom] est prête!'","Optionnel: notif Slack en plus","Organise Drive avec sous-dossiers par client"] },
+  { id:"weekly-report", name:"Rapport client hebdomadaire", description:"Chaque vendredi, un rapport est généré et envoyé à tous tes clients.", tools:["Make","Google Sheets","Claude API","Gmail"], timeSaved:"5h/sem", difficulty:"Avancé", category:"Reporting", steps:["Google Sheet avec métriques par client","Dans Make, scénario déclenché chaque vendredi","Récupère les données du Sheet","Envoie à Claude API: résumer en 3 points","Email formaté à chaque client avec son résumé"] },
+  { id:"churn", name:"Détection de churn automatique", description:"Si un client est inactif depuis 30 jours, une relance se déclenche.", tools:["GHL"], timeSaved:"Prévient la perte de clients", difficulty:"Moyen", category:"Rétention", steps:["Dans GHL, crée un tag 'Inactif 30 jours'","Workflow: si aucune activité → ajouter le tag","Déclenche séquence: check-in J+0, valeur J+3, call J+7","Notif pour appeler personnellement si pas de réponse","Retire le tag automatiquement si le client répond"] },
+  { id:"review", name:"Demande d'avis automatique", description:"30 jours après le début, une demande d'avis Google s'envoie.", tools:["GHL"], timeSaved:"1h/sem", difficulty:"Facile", category:"Rétention", steps:["Workflow: Trigger = Contact créé depuis 30 jours","Email/SMS avec lien Google Review","Propose une ressource gratuite pour l'avis","Suivi J+7 si pas de réponse","Collecte les avis dans un Sheet de témoignages"] },
+];
+
+const DIFF_COLORS: Record<Difficulty,string> = { "Facile":"text-emerald-400 bg-emerald-400/10 border-emerald-400/20", "Moyen":"text-amber-400 bg-amber-400/10 border-amber-400/20", "Avancé":"text-red-400 bg-red-400/10 border-red-400/20" };
+const CATS = ["Toutes", ...Array.from(new Set(AUTOMATIONS.map(a=>a.category)))];
+
+function AutomationPanel() {
   const [filter, setFilter] = useState("Toutes");
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<string|null>(null);
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiResult, setAiResult] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
 
-  const filtered = filter === "Toutes" ? AUTOMATIONS : AUTOMATIONS.filter((a) => a.category === filter);
+  const filtered = filter==="Toutes"?AUTOMATIONS:AUTOMATIONS.filter(a=>a.category===filter);
 
   const askAI = async () => {
     if (!aiPrompt.trim()) return;
-    const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
-    if (!apiKey) { toast.error("Clé Anthropic manquante dans .env"); return; }
-    setAiLoading(true);
-    setAiResult("");
+    setAiLoading(true); setAiResult("");
     try {
-      const anthropic = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
-      const response = await anthropic.messages.create({
-        model: "claude-opus-4-6",
-        max_tokens: 1500,
-        messages: [{
-          role: "user",
-          content: `Tu es un expert en automatisation pour agences de marketing vidéo. Les outils disponibles incluent: Zapier, Make (Integromat), GoHighLevel (GHL), ManyChat, Claude API, Google Drive/Sheets, Stripe, et les APIs des réseaux sociaux.
-
-Question ou situation de l'utilisateur: ${aiPrompt}
-
-Réponds avec:
-1. **Les 3 meilleures automatisations** recommandées pour cette situation
-2. **Pour chaque automatisation**: outil suggéré + étapes concrètes (pas plus de 5 étapes)
-3. **Par où commencer**: quelle automatisation mettre en place en premier et pourquoi
-
-Sois très concret et actionnable. Donne des noms d'outils précis.`,
-        }],
-      });
-      const text = response.content[0].type === "text" ? response.content[0].text : "";
-      setAiResult(text);
-    } catch {
-      toast.error("Erreur. Réessaie.");
-    } finally {
-      setAiLoading(false);
-    }
+      setAiResult(await askClaude(`Expert en automatisation pour agences vidéo (Zapier, Make, GHL, ManyChat, Claude API). Question: ${aiPrompt}\n\nDonne: 1. Les 3 meilleures automatisations pour cette situation 2. Pour chaque: outil + 5 étapes concrètes 3. Par où commencer en premier.`));
+    } catch(e:any){ toast.error(e?.message??"Erreur"); }
+    finally { setAiLoading(false); }
   };
 
   return (
-    <div className="p-6 space-y-5 max-w-2xl">
-      <button onClick={onBack} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
-        <ChevronLeft className="w-4 h-4" /> Retour
-      </button>
-      <div className="flex items-center gap-3">
-        <span className="text-2xl">⚡</span>
-        <div>
-          <h2 className="text-lg font-semibold">Automation Advisor</h2>
-          <p className="text-xs text-muted-foreground">Automatise ton agence — Zapier, GHL, Make, ManyChat, Claude</p>
-        </div>
-      </div>
-
-      {/* AI section */}
-      <Card className="border-primary/20 bg-primary/5">
-        <CardContent className="pt-4 pb-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-primary" />
-            <p className="text-sm font-semibold text-primary">Demande à Echo</p>
-          </div>
-          <p className="text-xs text-muted-foreground">Décris ta situation et reçois des recommandations d'automatisations personnalisées.</p>
-          <textarea
-            placeholder="Ex: Je passe 3h/semaine à envoyer des mises à jour à mes clients. Comment automatiser ça? J'utilise GHL et Gmail..."
-            value={aiPrompt}
-            onChange={(e) => setAiPrompt(e.target.value)}
-            className="w-full h-20 text-xs rounded-md border border-input bg-background px-3 py-2 resize-none text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-          />
-          <Button onClick={askAI} disabled={aiLoading || !aiPrompt.trim()} className="w-full gap-2 shadow-glow">
-            {aiLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Analyse...</> : "⚡ Recommande mes automatisations"}
-          </Button>
-          {aiResult && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold text-primary">Recommandations</p>
-                <Button size="sm" variant="outline" className="gap-1.5 text-xs h-7"
-                  onClick={() => { navigator.clipboard.writeText(aiResult); toast.success("Copié!"); }}>
-                  <Copy className="w-3 h-3" /> Copier
-                </Button>
-              </div>
-              <div className="text-xs text-foreground whitespace-pre-wrap leading-relaxed bg-card rounded-lg p-3 border border-border/30 max-h-80 overflow-y-auto">
-                {aiResult}
-              </div>
+    <div className="space-y-5">
+      <Card className="border-primary/20 bg-primary/5"><CardContent className="pt-4 pb-4 space-y-3">
+        <div className="flex items-center gap-2"><Sparkles className="w-4 h-4 text-primary"/><p className="text-sm font-semibold text-primary">Recommandations personnalisées</p></div>
+        <textarea placeholder="Décris ta situation: Je passe 3h/sem à envoyer des updates à mes clients..."
+          value={aiPrompt} onChange={e=>setAiPrompt(e.target.value)}
+          className="w-full h-16 text-xs rounded-md border border-input bg-background px-3 py-2 resize-none text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"/>
+        <Button onClick={askAI} disabled={aiLoading||!aiPrompt.trim()} className="w-full gap-2 shadow-glow">
+          {aiLoading?<><Loader2 className="w-4 h-4 animate-spin"/>Analyse...</>:"⚡ Recommande mes automatisations"}
+        </Button>
+        {aiResult&&(
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <p className="text-xs font-semibold text-primary">Recommandations</p>
+              <Button size="sm" variant="outline" className="gap-1.5 text-xs h-7" onClick={()=>{navigator.clipboard.writeText(aiResult);toast.success("Copié!");}}>
+                <Copy className="w-3 h-3"/> Copier
+              </Button>
             </div>
-          )}
-        </CardContent>
-      </Card>
+            <div className="text-xs whitespace-pre-wrap leading-relaxed bg-card rounded-lg p-3 border border-border/30 max-h-72 overflow-y-auto">{aiResult}</div>
+          </div>
+        )}
+      </CardContent></Card>
 
-      {/* Category filter */}
       <div className="flex items-center gap-1.5 flex-wrap">
-        <Filter className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-        {CATEGORIES.map((cat) => (
-          <button
-            key={cat}
-            onClick={() => setFilter(cat)}
-            className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
-              filter === cat
-                ? "bg-primary text-primary-foreground border-primary"
-                : "border-border/50 text-muted-foreground hover:border-primary/40 hover:text-foreground"
-            }`}
-          >
+        <Filter className="w-3.5 h-3.5 text-muted-foreground"/>
+        {CATS.map(cat=>(
+          <button key={cat} onClick={()=>setFilter(cat)}
+            className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${filter===cat?"bg-primary text-primary-foreground border-primary":"border-border/50 text-muted-foreground hover:border-primary/40"}`}>
             {cat}
           </button>
         ))}
       </div>
 
-      {/* Automation list */}
       <div className="space-y-2">
-        {filtered.map((auto) => (
+        {filtered.map(auto=>(
           <Card key={auto.id} className="border-border/50 hover:border-border/80 transition-colors">
             <CardContent className="pt-0 pb-0">
-              <button
-                className="w-full flex items-start gap-3 py-4 text-left"
-                onClick={() => setExpanded(expanded === auto.id ? null : auto.id)}
-              >
-                <Zap className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
+              <button className="w-full flex items-start gap-3 py-4 text-left" onClick={()=>setExpanded(expanded===auto.id?null:auto.id)}>
+                <Zap className="w-4 h-4 text-primary flex-shrink-0 mt-0.5"/>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2 flex-wrap">
-                    <p className="text-sm font-semibold text-foreground">{auto.name}</p>
+                    <p className="text-sm font-semibold">{auto.name}</p>
                     <div className="flex items-center gap-1.5 flex-shrink-0">
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium ${DIFFICULTY_COLORS[auto.difficulty]}`}>
-                        {auto.difficulty}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
-                        <Clock className="w-3 h-3" /> {auto.timeSaved}
-                      </span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium ${DIFF_COLORS[auto.difficulty]}`}>{auto.difficulty}</span>
+                      <span className="text-[10px] text-muted-foreground flex items-center gap-0.5"><Clock className="w-3 h-3"/>{auto.timeSaved}</span>
                     </div>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-0.5 pr-4">{auto.description}</p>
-                  <div className="flex items-center gap-1 mt-1.5 flex-wrap">
-                    {auto.tools.map((t) => (
-                      <span key={t} className="text-[10px] bg-muted/60 text-muted-foreground px-1.5 py-0.5 rounded">{t}</span>
-                    ))}
+                  <p className="text-xs text-muted-foreground mt-0.5">{auto.description}</p>
+                  <div className="flex gap-1 mt-1.5 flex-wrap">
+                    {auto.tools.map(t=><span key={t} className="text-[10px] bg-muted/60 text-muted-foreground px-1.5 py-0.5 rounded">{t}</span>)}
                   </div>
                 </div>
-                {expanded === auto.id
-                  ? <ChevronUp className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-                  : <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-                }
+                {expanded===auto.id?<ChevronUp className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5"/>:<ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5"/>}
               </button>
-
-              {expanded === auto.id && (
+              {expanded===auto.id&&(
                 <div className="px-7 pb-4 space-y-3">
-                  <div className="h-px bg-border/40" />
+                  <div className="h-px bg-border/40"/>
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Comment faire</p>
                   <div className="space-y-2">
-                    {auto.steps.map((step, i) => (
+                    {auto.steps.map((step,i)=>(
                       <div key={i} className="flex items-start gap-2.5">
-                        <span className="w-5 h-5 rounded-full bg-primary/15 text-primary text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
-                          {i + 1}
-                        </span>
-                        <p className="text-xs text-foreground leading-relaxed">{step}</p>
+                        <span className="w-5 h-5 rounded-full bg-primary/15 text-primary text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{i+1}</span>
+                        <p className="text-xs leading-relaxed">{step}</p>
                       </div>
                     ))}
                   </div>
-                  <Button
-                    size="sm" variant="outline" className="gap-1.5 text-xs h-7"
-                    onClick={() => {
-                      const text = `${auto.name}\n\n${auto.steps.map((s, i) => `${i + 1}. ${s}`).join("\n")}`;
-                      navigator.clipboard.writeText(text);
-                      toast.success("Étapes copiées!");
-                    }}
-                  >
-                    <Copy className="w-3 h-3" /> Copier les étapes
+                  <Button size="sm" variant="outline" className="gap-1.5 text-xs h-7"
+                    onClick={()=>{navigator.clipboard.writeText(auto.steps.map((s,i)=>`${i+1}. ${s}`).join("\n"));toast.success("Étapes copiées!");}}>
+                    <Copy className="w-3 h-3"/> Copier les étapes
                   </Button>
                 </div>
               )}
@@ -1009,100 +609,84 @@ Sois très concret et actionnable. Donne des noms d'outils précis.`,
   );
 }
 
-// ─── Main AdvisorsTab ─────────────────────────────────────────────────────────
+// ── Main AdvisorsTab ──────────────────────────────────────────────────────────
 
 export function AdvisorsTab() {
-  const [subView, setSubView] = useState<string | null>(null);
-  const [copyDialog, setCopyDialog] = useState<{ url: string; label: string } | null>(null);
+  const [selectedId, setSelectedId] = useState<string>("scaling");
+  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set(["ads","content"]));
 
-  const openAdvisor = (url: string, label: string) => {
-    if (!url) { toast.error("Aucun lien GPT configuré. Allez dans Settings."); return; }
-    if (isInIframe()) {
-      setCopyDialog({ url, label });
-    } else {
-      window.open(url, "_blank");
-    }
+  const toggleGroup = (id: string) => setOpenGroups(prev => {
+    const s = new Set(prev);
+    s.has(id) ? s.delete(id) : s.add(id);
+    return s;
+  });
+
+  const skills = allSkills(NAV);
+  const selected = skills.find(s => s.id === selectedId) ?? skills[0];
+
+  const renderPanel = () => {
+    if (selected.component === "sales") return <SalesMasteryPanel />;
+    if (selected.component === "category") return <CategoryArchitectPanel />;
+    if (selected.component === "automation") return <AutomationPanel />;
+    return <ClaudeChat skill={selected} />;
   };
 
-  if (copyDialog) {
-    return (
-      <div className="p-6 max-w-md">
-        <Card>
-          <CardContent className="pt-6 space-y-4">
-            <p className="text-sm font-medium">Ouvrir {copyDialog.label}</p>
-            <p className="text-xs text-muted-foreground break-all">{copyDialog.url}</p>
-            <div className="flex gap-2">
-              <Button variant="outline" className="flex-1 gap-2"
-                onClick={() => { navigator.clipboard.writeText(copyDialog.url); toast.success("Lien copié"); }}>
-                <Copy className="w-4 h-4" /> Copier le lien
-              </Button>
-              <Button className="flex-1 gap-2" onClick={() => window.open(copyDialog.url, "_blank")}>
-                <ExternalLink className="w-4 h-4" /> Ouvrir
-              </Button>
-            </div>
-            <Button variant="ghost" className="w-full" onClick={() => setCopyDialog(null)}>Retour</Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  // Sales Mastery custom view
-  if (subView === "sales") return <SalesMasteryView onBack={() => setSubView(null)} />;
-
-  // Category Architect custom view
-  if (subView === "category") return <CategoryArchitectView onBack={() => setSubView(null)} />;
-
-  // Automation Advisor custom view
-  if (subView === "automation") return <AutomationAdvisorView onBack={() => setSubView(null)} />;
-
-  if (subView) {
-    const advisor = ADVISORS.find((a) => a.id === subView);
-    if (!advisor || advisor.single) { setSubView(null); return null; }
-    const links = getLinks();
-    return (
-      <div className="p-6 space-y-4 max-w-lg">
-        <button onClick={() => setSubView(null)} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
-          <ChevronLeft className="w-4 h-4" /> Retour
-        </button>
-        <h2 className="text-lg font-semibold">{advisor.title}</h2>
-        <div className="space-y-3">
-          {advisor.options?.map(({ label, key }) => (
-            <Card key={key} className="cursor-pointer hover:border-primary/40 hover:shadow-glow transition-all"
-              onClick={() => openAdvisor(links[key], label)}>
-              <CardContent className="pt-4 pb-4 flex items-center justify-between">
-                <span className="font-medium text-sm">{label}</span>
-                <ExternalLink className="w-4 h-4 text-muted-foreground" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="p-6 space-y-4 max-w-2xl">
-      <h2 className="text-base font-semibold text-foreground">Conseillers IA</h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {ADVISORS.map((advisor) => (
-          <Card
-            key={advisor.id}
-            className="cursor-pointer hover:border-primary/40 hover:shadow-glow transition-all group"
-            onClick={() => setSubView(advisor.id)}
-          >
-            <CardContent className="pt-6 pb-5">
-              <div className="text-3xl mb-3">{advisor.emoji}</div>
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="font-semibold text-foreground text-sm">{advisor.title}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{advisor.description}</p>
+    <div className="flex h-full overflow-hidden">
+      {/* ── Left nav ── */}
+      <aside className="w-52 flex-shrink-0 border-r border-border/40 bg-sidebar overflow-y-auto py-3 px-2">
+        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-2">Skills Claude</p>
+        <div className="space-y-0.5">
+          {NAV.map(item => {
+            if (isGroup(item)) {
+              const open = openGroups.has(item.id);
+              return (
+                <div key={item.id}>
+                  <button onClick={() => toggleGroup(item.id)}
+                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50 transition-colors">
+                    <span className="text-base leading-none">{item.emoji}</span>
+                    <span className="flex-1 text-left font-medium">{item.label}</span>
+                    {open ? <ChevronDown className="w-3.5 h-3.5"/> : <ChevronRight className="w-3.5 h-3.5"/>}
+                  </button>
+                  {open && (
+                    <div className="ml-3 pl-2 border-l border-border/40 mt-0.5 space-y-0.5">
+                      {item.children.map(child => (
+                        <button key={child.id} onClick={() => setSelectedId(child.id)}
+                          className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors ${selectedId===child.id?"bg-sidebar-accent text-sidebar-foreground font-medium":"text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50"}`}>
+                          <span className="text-sm leading-none">{child.emoji}</span>
+                          <span className="truncate">{child.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors mt-0.5 flex-shrink-0" />
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              );
+            }
+            return (
+              <button key={item.id} onClick={() => setSelectedId(item.id)}
+                className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors ${selectedId===item.id?"bg-sidebar-accent text-sidebar-foreground font-medium":"text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50"}`}>
+                <span className="text-base leading-none">{item.emoji}</span>
+                <span className="flex-1 text-left truncate">{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </aside>
+
+      {/* ── Right content ── */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-2xl mx-auto p-6 space-y-5">
+          {/* Header */}
+          <div>
+            <div className="flex items-center gap-2.5 mb-1">
+              <span className="text-2xl">{selected.emoji}</span>
+              <h2 className="text-lg font-semibold text-foreground">{selected.label}</h2>
+            </div>
+            <p className="text-sm text-muted-foreground">{selected.description}</p>
+          </div>
+          <div className="h-px bg-border/40"/>
+          {renderPanel()}
+        </div>
       </div>
     </div>
   );
