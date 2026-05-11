@@ -1,0 +1,125 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Dark theme — always on */
+    --background: 240 7% 6%;
+    --background-secondary: 240 6% 9%;
+    --background-tertiary: 240 5% 12%;
+
+    --foreground: 210 20% 92%;
+
+    --card: 240 5% 4%;
+    --card-foreground: 210 20% 92%;
+    --card-premium: 240 6% 8%;
+
+    --popover: 240 6% 9%;
+    --popover-foreground: 210 20% 92%;
+
+    --primary: 158 100% 72%;
+    --primary-foreground: 240 7% 6%;
+    --primary-glow: 158 100% 72%;
+    --primary-dim: 158 60% 40%;
+
+    --secondary: 240 5% 15%;
+    --secondary-foreground: 210 20% 92%;
+
+    --muted: 240 5% 15%;
+    --muted-foreground: 215 15% 55%;
+
+    --accent: 240 5% 18%;
+    --accent-foreground: 210 20% 92%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 20% 92%;
+
+    --border: 240 5% 18%;
+    --border-glow: 158 100% 72%;
+    --input: 240 5% 15%;
+    --ring: 158 100% 72%;
+
+    --radius: 0.75rem;
+
+    /* Sidebar */
+    --sidebar-background: 240 7% 5%;
+    --sidebar-foreground: 210 20% 85%;
+    --sidebar-primary: 158 100% 72%;
+    --sidebar-primary-foreground: 240 7% 6%;
+    --sidebar-accent: 240 5% 12%;
+    --sidebar-accent-foreground: 210 20% 92%;
+    --sidebar-border: 240 5% 14%;
+    --sidebar-ring: 158 100% 72%;
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(158 100% 72% / 0.15) 0%, transparent 60%);
+    --gradient-dark: linear-gradient(180deg, hsl(240 7% 6%) 0%, hsl(240 8% 4%) 100%);
+    --gradient-glow: radial-gradient(ellipse at center, hsl(158 100% 72% / 0.12) 0%, transparent 70%);
+
+    /* Shadows */
+    --shadow-glow: 0 0 30px hsl(158 100% 72% / 0.25);
+    --shadow-premium: 0 8px 32px hsl(0 0% 0% / 0.4);
+    --shadow-card: 0 4px 16px hsl(0 0% 0% / 0.3);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@layer components {
+  .btn-hero {
+    @apply inline-flex items-center gap-2 px-6 py-3 rounded-lg font-semibold text-sm
+      bg-primary text-primary-foreground
+      shadow-glow hover:shadow-[0_0_40px_hsl(158_100%_72%/0.5)]
+      transition-all duration-300 hover:scale-105;
+  }
+
+  .btn-outline-glow {
+    @apply inline-flex items-center gap-2 px-6 py-3 rounded-lg font-semibold text-sm
+      border border-primary/40 text-primary
+      hover:border-primary hover:bg-primary/10 hover:shadow-glow
+      transition-all duration-300;
+  }
+
+  .card-premium {
+    @apply rounded-xl border border-border/50 bg-card p-6 shadow-card
+      hover:border-border transition-colors duration-200;
+  }
+
+  .glow-text {
+    @apply text-primary;
+    text-shadow: 0 0 20px hsl(158 100% 72% / 0.5);
+  }
+
+  .glow-ring {
+    @apply ring-2 ring-primary/50 ring-offset-2 ring-offset-background;
+  }
+
+  .smooth-scroll {
+    scroll-behavior: smooth;
+  }
+
+  /* Sidebar item */
+  .sidebar-item {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-sidebar-foreground
+      hover:bg-sidebar-accent hover:text-sidebar-accent-foreground
+      transition-colors duration-150 cursor-pointer select-none text-sm font-medium;
+  }
+
+  .sidebar-item.active {
+    @apply bg-primary/15 text-primary border border-primary/30;
+  }
+}

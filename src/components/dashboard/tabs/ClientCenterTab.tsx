@@ -1,0 +1,603 @@
+import { useState } from "react";
+import { useClients, useUpdateClient } from "@/hooks/useClients";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { formatCurrency, formatDate } from "@/lib/utils";
+import {
+  ExternalLink, FolderOpen, Link, Check, X, Copy, ChevronDown, ChevronUp,
+  Users, ClipboardList, Mail, Phone, FileText, Loader2, Sparkles,
+} from "lucide-react";
+import { toast } from "sonner";
+import Anthropic from "@anthropic-ai/sdk";
+
+// ─── Onboarding Data ──────────────────────────────────────────────────────────
+
+const ONBOARDING_QUESTIONS = [
+  {
+    category: "Objectifs & Vision",
+    emoji: "🎯",
+    questions: [
+      "Quel est ton objectif principal pour les 90 prochains jours?",
+      "À quoi ressemble le succès pour toi à la fin de notre contrat?",
+      "Quelle est ta cible de revenus mensuelle?",
+      "Y a-t-il des délais ou événements importants à prendre en compte?",
+    ],
+  },
+  {
+    category: "Public Cible & Marché",
+    emoji: "👥",
+    questions: [
+      "Décris ton client idéal (âge, situation, profession)?",
+      "Quel est le problème #1 que tu résous pour eux?",
+      "Où ton audience passe-t-elle le plus de temps (réseau social)?",
+      "Qui sont tes concurrents directs et qu'est-ce qui te différencie?",
+    ],
+  },
+  {
+    category: "Marque & Identité",
+    emoji: "🎨",
+    questions: [
+      "Quels sont les 3 mots qui décrivent le ton de ta marque?",
+      "Y a-t-il un style visuel, des couleurs ou des références que tu aimes?",
+      "Quels contenus ou créateurs t'inspirent?",
+      "Y a-t-il des choses à éviter absolument dans la communication?",
+    ],
+  },
+  {
+    category: "Contenu & Logistique",
+    emoji: "🎬",
+    questions: [
+      "As-tu déjà du contenu existant (vidéos, photos, posts)?",
+      "Qui sera notre point de contact principal et quel est son rôle?",
+      "Quelle est ta disponibilité pour les tournages/appels?",
+      "As-tu accès à tous les assets (logo, charte graphique, scripts)?",
+    ],
+  },
+  {
+    category: "Accès & Outils",
+    emoji: "🔑",
+    questions: [
+      "Donne-moi accès à ton compte Instagram/TikTok/LinkedIn (Business Manager si Meta Ads)",
+      "Partage le lien de ton dossier Google Drive pour les assets",
+      "Quels outils utilises-tu déjà (CRM, email, calendrier)?",
+      "Y a-t-il d'autres intervenants ou agences avec qui tu travailles?",
+    ],
+  },
+];
+
+const WELCOME_EMAIL_TEMPLATE = `Objet : Bienvenue dans la famille — Lancement de notre collaboration 🚀
+
+Bonjour [Prénom],
+
+Je suis vraiment enthousiaste de démarrer cette aventure avec toi.
+
+À partir d'aujourd'hui, mon équipe et moi sommes entièrement dédiés à faire de [Objectif du client] une réalité.
+
+Voici les prochaines étapes :
+
+1. 📋 Questionnaire d'onboarding — réponds à ce formulaire d'ici [date] pour qu'on puisse personnaliser notre stratégie
+2. 📅 Appel de lancement — planifions notre premier call ici : [lien Calendly]
+3. 📁 Partage de fichiers — envoie-moi tes assets (logo, visuels, accès) via ce Drive : [lien Drive]
+
+Ce à quoi tu peux t'attendre :
+→ Un point hebdomadaire chaque [jour] à [heure]
+→ Des livrables dans les délais convenus
+→ Une communication transparente à chaque étape
+
+Si tu as des questions avant notre call, je suis disponible par message à tout moment.
+
+Bienvenue officiellement à bord. On va faire de grandes choses ensemble.
+
+[Ton Prénom]
+[Nom de l'agence]
+[Numéro de téléphone]`;
+
+const KICKOFF_AGENDA = `AGENDA — APPEL DE LANCEMENT
+Durée : 60 minutes
+
+─────────────────────────────
+[0:00 – 0:05] Introductions & objectif du call
+
+[0:05 – 0:20] Tour d'horizon du client
+  • Présentation de l'entreprise et du contexte
+  • Historique marketing (ce qui a marché / pas marché)
+  • Objectifs prioritaires
+
+[0:20 – 0:35] Stratégie & Plan d'action
+  • Présentation de notre approche
+  • Premier mois : livrables et jalons
+  • Calendrier éditorial et fréquence de contenu
+
+[0:35 – 0:50] Processus de travail
+  • Points hebdomadaires (jour et heure fixe)
+  • Outil de communication (email, WhatsApp, Slack?)
+  • Processus de validation des contenus
+  • Délais de retour et de feedback
+
+[0:50 – 0:55] Accès & logistique
+  • Vérification des accès (réseaux, Drive, outils)
+  • Contacts clés de chaque côté
+
+[0:55 – 1:00] Questions & prochaines étapes
+  • Q&A
+  • Action items pour les 48h suivantes
+─────────────────────────────
+AFTER CALL — À envoyer dans les 24h :
+  ✓ Résumé du call par email
+  ✓ Lien Drive partagé
+  ✓ Calendrier des livrables du mois 1`;
+
+const ONBOARDING_CHECKLIST = [
+  { id: "contract", label: "Contrat signé et reçu", category: "Admin" },
+  { id: "invoice", label: "Première facture envoyée / paiement reçu", category: "Admin" },
+  { id: "welcome_email", label: "Email de bienvenue envoyé", category: "Communication" },
+  { id: "kickoff_scheduled", label: "Appel de lancement planifié", category: "Communication" },
+  { id: "questionnaire", label: "Questionnaire d'onboarding envoyé", category: "Communication" },
+  { id: "drive_shared", label: "Dossier Drive créé et partagé", category: "Outils" },
+  { id: "social_access", label: "Accès aux réseaux sociaux obtenus", category: "Outils" },
+  { id: "brand_assets", label: "Assets de marque reçus (logo, charte)", category: "Outils" },
+  { id: "first_content", label: "Premier contenu planifié / scripté", category: "Contenu" },
+  { id: "first_shoot", label: "Premier tournage daté", category: "Contenu" },
+  { id: "weekly_cadence", label: "Cadence hebdomadaire établie", category: "Suivi" },
+  { id: "reporting_setup", label: "Dashboard de reporting partagé", category: "Suivi" },
+];
+
+// ─── Onboarding Tab Content ───────────────────────────────────────────────────
+
+function CopyCard({ title, emoji, content }: { title: string; emoji: string; content: string }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <Card className="border-border/50">
+      <CardContent className="pt-4 pb-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-base">{emoji}</span>
+            <p className="text-sm font-semibold text-foreground">{title}</p>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Button
+              size="sm" variant="outline" className="gap-1.5 text-xs h-7"
+              onClick={() => { navigator.clipboard.writeText(content); toast.success("Copié!"); }}
+            >
+              <Copy className="w-3 h-3" /> Copier
+            </Button>
+            <Button
+              size="icon" variant="ghost" className="h-7 w-7"
+              onClick={() => setExpanded((v) => !v)}
+            >
+              {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            </Button>
+          </div>
+        </div>
+        {expanded && (
+          <div className="text-xs text-foreground whitespace-pre-wrap leading-relaxed bg-muted/20 rounded-lg p-3 border border-border/30 max-h-72 overflow-y-auto">
+            {content}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function QuestionsSection() {
+  const [expanded, setExpanded] = useState<string | null>(null);
+
+  const allQuestions = ONBOARDING_QUESTIONS.flatMap((c) =>
+    c.questions.map((q) => `${c.category}\n• ${q}`)
+  ).join("\n\n");
+
+  return (
+    <Card className="border-border/50">
+      <CardContent className="pt-4 pb-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-base">❓</span>
+            <p className="text-sm font-semibold">Questions d'onboarding</p>
+          </div>
+          <Button
+            size="sm" variant="outline" className="gap-1.5 text-xs h-7"
+            onClick={() => { navigator.clipboard.writeText(allQuestions); toast.success("Toutes les questions copiées!"); }}
+          >
+            <Copy className="w-3 h-3" /> Tout copier
+          </Button>
+        </div>
+        <div className="space-y-2">
+          {ONBOARDING_QUESTIONS.map((cat) => (
+            <div key={cat.category}>
+              <button
+                className="w-full flex items-center justify-between py-1.5 text-left group"
+                onClick={() => setExpanded(expanded === cat.category ? null : cat.category)}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">{cat.emoji}</span>
+                  <span className="text-xs font-medium text-foreground group-hover:text-primary transition-colors">{cat.category}</span>
+                  <span className="text-xs text-muted-foreground">({cat.questions.length})</span>
+                </div>
+                {expanded === cat.category
+                  ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" />
+                  : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+                }
+              </button>
+              {expanded === cat.category && (
+                <div className="ml-6 space-y-1.5 pb-1">
+                  {cat.questions.map((q, i) => (
+                    <div key={i} className="flex items-start gap-2 group/q">
+                      <span className="text-primary text-xs mt-0.5">•</span>
+                      <p className="text-xs text-muted-foreground flex-1">{q}</p>
+                      <button
+                        className="opacity-0 group-hover/q:opacity-100 transition-opacity flex-shrink-0"
+                        onClick={() => { navigator.clipboard.writeText(q); toast.success("Question copiée"); }}
+                      >
+                        <Copy className="w-3 h-3 text-muted-foreground hover:text-primary" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ChecklistSection() {
+  const [checked, setChecked] = useState<Set<string>>(new Set());
+  const toggle = (id: string) =>
+    setChecked((prev) => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+
+  const categories = [...new Set(ONBOARDING_CHECKLIST.map((i) => i.category))];
+  const progress = Math.round((checked.size / ONBOARDING_CHECKLIST.length) * 100);
+
+  return (
+    <Card className="border-border/50">
+      <CardContent className="pt-4 pb-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-base">✅</span>
+            <p className="text-sm font-semibold">Checklist d'onboarding</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">{checked.size}/{ONBOARDING_CHECKLIST.length}</span>
+            <Button size="sm" variant="ghost" className="text-xs h-7 text-muted-foreground" onClick={() => setChecked(new Set())}>
+              Reset
+            </Button>
+          </div>
+        </div>
+
+        {/* Progress bar */}
+        <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
+          <div className="h-full bg-primary rounded-full transition-all duration-300" style={{ width: `${progress}%` }} />
+        </div>
+
+        {categories.map((cat) => (
+          <div key={cat}>
+            <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider mb-1.5">{cat}</p>
+            <div className="space-y-1">
+              {ONBOARDING_CHECKLIST.filter((i) => i.category === cat).map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => toggle(item.id)}
+                  className="w-full flex items-center gap-2.5 py-1 px-2 rounded-md hover:bg-muted/50 transition-colors text-left"
+                >
+                  <div className={`w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${
+                    checked.has(item.id) ? "bg-primary border-primary" : "border-border/60"
+                  }`}>
+                    {checked.has(item.id) && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
+                  </div>
+                  <span className={`text-xs transition-colors ${checked.has(item.id) ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                    {item.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+function AIPersonalizeSection({ clients }: { clients: { id: string; name: string; industry?: string | null }[] }) {
+  const [selectedClient, setSelectedClient] = useState("");
+  const [extra, setExtra] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState("");
+
+  const generate = async () => {
+    const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
+    if (!apiKey) { toast.error("Clé Anthropic manquante dans .env"); return; }
+    const client = clients.find((c) => c.id === selectedClient);
+    if (!client) { toast.error("Sélectionne un client"); return; }
+
+    setLoading(true);
+    setResult("");
+    try {
+      const anthropic = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
+      const response = await anthropic.messages.create({
+        model: "claude-opus-4-6",
+        max_tokens: 1500,
+        messages: [{
+          role: "user",
+          content: `Tu es un expert en onboarding client pour agences de marketing vidéo.
+
+Génère un email de bienvenue personnalisé + 5 questions d'onboarding spécifiques pour ce client:
+
+Client: ${client.name}
+Industrie: ${client.industry || "Non précisée"}
+Contexte additionnel: ${extra || "Aucun"}
+
+Format:
+## Email de bienvenue
+[Email complet, ton chaleureux et professionnel]
+
+## Questions d'onboarding spécifiques
+1. ...
+2. ...
+3. ...
+4. ...
+5. ...
+
+Sois ultra-spécifique à leur industrie et situation. Pas de généralités.`,
+        }],
+      });
+      const text = response.content[0].type === "text" ? response.content[0].text : "";
+      setResult(text);
+    } catch {
+      toast.error("Erreur. Réessaie.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Card className="border-primary/20 bg-primary/5">
+      <CardContent className="pt-4 pb-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-primary" />
+          <p className="text-sm font-semibold text-primary">Personnaliser avec Echo AI</p>
+        </div>
+        <p className="text-xs text-muted-foreground">Génère un email de bienvenue et des questions sur mesure pour un client spécifique.</p>
+
+        <div className="flex gap-2">
+          <select
+            value={selectedClient}
+            onChange={(e) => setSelectedClient(e.target.value)}
+            className="flex-1 h-8 text-xs rounded-md border border-input bg-background px-2 text-foreground"
+          >
+            <option value="">Sélectionner un client...</option>
+            {clients.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </div>
+
+        <Input
+          placeholder="Contexte additionnel (ex: client dans la restauration, objectif TikTok...)"
+          value={extra}
+          onChange={(e) => setExtra(e.target.value)}
+          className="text-xs h-8"
+        />
+
+        <Button onClick={generate} disabled={loading || !selectedClient} className="w-full gap-2 shadow-glow">
+          {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Génération...</> : "✨ Générer l'onboarding personnalisé"}
+        </Button>
+
+        {result && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium text-primary">Résultat</p>
+              <Button size="sm" variant="outline" className="gap-1.5 text-xs h-7"
+                onClick={() => { navigator.clipboard.writeText(result); toast.success("Copié!"); }}>
+                <Copy className="w-3 h-3" /> Copier
+              </Button>
+            </div>
+            <div className="text-xs text-foreground whitespace-pre-wrap leading-relaxed bg-card rounded-lg p-3 border border-border/30 max-h-80 overflow-y-auto">
+              {result}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
+const statusColors: Record<string, string> = {
+  active: "success",
+  pipeline: "default",
+  on_hold: "warning",
+  lost: "destructive",
+  completed: "secondary",
+};
+
+export function ClientCenterTab() {
+  const { data: clients = [] } = useClients();
+  const updateClient = useUpdateClient();
+  const activeClients = clients.filter((c) => c.status === "active");
+
+  const [activeTab, setActiveTab] = useState<"clients" | "onboarding">("clients");
+
+  // General Drive URL
+  const [generalDriveUrl, setGeneralDriveUrl] = useState(
+    () => localStorage.getItem("echo_general_drive_url") || ""
+  );
+  const [showGeneralInput, setShowGeneralInput] = useState(false);
+  const [generalInput, setGeneralInput] = useState(generalDriveUrl);
+
+  const saveGeneralDrive = () => {
+    localStorage.setItem("echo_general_drive_url", generalInput);
+    setGeneralDriveUrl(generalInput);
+    setShowGeneralInput(false);
+    toast.success("Drive général sauvegardé");
+  };
+
+  // Per-client Drive edit
+  const [editingDrive, setEditingDrive] = useState<string | null>(null);
+  const [driveInput, setDriveInput] = useState("");
+
+  const startEdit = (clientId: string, currentUrl: string | null) => {
+    setEditingDrive(clientId);
+    setDriveInput(currentUrl ?? "");
+  };
+
+  const cancelEdit = () => { setEditingDrive(null); setDriveInput(""); };
+
+  const saveDrive = async (clientId: string) => {
+    try {
+      await updateClient.mutateAsync({ id: clientId, google_drive_url: driveInput || null });
+      toast.success("Drive connecté");
+      cancelEdit();
+    } catch {
+      toast.error("Erreur lors de la sauvegarde");
+    }
+  };
+
+  return (
+    <div className="p-6 space-y-5 max-w-3xl">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-base font-semibold">Centre Client</h2>
+        {activeTab === "clients" && (
+          <div className="flex items-center gap-2">
+            {generalDriveUrl && (
+              <Button size="sm" variant="outline" className="gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
+                onClick={() => window.open(generalDriveUrl, "_blank")}>
+                <FolderOpen className="w-3.5 h-3.5" /> Drive Général
+              </Button>
+            )}
+            <Button size="sm" variant="ghost" className="gap-1.5 text-xs text-muted-foreground"
+              onClick={() => { setShowGeneralInput(!showGeneralInput); setGeneralInput(generalDriveUrl); }}>
+              <Link className="w-3.5 h-3.5" />
+              {generalDriveUrl ? "Changer" : "Connecter Drive Général"}
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* Tab toggle */}
+      <div className="flex gap-1 bg-muted/50 rounded-lg p-1 w-fit">
+        <button
+          onClick={() => setActiveTab("clients")}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${activeTab === "clients" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+        >
+          <Users className="w-3.5 h-3.5" /> Clients actifs
+        </button>
+        <button
+          onClick={() => setActiveTab("onboarding")}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${activeTab === "onboarding" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+        >
+          <ClipboardList className="w-3.5 h-3.5" /> Onboarding
+        </button>
+      </div>
+
+      {/* ── CLIENTS TAB ── */}
+      {activeTab === "clients" && (
+        <div className="space-y-3">
+          {showGeneralInput && (
+            <Card>
+              <CardContent className="pt-4 pb-4 flex gap-2">
+                <Input autoFocus placeholder="https://drive.google.com/drive/folders/..."
+                  value={generalInput} onChange={(e) => setGeneralInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") saveGeneralDrive(); if (e.key === "Escape") setShowGeneralInput(false); }}
+                  className="text-xs" />
+                <Button onClick={saveGeneralDrive}><Check className="w-4 h-4" /></Button>
+                <Button variant="ghost" onClick={() => setShowGeneralInput(false)}><X className="w-4 h-4" /></Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {activeClients.length === 0 ? (
+            <Card>
+              <CardContent className="pt-8 pb-8 text-center text-muted-foreground text-sm">
+                Aucun client actif
+              </CardContent>
+            </Card>
+          ) : (
+            activeClients.map((client) => (
+              <Card key={client.id} className="hover:border-border/80 transition-colors">
+                <CardContent className="pt-4 pb-4 space-y-3">
+                  <div className="flex items-center gap-4">
+                    <div className="w-9 h-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center flex-shrink-0">
+                      <span className="text-primary font-bold text-sm">{client.name.charAt(0).toUpperCase()}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-medium text-sm text-foreground">{client.name}</p>
+                        <Badge variant={statusColors[client.status] as any}>{client.status}</Badge>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                        {client.industry && <span>{client.industry}</span>}
+                        {client.monthly_recurring_revenue && <span>{formatCurrency(client.monthly_recurring_revenue)}/mois</span>}
+                        {client.contract_start_date && <span>Depuis {formatDate(client.contract_start_date)}</span>}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      {client.google_drive_url && (
+                        <Button size="sm" variant="ghost" className="gap-1.5 text-xs text-primary hover:bg-primary/10"
+                          onClick={() => window.open(client.google_drive_url!, "_blank")}>
+                          <FolderOpen className="w-3.5 h-3.5" /> Drive
+                        </Button>
+                      )}
+                      <Button size="sm" variant="outline"
+                        className={`gap-1.5 text-xs ${client.google_drive_url ? "border-primary/30 text-primary" : "border-border/50 text-muted-foreground"}`}
+                        onClick={() => startEdit(client.id, client.google_drive_url)}>
+                        <Link className="w-3.5 h-3.5" />
+                        {client.google_drive_url ? "Changer" : "Connecter Drive"}
+                      </Button>
+                    </div>
+                  </div>
+                  {editingDrive === client.id && (
+                    <div className="flex gap-2 pt-1">
+                      <Input autoFocus placeholder="https://drive.google.com/drive/folders/..."
+                        value={driveInput} onChange={(e) => setDriveInput(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") saveDrive(client.id); if (e.key === "Escape") cancelEdit(); }}
+                        className="text-xs h-8" />
+                      <Button size="icon" className="h-8 w-8 flex-shrink-0" onClick={() => saveDrive(client.id)} disabled={updateClient.isPending}>
+                        <Check className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button size="icon" variant="ghost" className="h-8 w-8 flex-shrink-0" onClick={cancelEdit}>
+                        <X className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* ── ONBOARDING TAB ── */}
+      {activeTab === "onboarding" && (
+        <div className="space-y-4">
+          {/* AI personalization */}
+          <AIPersonalizeSection clients={activeClients.map((c) => ({ id: c.id, name: c.name, industry: c.industry }))} />
+
+          {/* Questions */}
+          <QuestionsSection />
+
+          {/* Templates */}
+          <CopyCard
+            emoji="📧"
+            title="Template email de bienvenue"
+            content={WELCOME_EMAIL_TEMPLATE}
+          />
+          <CopyCard
+            emoji="📋"
+            title="Agenda d'appel de lancement (kickoff)"
+            content={KICKOFF_AGENDA}
+          />
+
+          {/* Checklist */}
+          <ChecklistSection />
+        </div>
+      )}
+    </div>
+  );
+}
