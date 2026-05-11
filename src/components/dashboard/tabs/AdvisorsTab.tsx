@@ -402,7 +402,7 @@ TRANSCRIPT: ${transcript.slice(0, 8000)}`);
                 </Button>
               </div>
               <div className="text-xs whitespace-pre-wrap leading-relaxed max-h-96 overflow-y-auto bg-muted/20 rounded-lg p-3 border border-border/30">{scriptText}</div>
-            </Card>
+            </CardContent></Card>
           )}
         </div>
       )}
