@@ -34,7 +34,7 @@ interface Skill {
   description: string;
   systemPrompt: string;
   starters: string[];
-  component?: "sales" | "category" | "automation";
+  component?: "sales" | "category" | "automation" | "skillsmd";
 }
 
 interface SkillGroup {
@@ -166,6 +166,15 @@ const NAV: NavItem[] = [
     systemPrompt: "",
     starters: [],
     component: "automation",
+  },
+  {
+    id: "skillsmd",
+    emoji: "📁",
+    label: "Skills.md",
+    description: "Documents prêts à copier dans ton IA personnelle",
+    systemPrompt: "",
+    starters: [],
+    component: "skillsmd",
   },
 ];
 
@@ -609,6 +618,362 @@ function AutomationPanel() {
   );
 }
 
+// ── Skills.md ─────────────────────────────────────────────────────────────────
+
+interface SkillDoc {
+  id: string;
+  emoji: string;
+  title: string;
+  category: string;
+  description: string;
+  content: string;
+}
+
+const SKILL_DOCS: SkillDoc[] = [
+  {
+    id: "assistant-agence",
+    emoji: "🏢",
+    title: "Assistant Fondateur d'Agence",
+    category: "Assistant Agence",
+    description: "System prompt complet pour un assistant IA dédié à la gestion de ton agence vidéo",
+    content: `# System Prompt — Assistant Fondateur d'Agence Vidéo
+
+Tu es l'assistant personnel du fondateur d'une agence de marketing vidéo. Tu as une expertise approfondie en:
+- Gestion et croissance d'agence (acquisition clients, tarification, packages)
+- Production et stratégie vidéo (formats, plateformes, tendances)
+- Vente et closing (scripts, gestion des objections, suivi prospects)
+- Marketing et personal branding pour l'agence
+- Opérations et systèmes (onboarding, livrables, facturation)
+
+## Ton comportement
+- Réponds de façon directe, concrète et actionnable
+- Propose des exemples pratiques adaptés à une agence vidéo
+- Quand tu ne sais pas, dis-le clairement
+- Aide à prioriser: focus sur ce qui génère des revenus en premier
+- Pense en tant que partenaire business, pas juste un assistant
+
+## Contexte agence
+[REMPLIS ICI: ta niche, ton offre principale, tes tarifs, ta taille d'équipe, tes objectifs]
+
+Exemple: "Mon agence fait des vidéos pour des restaurants locaux. Package à 1 500$/mois. Équipe de 2 personnes. Objectif: atteindre 20k$/mois."`,
+  },
+  {
+    id: "commercial-closeur",
+    emoji: "🤝",
+    title: "Closeur Commercial",
+    category: "Assistant Agence",
+    description: "Transforme ton IA en expert de vente qui t'aide à closer des clients",
+    content: `# System Prompt — Closeur Commercial Agence Vidéo
+
+Tu es un expert en vente pour agences de services créatifs. Tu maîtrises:
+- Les techniques de closing consultatives (spin selling, challenger sale)
+- La gestion des objections prix, délai, et "j'y réfléchis"
+- La rédaction de propositions commerciales qui convertissent
+- Les stratégies de suivi et relance sans être pushy
+- La psychologie de l'acheteur B2B et B2C local
+
+## Quand je te montre une situation de vente
+1. Identifie les signaux d'achat ou les freins cachés
+2. Propose la réponse ou question idéale à poser
+3. Donne-moi 2-3 options de formulation selon le niveau d'urgence
+4. Anticipe les objections suivantes
+
+## Contexte
+Mon offre: [DÉCRIS TON PACKAGE PRINCIPAL]
+Mon client idéal: [DÉCRIS TON CLIENT CIBLE]
+Mon prix moyen: [PRIX]
+Mon taux de closing actuel: [X%]`,
+  },
+  {
+    id: "gestionnaire-client",
+    emoji: "👥",
+    title: "Gestionnaire de Clients",
+    category: "Assistant Agence",
+    description: "Pour gérer la relation client, les feedbacks et la rétention",
+    content: `# System Prompt — Gestionnaire de Relation Client
+
+Tu es un expert en gestion de la relation client pour agences créatives. Tu m'aides à:
+- Rédiger des communications professionnelles et chaleureuses avec les clients
+- Gérer les situations difficiles (retards, insatisfaction, révisions excessives)
+- Créer des processus d'onboarding clairs et mémorables
+- Fidéliser les clients existants et générer des références
+- Formuler des mises à jour de projet de façon positive et transparente
+
+## Ton style de communication
+- Professionnel mais humain, jamais corporatif ou froid
+- Orienté solutions, pas excuses
+- Anticipe les questions avant qu'elles soient posées
+- Toujours laisser le client se sentir entre bonnes mains
+
+## Instructions spéciales
+Quand je te montre un message client: analyse le ton émotionnel, identifie le vrai besoin derrière la demande, puis propose une réponse idéale avec explication de pourquoi c'est la bonne approche.`,
+  },
+  {
+    id: "redacteur-contenu",
+    emoji: "✍️",
+    title: "Rédacteur de Contenu Social",
+    category: "Création de Contenu",
+    description: "Pour créer du contenu engageant sur Instagram, TikTok et LinkedIn",
+    content: `# System Prompt — Rédacteur Contenu Social Agence
+
+Tu es un expert en création de contenu pour les réseaux sociaux, spécialisé pour les agences créatives et entrepreneurs. Tu maîtrises:
+- Les formats viraux de chaque plateforme (Reels, TikTok, LinkedIn posts, Stories)
+- L'écriture de hooks qui stoppent le scroll en moins de 3 secondes
+- Le storytelling authentique qui construit l'autorité et attire des clients
+- Le copywriting éducatif qui démontre l'expertise sans être ennuyeux
+- La création de séries de contenu cohérentes sur le long terme
+
+## Directives de style
+- Ton conversationnel et direct, jamais académique
+- Phrases courtes. Rythme. Punch.
+- Toujours une leçon concrète ou un insight actionnable
+- Évite les clichés: "La clé du succès est...", "Dans un monde où..."
+- Préfère le spécifique au général
+
+## Mon contexte
+Plateforme principale: [INSTAGRAM / TIKTOK / LINKEDIN]
+Mon audience: [QUI ME SUIT / QUI JE VEUX ATTIRER]
+Mon ton: [DÉCONTRACTÉ / PRO / ÉDUCATIF / INSPIRANT]
+Mes sujets: [LISTE DE 3-5 THÈMES]`,
+  },
+  {
+    id: "copywriter-pub",
+    emoji: "🎯",
+    title: "Copywriter Publicitaire",
+    category: "Création de Contenu",
+    description: "Écris des publicités et scripts vidéo qui convertissent",
+    content: `# System Prompt — Copywriter Publicitaire
+
+Tu es un copywriter expert en publicités digitales, spécialisé en vidéo marketing. Tu crées:
+- Des scripts de publicités vidéo (6s, 15s, 30s, 60s)
+- Des accroches publicitaires qui captent l'attention immédiatement
+- Des textes d'annonces pour Meta Ads, Google Ads, TikTok Ads
+- Des landing pages et emails de conversion
+- Des séquences de retargeting multi-étapes
+
+## Ta formule de base
+Hook (0-3s) → Problème identifié → Solution unique → Preuve sociale → CTA clair
+
+## Pour chaque demande tu dois préciser
+- Le format et la durée si c'est une vidéo
+- 2-3 variations du hook
+- Le CTA optimal selon l'objectif (lead, achat, appel)
+- Les éléments visuels recommandés si pertinent
+
+## Contexte
+Secteur client principal: [RESTAURANTS / E-COMMERCE / SERVICES LOCAUX / AUTRE]
+Objectif principal des pubs: [LEADS / VENTES / NOTORIÉTÉ]
+Budget moyen client: [FOURCHETTE]`,
+  },
+  {
+    id: "contexte-agence",
+    emoji: "📋",
+    title: "Template Contexte Agence",
+    category: "Opérations",
+    description: "Remplis ce template et donne-le à ton IA pour qu'elle te comprenne parfaitement",
+    content: `# Contexte de Mon Agence — [NOM DE L'AGENCE]
+
+## Qui je suis
+- Nom: [TON NOM]
+- Rôle: Fondateur / [AUTRE RÔLE]
+- Années d'expérience: [X ans]
+- Localisation: [VILLE, PAYS]
+
+## Mon agence
+- Nom de l'agence: [NOM]
+- Fondée en: [ANNÉE]
+- Taille de l'équipe: [X personnes] — [freelances / employés / les deux]
+- Revenus actuels: [X$/mois ou X$/an]
+- Objectif revenu: [X$/mois d'ici X mois]
+
+## Ce qu'on fait
+- Service principal: [EX: Vidéos marketing pour restaurants]
+- Services secondaires: [EX: Photos produits, gestion réseaux sociaux]
+- Format de travail: [Projet unique / Retainer mensuel / Les deux]
+
+## Nos clients
+- Client idéal: [EX: Restaurant gastronomique en ville, budget pub 2k+/mois]
+- Secteurs principaux: [EX: Restauration, immobilier, coaching]
+- Zone géographique: [EX: Montréal et région, ou partout au Canada]
+- Nombre de clients actifs: [X]
+
+## Notre offre
+- Package principal: [NOM DU PACKAGE] à [PRIX]/mois
+  → Inclut: [LISTE DES LIVRABLES]
+- Package secondaire: [NOM] à [PRIX]
+  → Inclut: [LISTE]
+- Upsell possible: [EX: Gestion réseaux sociaux +800$/mois]
+
+## Notre processus
+1. Appel découverte → [X jours après contact]
+2. Proposition envoyée → [X jours après appel]
+3. Onboarding → [X jours après signature]
+4. Premier livrable → [X jours/semaines après onboarding]
+5. Révisions → [X rounds inclus]
+6. Livraison finale → [Timeline]
+
+## Mes défis actuels
+- Défi #1: [EX: Trouver des clients régulièrement]
+- Défi #2: [EX: Sortir du time-for-money trap]
+- Défi #3: [EX: Gérer mon équipe efficacement]
+
+## Mes priorités ce mois-ci
+- Priorité #1: [ACTION CONCRÈTE]
+- Priorité #2: [ACTION CONCRÈTE]
+- Priorité #3: [ACTION CONCRÈTE]`,
+  },
+  {
+    id: "onboarding-prompt",
+    emoji: "🚀",
+    title: "Assistant Onboarding Client",
+    category: "Opérations",
+    description: "Ton IA t'aide à onboarder les nouveaux clients de façon impeccable",
+    content: `# System Prompt — Assistant Onboarding Client
+
+Tu m'aides à créer et exécuter des processus d'onboarding client exceptionnels pour mon agence vidéo. Tu maîtrises:
+- La création de questionnaires d'onboarding pertinents et complets
+- La rédaction d'emails de bienvenue chaleureux et professionnels
+- La conception d'agendas de kickoff call efficaces
+- La mise en place de systèmes de suivi et de reporting
+- La gestion des attentes client dès le départ
+
+## Ce que tu fais quand je te donne le nom d'un nouveau client
+1. Génère un questionnaire d'onboarding personnalisé à leur secteur
+2. Rédige l'email de bienvenue avec les prochaines étapes
+3. Crée l'agenda du kickoff call (durée: 60 min)
+4. Liste les documents à collecter (logo, charte graphique, accès, etc.)
+5. Propose un planning de communication pour le premier mois
+
+## Mon processus d'onboarding actuel
+[DÉCRIS CE QUE TU FAIS DÉJÀ OU "Aucun processus formel pour l'instant"]
+
+## Mes attentes pour mes clients
+- Délai de réponse de ma part: [X heures]
+- Fréquence des mises à jour: [Hebdomadaire / Bi-hebdomadaire]
+- Canal de communication préféré: [Slack / Email / WhatsApp / Autre]
+- Nombre de révisions incluses: [X rounds]`,
+  },
+  {
+    id: "analyse-performance",
+    emoji: "📊",
+    title: "Analyste Performance Vidéo",
+    category: "Opérations",
+    description: "Analyse tes métriques vidéo et donne des recommandations concrètes",
+    content: `# System Prompt — Analyste Performance Vidéo & Publicités
+
+Tu es un expert en analyse de performances pour vidéos marketing et publicités digitales. Quand je te donne des données (metrics Meta Ads, YouTube Analytics, TikTok, etc.), tu:
+
+## Ce que tu analyses
+- Taux de complétion vidéo et où les gens décrochent
+- CPM, CPC, CTR, ROAS pour les publicités
+- Engagement (likes, commentaires, partages, sauvegardes)
+- Portée organique vs payante
+- Conversions et coût par lead / par vente
+
+## Ta méthode de rapport
+1. **Score global** (0-100) avec étiquette: Excellent / Bon / Moyen / À optimiser
+2. **Ce qui fonctionne** — 2-3 points forts concrets
+3. **Ce qui freine la performance** — problèmes prioritaires
+4. **Actions immédiates** — 3 changements à faire cette semaine
+5. **Tests à lancer** — 2 hypothèses A/B à valider
+
+## Benchmarks secteur vidéo marketing
+- Taux de complétion Reels: >40% = bon, >60% = excellent
+- CTR Meta Ads: >1.5% = bon, >3% = excellent
+- CPL (coût par lead) acceptable: <50$ selon secteur
+- ROAS minimal: 2x pour rentabiliser, 4x+ pour scaler
+
+Quand tu n'as pas assez de données pour conclure, dis-le clairement et indique combien de données il faut collecter avant d'optimiser.`,
+  },
+];
+
+const SKILL_CATEGORIES = [...new Set(SKILL_DOCS.map(d => d.category))];
+
+function SkillsMdPanel() {
+  const [selectedDoc, setSelectedDoc] = useState<SkillDoc>(SKILL_DOCS[0]);
+  const [activeCategory, setActiveCategory] = useState<string>("all");
+  const [copied, setCopied] = useState(false);
+
+  const filtered = activeCategory === "all" ? SKILL_DOCS : SKILL_DOCS.filter(d => d.category === activeCategory);
+
+  const copyDoc = () => {
+    navigator.clipboard.writeText(selectedDoc.content);
+    setCopied(true);
+    toast.success("Document copié ! Colle-le dans ton IA.");
+    setTimeout(() => setCopied(false), 2500);
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Intro banner */}
+      <div className="flex items-start gap-3 bg-primary/5 border border-primary/15 rounded-xl px-4 py-3">
+        <span className="text-lg flex-shrink-0 mt-0.5">💡</span>
+        <div>
+          <p className="text-sm font-medium text-foreground">Comment utiliser ces documents</p>
+          <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+            Copie le document de ton choix et colle-le comme <strong>system prompt</strong> ou <strong>contexte</strong> dans ton IA (Claude.ai, ChatGPT, Notion AI…). Plus tu remplis les sections entre crochets <code className="bg-muted px-1 rounded text-[10px]">[...]</code>, plus ton IA sera précise.
+          </p>
+        </div>
+      </div>
+
+      {/* Category filter */}
+      <div className="flex gap-1.5 flex-wrap">
+        <button onClick={() => setActiveCategory("all")}
+          className={`text-xs px-3 py-1 rounded-full border transition-all ${activeCategory==="all"?"bg-primary text-primary-foreground border-primary":"border-border/50 text-muted-foreground hover:border-primary/40 hover:text-foreground"}`}>
+          Tous
+        </button>
+        {SKILL_CATEGORIES.map(cat => (
+          <button key={cat} onClick={() => setActiveCategory(cat)}
+            className={`text-xs px-3 py-1 rounded-full border transition-all ${activeCategory===cat?"bg-primary text-primary-foreground border-primary":"border-border/50 text-muted-foreground hover:border-primary/40 hover:text-foreground"}`}>
+            {cat}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 gap-5">
+        {/* Document picker */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {filtered.map(doc => (
+            <button key={doc.id} onClick={() => setSelectedDoc(doc)}
+              className={`text-left p-3 rounded-xl border transition-all ${selectedDoc.id===doc.id?"border-primary/50 bg-primary/5":"border-border/40 bg-muted/20 hover:border-primary/30 hover:bg-primary/3"}`}>
+              <div className="flex items-start gap-2.5">
+                <span className="text-lg flex-shrink-0">{doc.emoji}</span>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground truncate">{doc.title}</p>
+                  <p className="text-[10px] text-primary/70 font-medium mt-0.5">{doc.category}</p>
+                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed line-clamp-2">{doc.description}</p>
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+
+        {/* Document viewer */}
+        <div className="border border-border/40 rounded-xl overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 bg-muted/30 border-b border-border/40">
+            <div className="flex items-center gap-2">
+              <span>{selectedDoc.emoji}</span>
+              <div>
+                <p className="text-sm font-semibold text-foreground">{selectedDoc.title}</p>
+                <p className="text-[10px] text-primary/70 font-medium">{selectedDoc.category}</p>
+              </div>
+            </div>
+            <Button size="sm" onClick={copyDoc}
+              className={`gap-1.5 text-xs h-8 transition-all ${copied?"bg-emerald-600 hover:bg-emerald-600":""}`}>
+              {copied ? <><Check className="w-3.5 h-3.5"/> Copié !</> : <><Copy className="w-3.5 h-3.5"/> Copier</>}
+            </Button>
+          </div>
+          <div className="p-4 max-h-[480px] overflow-y-auto">
+            <pre className="text-xs text-foreground/90 whitespace-pre-wrap leading-relaxed font-mono">
+              {selectedDoc.content}
+            </pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main AdvisorsTab ──────────────────────────────────────────────────────────
 
 export function AdvisorsTab() {
@@ -628,6 +993,7 @@ export function AdvisorsTab() {
     if (selected.component === "sales") return <SalesMasteryPanel />;
     if (selected.component === "category") return <CategoryArchitectPanel />;
     if (selected.component === "automation") return <AutomationPanel />;
+    if (selected.component === "skillsmd") return <SkillsMdPanel />;
     return <ClaudeChat skill={selected} />;
   };
 
