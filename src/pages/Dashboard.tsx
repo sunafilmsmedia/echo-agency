@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, Users, Calendar, Calculator, UserCircle,
   CheckSquare, TrendingUp, Brain, Settings, GripVertical,
-  Bell, LogOut, ChevronRight, MessagesSquare,
+  Bell, LogOut, ChevronRight, MessagesSquare, Trophy,
 } from "lucide-react";
 
 // Tab imports (we'll add these as we build them)
@@ -21,6 +21,7 @@ import { RevenueTab } from "@/components/dashboard/tabs/RevenueTab";
 import { AdvisorsTab } from "@/components/dashboard/tabs/AdvisorsTab";
 import { SettingsTab } from "@/components/dashboard/tabs/SettingsTab";
 import { TeamTab } from "@/components/dashboard/tabs/TeamTab";
+import { KpiTab } from "@/components/dashboard/tabs/KpiTab";
 
 const DEFAULT_SIDEBAR_ITEMS = [
   { id: "overview",  label: "Dashboard",          icon: LayoutDashboard, protected: false },
@@ -32,6 +33,7 @@ const DEFAULT_SIDEBAR_ITEMS = [
   { id: "revenue",   label: "Revenue & Growth",   icon: TrendingUp,      protected: true  },
   { id: "advisors",  label: "Marketing Advisors", icon: Brain,           protected: false },
   { id: "team",      label: "Équipe & Canaux",    icon: MessagesSquare,  protected: false },
+  { id: "kpi",       label: "KPI Équipe",         icon: Trophy,          protected: true  },
   { id: "settings",  label: "Settings",           icon: Settings,        protected: false },
 ];
 
@@ -135,6 +137,7 @@ export default function Dashboard() {
       case "revenue":   return <RevenueTab />;
       case "advisors":  return <AdvisorsTab />;
       case "team":      return <TeamTab />;
+      case "kpi":       return <KpiTab />;
       case "settings":  return <SettingsTab />;
       default:          return <OverviewTab />;
     }
