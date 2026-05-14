@@ -1,6 +1,19 @@
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, Trophy, Eye, Video, DollarSign } from "lucide-react";
+import { ChevronLeft, ChevronRight, Trophy, Eye, Video, ArrowLeft, Plus, UserCircle2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+
+// ── Employees ─────────────────────────────────────────────────────────────────
+
+interface Employee {
+  id: string;
+  name: string;
+  role: string;
+  initials: string;
+}
+
+const EMPLOYEES: Employee[] = [
+  { id: "sandra", name: "Sandra", role: "Gestionnaire de contenu", initials: "S" },
+];
 
 // ── Client baselines ──────────────────────────────────────────────────────────
 
@@ -87,9 +100,53 @@ function VideosBadge({ actual, baseline }: { actual: number | null; baseline: nu
   return <span className="text-[10px] text-muted-foreground">baseline</span>;
 }
 
-// ── Main component ────────────────────────────────────────────────────────────
+// ── Employee list ─────────────────────────────────────────────────────────────
 
-export function KpiTab() {
+function EmployeeList({ onSelect }: { onSelect: (e: Employee) => void }) {
+  return (
+    <div className="p-6 space-y-6 max-w-3xl mx-auto">
+      <div>
+        <h2 className="text-xl font-semibold text-foreground flex items-center gap-2">
+          <Trophy className="w-5 h-5 text-amber-400" /> KPI Équipe
+        </h2>
+        <p className="text-sm text-muted-foreground mt-0.5">Sélectionne un employé pour voir et saisir ses résultats</p>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {EMPLOYEES.map(emp => (
+          <button key={emp.id} onClick={() => onSelect(emp)}
+            className="text-left rounded-2xl border border-border/50 bg-card hover:border-primary/40 hover:bg-primary/3 transition-all p-5 group">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-12 h-12 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/20 transition-colors">
+                <span className="text-lg font-bold text-primary">{emp.initials}</span>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-foreground">{emp.name}</p>
+                <p className="text-xs text-muted-foreground">{emp.role}</p>
+              </div>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Voir les KPI →</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-medium">Actif</span>
+            </div>
+          </button>
+        ))}
+
+        {/* Placeholder: future employee */}
+        <div className="rounded-2xl border border-dashed border-border/50 bg-muted/10 p-5 flex flex-col items-center justify-center gap-2 opacity-50 cursor-default">
+          <div className="w-12 h-12 rounded-full bg-muted/40 flex items-center justify-center">
+            <Plus className="w-5 h-5 text-muted-foreground" />
+          </div>
+          <p className="text-xs text-muted-foreground font-medium">Ajouter un employé</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── KPI detail for one employee ───────────────────────────────────────────────
+
+function EmployeeKpiDetail({ employee, onBack }: { employee: Employee; onBack: () => void }) {
   const now = new Date();
   const currentQ = Math.floor((now.getMonth()) / 3); // 0-3
   const [year, setYear]       = useState(now.getFullYear());
@@ -143,11 +200,17 @@ export function KpiTab() {
 
       {/* ── Header ── */}
       <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-semibold text-foreground flex items-center gap-2">
-            <Trophy className="w-5 h-5 text-amber-400" /> KPI — Sandra
-          </h2>
-          <p className="text-sm text-muted-foreground mt-0.5">Bonus calculés sur 3 mois · payables au trimestre</p>
+        <div className="flex items-center gap-3">
+          <button onClick={onBack}
+            className="p-1.5 rounded-lg border border-border/50 hover:bg-accent transition-colors">
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+          <div>
+            <h2 className="text-xl font-semibold text-foreground flex items-center gap-2">
+              <Trophy className="w-5 h-5 text-amber-400" /> KPI — {employee.name}
+            </h2>
+            <p className="text-sm text-muted-foreground mt-0.5">Bonus calculés sur 3 mois · payables au trimestre</p>
+          </div>
         </div>
 
         {/* Quarter nav */}
@@ -313,4 +376,15 @@ export function KpiTab() {
       </p>
     </div>
   );
+}
+
+// ── Root KPI tab ──────────────────────────────────────────────────────────────
+
+export function KpiTab() {
+  const [selected, setSelected] = useState<Employee | null>(null);
+
+  if (selected) {
+    return <EmployeeKpiDetail employee={selected} onBack={() => setSelected(null)} />;
+  }
+  return <EmployeeList onSelect={setSelected} />;
 }
