@@ -55,14 +55,39 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      {/* Echo avatar animations */}
+      <style>{`
+        @keyframes echoFloat {
+          0%, 100% { transform: translateY(0px) rotate(-2deg); }
+          50%      { transform: translateY(-4px) rotate(2deg); }
+        }
+        @keyframes echoGlow {
+          0%, 100% { box-shadow: 0 0 0 3px hsl(var(--primary) / 0.20), 0 0 24px hsl(var(--primary) / 0.30); }
+          50%      { box-shadow: 0 0 0 5px hsl(var(--primary) / 0.35), 0 0 40px hsl(var(--primary) / 0.55); }
+        }
+        @keyframes echoSpark {
+          0%, 100% { opacity: 0; transform: scale(0.6) rotate(0deg); }
+          50%      { opacity: 1; transform: scale(1.2) rotate(180deg); }
+        }
+        .echo-avatar {
+          animation: echoFloat 4s ease-in-out infinite, echoGlow 3s ease-in-out infinite;
+        }
+        .echo-spark {
+          animation: echoSpark 2.5s ease-in-out infinite;
+        }
+      `}</style>
+
       {/* Background glow */}
       <div className="fixed inset-0 bg-gradient-glow pointer-events-none" />
 
       {/* Nav */}
       <nav className="relative z-10 flex items-center justify-between px-6 py-4 max-w-6xl mx-auto">
-        <div className="flex items-center gap-2.5">
-          <img src="/echo-avatar.png" alt="Echo" className="w-8 h-8 rounded-lg object-cover" />
-          <span className="font-bold text-lg text-foreground">Echo</span>
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <img src="/echo-avatar.png" alt="Echo" className="echo-avatar w-12 h-12 rounded-2xl object-cover" />
+            <Sparkles className="echo-spark absolute -top-1 -right-1 w-3.5 h-3.5 text-primary" />
+          </div>
+          <span className="font-bold text-xl text-foreground tracking-tight">Echo</span>
         </div>
         <Button
           variant="outline"
@@ -74,78 +99,45 @@ export default function Landing() {
         </Button>
       </nav>
 
-      {/* Hero */}
-      <section className="relative z-10 text-center px-6 pt-20 pb-16 max-w-4xl mx-auto">
+      {/* Hero with embedded chat (Lovable-style) */}
+      <section className="relative z-10 text-center px-6 pt-16 pb-12 max-w-3xl mx-auto">
         <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-full px-3 py-1 mb-6">
           <Sparkles className="w-3 h-3 text-primary" />
           <span className="text-xs text-primary font-medium">Construis ton propre AI Business Tracker</span>
         </div>
-        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-foreground leading-tight mb-6">
+        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-foreground leading-tight mb-5 tracking-tight">
           Ton dashboard business.<br />
           <span className="text-primary">À ton image.</span>
         </h1>
-        <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-4">
-          Echo te permet de créer ta propre application pour gérer ta business — personnalisée avec ton logo, tes couleurs, ton nom. Avec une IA Claude intégrée partout.
-        </p>
-        <p className="text-sm text-muted-foreground/70 mb-10 italic">
-          Chaque tracker affiche fièrement <span className="text-foreground font-medium">« TonEntreprise by Echo »</span> en haut.
+        <p className="text-base sm:text-lg text-muted-foreground max-w-xl mx-auto mb-10">
+          Crée ton application personnalisée — ton logo, tes couleurs, ton nom — avec une IA Claude intégrée partout.
         </p>
 
-        {/* Main CTAs */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center flex-wrap">
-          <button
-            onClick={() => navigate("/login?intent=join")}
-            className="group relative w-full sm:w-auto"
-          >
-            <div className="flex flex-col items-center gap-1 px-8 py-4 rounded-2xl border-2 border-border/60 bg-card hover:border-primary/40 hover:bg-primary/5 transition-all">
-              <div className="flex items-center gap-2">
-                <Users className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
-                <span className="font-semibold text-foreground">Rejoindre un tracker</span>
-              </div>
-              <span className="text-xs text-muted-foreground">Gratuit · Jusqu'à 2 membres</span>
-            </div>
-          </button>
-
-          <button
-            onClick={() => navigate("/login?intent=create")}
-            className="group relative w-full sm:w-auto"
-          >
-            <div className="absolute -inset-0.5 bg-gradient-to-r from-primary to-primary/60 rounded-2xl blur opacity-40 group-hover:opacity-70 transition-opacity" />
-            <div className="relative flex flex-col items-center gap-1 px-8 py-4 rounded-2xl bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
-              <div className="flex items-center gap-2">
-                <Zap className="w-5 h-5" />
-                <span className="font-semibold">Créer mon tracker</span>
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </div>
-              <span className="text-xs text-primary-foreground/80">57 $/mois · Facturation Stripe</span>
-            </div>
-          </button>
+        {/* Chat — the centerpiece */}
+        <div className="max-w-2xl mx-auto">
+          <LandingChat onCreateClick={() => navigate("/login?intent=create")} />
         </div>
 
-        {/* Already have an account */}
-        <div className="mt-6 flex items-center justify-center gap-3">
-          <div className="h-px w-16 bg-border/50" />
+        {/* Secondary actions below chat */}
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm">
+          <button
+            onClick={() => navigate("/login?intent=join")}
+            className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors group"
+          >
+            <Users className="w-3.5 h-3.5" />
+            Rejoindre un tracker existant
+            <span className="text-xs text-muted-foreground/60">(gratuit, 2 membres)</span>
+          </button>
+          <span className="text-muted-foreground/30">·</span>
           <button
             onClick={() => navigate("/login")}
-            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors group"
+            className="flex items-center gap-1.5 text-muted-foreground hover:text-primary transition-colors group"
           >
-            Déjà un tracker ?
+            Déjà un compte?
             <span className="font-semibold text-foreground group-hover:text-primary transition-colors">Se connecter</span>
             <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
           </button>
-          <div className="h-px w-16 bg-border/50" />
         </div>
-      </section>
-
-      {/* Interactive chat preview */}
-      <section className="relative z-10 px-6 pb-16 max-w-2xl mx-auto">
-        <div className="text-center mb-6">
-          <p className="text-xs text-muted-foreground font-semibold uppercase tracking-widest mb-2">Essaie maintenant</p>
-          <h2 className="text-2xl sm:text-3xl font-bold text-foreground">
-            Construis ton tracker <span className="text-primary">en direct</span>
-          </h2>
-        </div>
-        <LandingChat onCreateClick={() => navigate("/login?intent=create")} />
       </section>
 
       {/* Features grid */}
@@ -236,7 +228,7 @@ export default function Landing() {
       {/* Footer */}
       <footer className="relative z-10 border-t border-border/40 px-6 py-6 text-center">
         <div className="flex items-center justify-center gap-2 mb-2">
-          <img src="/echo-avatar.png" alt="Echo" className="w-5 h-5 rounded object-cover" />
+          <img src="/echo-avatar.png" alt="Echo" className="echo-avatar w-6 h-6 rounded-lg object-cover" />
           <span className="text-sm font-semibold text-foreground">Echo</span>
           <span className="text-xs text-muted-foreground">— Construis ton AI Business Tracker</span>
         </div>
