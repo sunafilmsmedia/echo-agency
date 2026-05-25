@@ -18,19 +18,20 @@ const FEATURES = [
 ];
 
 const FREE_FEATURES = [
-  "Accès complet au tracker invité",
+  "Création de ton tracker — sans frais",
   "Jusqu'à 2 membres par espace",
+  "Dashboard, KPI, tâches, gestion clients",
   "Tous les conseillers IA Claude",
-  "Collaboration en temps réel",
-  "Rejoindre sur invitation",
+  "Branding standard Echo (non personnalisable)",
+  "Sans connexion Stripe ni intégrations",
 ];
 
 const PRO_FEATURES = [
-  "Crée TON propre AI Business Tracker",
-  "Branding personnalisé (logo, couleurs, nom)",
-  "Inviter jusqu'à 2 membres gratuitement",
-  "Intégrations : Stripe, Google Calendar",
-  "IA Claude intégrée partout",
+  "Tout ce qui est inclus dans Gratuit",
+  "Personnalisation complète (logo, couleurs, nom)",
+  "Connexion Stripe — track ton revenu mensuel",
+  "Toutes les intégrations (Google Calendar, etc.)",
+  "Jusqu'à 10 membres dans ton équipe",
   "Support prioritaire",
 ];
 
@@ -121,12 +122,12 @@ export default function Landing() {
         {/* Secondary actions below chat */}
         <div className="mt-8 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm">
           <button
-            onClick={() => navigate("/login?intent=join")}
+            onClick={() => navigate("/login?intent=create&plan=free")}
             className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors group"
           >
             <Users className="w-3.5 h-3.5" />
-            Rejoindre un tracker existant
-            <span className="text-xs text-muted-foreground/60">(gratuit, 2 membres)</span>
+            Démarrer gratuitement
+            <span className="text-xs text-muted-foreground/60">(2 membres max)</span>
           </button>
           <span className="text-muted-foreground/30">·</span>
           <button
@@ -159,14 +160,15 @@ export default function Landing() {
         <p className="text-center text-xs text-muted-foreground font-semibold uppercase tracking-widest mb-10">Tarifs simples</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
 
-          {/* Free / Join */}
+          {/* Free / Create basic */}
           <div className="p-6 rounded-2xl border border-border/50 bg-card space-y-5">
             <div>
-              <p className="text-sm font-semibold text-muted-foreground mb-1">Invité</p>
+              <p className="text-sm font-semibold text-muted-foreground mb-1">Gratuit</p>
               <div className="flex items-end gap-1">
-                <span className="text-4xl font-bold text-foreground">Gratuit</span>
+                <span className="text-4xl font-bold text-foreground">0 $</span>
+                <span className="text-muted-foreground text-sm mb-1.5">/mois</span>
               </div>
-              <p className="text-xs text-muted-foreground mt-1">Sur invitation d'un tracker existant</p>
+              <p className="text-xs text-muted-foreground mt-1">Crée ton tracker de base, sans frais</p>
             </div>
             <ul className="space-y-2">
               {FREE_FEATURES.map((f) => (
@@ -179,9 +181,9 @@ export default function Landing() {
             <Button
               variant="outline"
               className="w-full border-border/60 hover:border-primary/40"
-              onClick={() => navigate("/login?intent=join")}
+              onClick={() => navigate("/login?intent=create&plan=free")}
             >
-              Rejoindre un tracker
+              Démarrer gratuitement
             </Button>
           </div>
 
@@ -196,7 +198,7 @@ export default function Landing() {
                 <span className="text-4xl font-bold text-foreground">57 $</span>
                 <span className="text-muted-foreground text-sm mb-1.5">/mois</span>
               </div>
-              <p className="text-xs text-muted-foreground mt-1">Crée ton propre AI Business Tracker</p>
+              <p className="text-xs text-muted-foreground mt-1">Tracker complet, personnalisé, sans limites</p>
             </div>
             <ul className="space-y-2">
               {PRO_FEATURES.map((f) => (
