@@ -144,7 +144,7 @@ export default function Preview() {
               </div>
               <Button size="sm" onClick={() => navigate("/login?intent=create&plan=pro")}
                 className="user-bg-c1 text-white hover:opacity-90 border-0 text-xs">
-                Débloquer · 57$/mois <ArrowRight className="w-3 h-3 ml-1" />
+                Débloquer · dès 27$/mois <ArrowRight className="w-3 h-3 ml-1" />
               </Button>
             </div>
             <div className="h-1 rounded-full bg-muted/40 overflow-hidden">
@@ -157,7 +157,7 @@ export default function Preview() {
       {/* ═════ Lock overlay ═════ */}
       {locked && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-background/40 overflow-y-auto">
-          <div className="max-w-lg w-full rounded-3xl border-2 user-border-c1 bg-card shadow-2xl shadow-black/60 p-7 space-y-5 my-auto">
+          <div className="max-w-2xl w-full rounded-3xl border-2 user-border-c1 bg-card shadow-2xl shadow-black/60 p-7 space-y-5 my-auto">
             <div className="text-center space-y-3">
               <div className="w-14 h-14 mx-auto rounded-full user-grad flex items-center justify-center">
                 <Lock className="w-6 h-6 text-white" />
@@ -165,47 +165,66 @@ export default function Preview() {
               <div>
                 <h2 className="text-xl font-bold text-foreground">Aperçu terminé!</h2>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Tu viens de voir la version <span className="font-semibold text-foreground">Pro</span> de <span className="font-bold text-foreground">{businessName}</span>. Choisis ton plan :
+                  Tu viens de voir la version complète de <span className="font-bold text-foreground">{businessName}</span>. Choisis ton plan :
                 </p>
               </div>
             </div>
 
-            {/* Pro option (recommended) */}
-            <div className="rounded-2xl border-2 user-border-c1 user-bg-c1-soft p-4 space-y-3 relative">
-              <div className="absolute -top-2.5 left-4 user-bg-c1 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                CE QUE TU VIENS DE VOIR
-              </div>
-              <div className="flex items-baseline justify-between">
-                <p className="text-base font-bold text-foreground">Pro · 57$/mois</p>
-                <span className="text-[10px] user-c1 font-semibold">Recommandé</span>
-              </div>
-              <ul className="space-y-1 text-xs text-foreground">
-                <li>✓ Personnalisation totale (logo, couleurs, nom)</li>
-                <li>✓ Connexion Stripe — track ton revenu réel</li>
-                <li>✓ Toutes les intégrations (Google Calendar, etc.)</li>
-                <li>✓ Jusqu'à 10 membres dans ton équipe</li>
-              </ul>
-              <Button onClick={() => navigate("/login?intent=create&plan=pro")}
-                className="w-full h-11 text-sm shadow-glow user-bg-c1 text-white hover:opacity-90 border-0 gap-2">
-                Débloquer tout pour 57$/mois <ArrowRight className="w-4 h-4" />
-              </Button>
-            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 
-            {/* Free option */}
-            <div className="rounded-2xl border border-border/50 bg-muted/20 p-4 space-y-3">
-              <div className="flex items-baseline justify-between">
-                <p className="text-base font-bold text-foreground">Gratuit · 0$</p>
-                <span className="text-[10px] text-muted-foreground">Version de base</span>
+              {/* Free */}
+              <div className="rounded-2xl border border-border/50 bg-muted/10 p-4 space-y-3 flex flex-col">
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase">Gratuit</p>
+                  <p className="text-2xl font-bold text-foreground">0 $<span className="text-xs font-normal text-muted-foreground">/mo</span></p>
+                </div>
+                <ul className="space-y-1 text-[11px] text-muted-foreground flex-1">
+                  <li>· 2 membres max</li>
+                  <li>· Sans personnalisation</li>
+                  <li>· Sans Stripe ni intégrations</li>
+                </ul>
+                <Button variant="outline" size="sm" onClick={() => navigate("/login?intent=create&plan=free")}
+                  className="w-full text-xs border-border/60">
+                  Démarrer
+                </Button>
               </div>
-              <ul className="space-y-1 text-xs text-muted-foreground">
-                <li>· Tracker fonctionnel — sans personnalisation</li>
-                <li>· Sans Stripe ni intégrations</li>
-                <li>· Max 2 membres</li>
-              </ul>
-              <Button variant="outline" onClick={() => navigate("/login?intent=create&plan=free")}
-                className="w-full h-10 text-sm border-border/60 hover:border-primary/40">
-                Continuer en gratuit
-              </Button>
+
+              {/* Pro — RECOMMENDED */}
+              <div className="rounded-2xl border-2 user-border-c1 user-bg-c1-soft p-4 space-y-3 flex flex-col relative">
+                <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 user-bg-c1 text-white text-[9px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap">
+                  CE QUE TU VIENS DE VOIR
+                </div>
+                <div>
+                  <p className="text-xs font-semibold user-c1 uppercase">Pro</p>
+                  <p className="text-2xl font-bold text-foreground">27 $<span className="text-xs font-normal text-muted-foreground">/mo</span></p>
+                </div>
+                <ul className="space-y-1 text-[11px] text-foreground flex-1">
+                  <li>✓ 5 membres</li>
+                  <li>✓ Personnalisation complète</li>
+                  <li>✓ Stripe + toutes intégrations</li>
+                </ul>
+                <Button size="sm" onClick={() => navigate("/login?intent=create&plan=pro")}
+                  className="w-full text-xs shadow-glow user-bg-c1 text-white hover:opacity-90 border-0">
+                  Débloquer Pro
+                </Button>
+              </div>
+
+              {/* Business */}
+              <div className="rounded-2xl border border-border/50 bg-card p-4 space-y-3 flex flex-col">
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase">Business</p>
+                  <p className="text-2xl font-bold text-foreground">57 $<span className="text-xs font-normal text-muted-foreground">/mo</span></p>
+                </div>
+                <ul className="space-y-1 text-[11px] text-foreground flex-1">
+                  <li>✓ 10 membres</li>
+                  <li>✓ KPI multi-employés</li>
+                  <li>✓ Support prioritaire</li>
+                </ul>
+                <Button variant="outline" size="sm" onClick={() => navigate("/login?intent=create&plan=business")}
+                  className="w-full text-xs border-primary/40 text-primary hover:bg-primary/10">
+                  Choisir Business
+                </Button>
+              </div>
             </div>
 
             <button onClick={() => { setLocked(false); setSecondsLeft(20); }}

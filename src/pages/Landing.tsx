@@ -19,19 +19,25 @@ const FEATURES = [
 
 const FREE_FEATURES = [
   "Création de ton tracker — sans frais",
-  "Jusqu'à 2 membres par espace",
+  "Jusqu'à 2 membres",
   "Dashboard, KPI, tâches, gestion clients",
   "Tous les conseillers IA Claude",
-  "Branding standard Echo (non personnalisable)",
-  "Sans connexion Stripe ni intégrations",
+  "Branding standard Echo",
+  "Sans Stripe ni intégrations",
 ];
 
 const PRO_FEATURES = [
   "Tout ce qui est inclus dans Gratuit",
+  "Jusqu'à 5 membres",
   "Personnalisation complète (logo, couleurs, nom)",
-  "Connexion Stripe — track ton revenu mensuel",
+  "Connexion Stripe — track ton revenu réel",
   "Toutes les intégrations (Google Calendar, etc.)",
-  "Jusqu'à 10 membres dans ton équipe",
+];
+
+const BUSINESS_FEATURES = [
+  "Tout ce qui est inclus dans Pro",
+  "Jusqu'à 10 membres",
+  "KPI multi-employés avancé",
   "Support prioritaire",
 ];
 
@@ -156,25 +162,25 @@ export default function Landing() {
       </section>
 
       {/* Pricing */}
-      <section className="relative z-10 px-6 py-16 max-w-4xl mx-auto">
+      <section className="relative z-10 px-6 py-16 max-w-5xl mx-auto">
         <p className="text-center text-xs text-muted-foreground font-semibold uppercase tracking-widest mb-10">Tarifs simples</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
 
-          {/* Free / Create basic */}
-          <div className="p-6 rounded-2xl border border-border/50 bg-card space-y-5">
+          {/* Free */}
+          <div className="p-6 rounded-2xl border border-border/50 bg-card space-y-5 flex flex-col">
             <div>
               <p className="text-sm font-semibold text-muted-foreground mb-1">Gratuit</p>
               <div className="flex items-end gap-1">
                 <span className="text-4xl font-bold text-foreground">0 $</span>
                 <span className="text-muted-foreground text-sm mb-1.5">/mois</span>
               </div>
-              <p className="text-xs text-muted-foreground mt-1">Crée ton tracker de base, sans frais</p>
+              <p className="text-xs text-muted-foreground mt-1">Tracker de base, sans frais</p>
             </div>
-            <ul className="space-y-2">
+            <ul className="space-y-2 flex-1">
               {FREE_FEATURES.map((f) => (
-                <li key={f} className="flex items-center gap-2 text-sm text-foreground">
-                  <Check className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
-                  {f}
+                <li key={f} className="flex items-start gap-2 text-sm text-foreground">
+                  <Check className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0 mt-0.5" />
+                  <span>{f}</span>
                 </li>
               ))}
             </ul>
@@ -187,32 +193,59 @@ export default function Landing() {
             </Button>
           </div>
 
-          {/* Pro / Create */}
-          <div className="relative p-6 rounded-2xl border-2 border-primary/50 bg-card space-y-5 overflow-hidden">
+          {/* Pro (most popular) */}
+          <div className="relative p-6 rounded-2xl border-2 border-primary/50 bg-card space-y-5 overflow-hidden flex flex-col shadow-glow">
             <div className="absolute top-3 right-3 bg-primary text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded-full">
               POPULAIRE
             </div>
             <div>
-              <p className="text-sm font-semibold text-primary mb-1">Fondateur</p>
+              <p className="text-sm font-semibold text-primary mb-1">Pro</p>
               <div className="flex items-end gap-1">
-                <span className="text-4xl font-bold text-foreground">57 $</span>
+                <span className="text-4xl font-bold text-foreground">27 $</span>
                 <span className="text-muted-foreground text-sm mb-1.5">/mois</span>
               </div>
-              <p className="text-xs text-muted-foreground mt-1">Tracker complet, personnalisé, sans limites</p>
+              <p className="text-xs text-muted-foreground mt-1">Tout débloqué pour une petite équipe</p>
             </div>
-            <ul className="space-y-2">
+            <ul className="space-y-2 flex-1">
               {PRO_FEATURES.map((f) => (
-                <li key={f} className="flex items-center gap-2 text-sm text-foreground">
-                  <Check className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-                  {f}
+                <li key={f} className="flex items-start gap-2 text-sm text-foreground">
+                  <Check className="w-3.5 h-3.5 text-primary flex-shrink-0 mt-0.5" />
+                  <span>{f}</span>
                 </li>
               ))}
             </ul>
             <Button
               className="w-full shadow-glow"
-              onClick={() => navigate("/login?intent=create")}
+              onClick={() => navigate("/login?intent=create&plan=pro")}
             >
-              Créer mon tracker <ArrowRight className="w-4 h-4 ml-1" />
+              Choisir Pro <ArrowRight className="w-4 h-4 ml-1" />
+            </Button>
+          </div>
+
+          {/* Business */}
+          <div className="p-6 rounded-2xl border border-border/50 bg-card space-y-5 flex flex-col">
+            <div>
+              <p className="text-sm font-semibold text-muted-foreground mb-1">Business</p>
+              <div className="flex items-end gap-1">
+                <span className="text-4xl font-bold text-foreground">57 $</span>
+                <span className="text-muted-foreground text-sm mb-1.5">/mois</span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Pour les équipes grandissantes</p>
+            </div>
+            <ul className="space-y-2 flex-1">
+              {BUSINESS_FEATURES.map((f) => (
+                <li key={f} className="flex items-start gap-2 text-sm text-foreground">
+                  <Check className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0 mt-0.5" />
+                  <span>{f}</span>
+                </li>
+              ))}
+            </ul>
+            <Button
+              variant="outline"
+              className="w-full border-primary/40 text-primary hover:bg-primary/10"
+              onClick={() => navigate("/login?intent=create&plan=business")}
+            >
+              Choisir Business
             </Button>
           </div>
         </div>

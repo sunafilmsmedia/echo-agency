@@ -172,7 +172,7 @@ export default function WorkspaceSetup() {
               </div>
               <div className="flex-1">
                 <p className="font-semibold text-sm text-foreground">Créer mon espace</p>
-                <p className="text-xs text-muted-foreground">57 $/mois — paiement sécurisé Stripe</p>
+                <p className="text-xs text-muted-foreground">Gratuit · Pro 27$/mo · Business 57$/mo</p>
               </div>
               <ArrowRight className="w-4 h-4 text-primary group-hover:translate-x-1 transition-transform" />
             </button>
@@ -231,7 +231,7 @@ export default function WorkspaceSetup() {
               </div>
               <div>
                 <p className="font-semibold text-sm">Créer ton espace</p>
-                <p className="text-xs text-muted-foreground">57 $/mois · Annulable à tout moment</p>
+                <p className="text-xs text-muted-foreground">Choisis ton plan à l'étape suivante · Annulable à tout moment</p>
               </div>
             </div>
 
