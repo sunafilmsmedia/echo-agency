@@ -6,6 +6,7 @@ import {
   Users, Zap, BarChart3, Brain, Calendar, CheckSquare,
   ArrowRight, Check, Shield, Star, Palette, Sparkles, LayoutDashboard,
 } from "lucide-react";
+import { LandingChat } from "@/components/landing/LandingChat";
 
 const FEATURES = [
   { icon: Palette,         label: "100% personnalisable",  desc: "Ton logo, tes couleurs, ton nom — ton tracker reflète ta marque" },
@@ -136,22 +137,15 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Visual mockup — "by Echo" branding example */}
-      <section className="relative z-10 px-6 pb-12 max-w-3xl mx-auto">
-        <div className="rounded-2xl border border-border/50 bg-card/60 backdrop-blur-sm overflow-hidden">
-          <div className="flex items-center gap-2 px-5 py-4 border-b border-border/40 bg-muted/30">
-            <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
-              <span className="text-sm font-bold text-primary">M</span>
-            </div>
-            <div className="flex items-baseline gap-1.5">
-              <span className="font-bold text-foreground">MaSite Inc</span>
-              <span className="text-xs text-muted-foreground">by Echo</span>
-            </div>
-          </div>
-          <div className="p-5 text-center text-xs text-muted-foreground">
-            ↑ Voici à quoi ressemble le header de ton tracker — ton nom, ton logo, et la signature discrète "by Echo"
-          </div>
+      {/* Interactive chat preview */}
+      <section className="relative z-10 px-6 pb-16 max-w-2xl mx-auto">
+        <div className="text-center mb-6">
+          <p className="text-xs text-muted-foreground font-semibold uppercase tracking-widest mb-2">Essaie maintenant</p>
+          <h2 className="text-2xl sm:text-3xl font-bold text-foreground">
+            Construis ton tracker <span className="text-primary">en direct</span>
+          </h2>
         </div>
+        <LandingChat onCreateClick={() => navigate("/login?intent=create")} />
       </section>
 
       {/* Features grid */}
