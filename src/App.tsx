@@ -11,6 +11,7 @@ import Dashboard from "@/pages/Dashboard";
 import Tasks from "@/pages/Tasks";
 import WorkspaceSetup from "@/pages/WorkspaceSetup";
 import WorkspaceSuccess from "@/pages/WorkspaceSuccess";
+import Preview from "@/pages/Preview";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -73,6 +74,7 @@ export default function App() {
           {/* Public */}
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/preview" element={<Preview />} />
 
           {/* Post-auth workspace onboarding */}
           <Route
