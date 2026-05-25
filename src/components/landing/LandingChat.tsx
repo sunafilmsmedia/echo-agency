@@ -25,10 +25,14 @@ const REVENUE_RANGES = [
 ];
 
 const COLOR_PALETTE = [
-  "#7c3aed", "#2563eb", "#0891b2", "#059669",
-  "#ca8a04", "#ea580c", "#dc2626", "#db2777",
-  "#9333ea", "#1e40af", "#0f766e", "#15803d",
-  "#a16207", "#c2410c", "#991b1b", "#be185d",
+  // Neutres
+  "#ffffff", "#e5e7eb", "#9ca3af", "#6b7280", "#374151", "#1f2937", "#000000", "#78716c",
+  // Vifs
+  "#7c3aed", "#2563eb", "#0891b2", "#059669", "#ca8a04", "#ea580c", "#dc2626", "#db2777",
+  // Foncés
+  "#9333ea", "#1e40af", "#0f766e", "#15803d", "#a16207", "#c2410c", "#991b1b", "#be185d",
+  // Pastels
+  "#c4b5fd", "#93c5fd", "#67e8f9", "#86efac", "#fde047", "#fdba74", "#fca5a5", "#f9a8d4",
 ];
 
 interface Props { onCreateClick: () => void; }
@@ -305,8 +309,9 @@ function ColorSelector({ label, value, onChange }: { label: string; value: strin
       <div className="grid grid-cols-8 gap-1.5">
         {COLOR_PALETTE.map(c => (
           <button key={c} onClick={() => onChange(c)}
-            className={`aspect-square rounded-md border-2 transition-all ${value === c ? "border-foreground scale-110" : "border-transparent hover:scale-105"}`}
-            style={{ background: c }} />
+            className={`aspect-square rounded-md border-2 transition-all ${value === c ? "border-foreground scale-110 ring-2 ring-primary/30" : "border-border/40 hover:scale-105 hover:border-border/70"}`}
+            style={{ background: c }}
+            title={c.toUpperCase()} />
         ))}
       </div>
     </div>
