@@ -16,10 +16,12 @@ const PURPOSES = [
 ];
 
 const REVENUE_RANGES = [
-  { id: "0-5",    label: "Moins de 5 000 $",    sample: 2_840  },
-  { id: "5-15",   label: "5 000 $ – 15 000 $",  sample: 8_950  },
-  { id: "15-50",  label: "15 000 $ – 50 000 $", sample: 27_400 },
-  { id: "50+",    label: "Plus de 50 000 $",    sample: 78_200 },
+  { id: "0-10",   label: "0 $ – 10 000 $",      sample: 5_800  },
+  { id: "10-20",  label: "10 000 $ – 20 000 $", sample: 14_500 },
+  { id: "20-30",  label: "20 000 $ – 30 000 $", sample: 24_800 },
+  { id: "30-45",  label: "30 000 $ – 45 000 $", sample: 37_500 },
+  { id: "45-60",  label: "45 000 $ – 60 000 $", sample: 52_000 },
+  { id: "60+",    label: "Plus de 60 000 $",    sample: 78_000 },
 ];
 
 const COLOR_PALETTE = [

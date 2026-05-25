@@ -65,7 +65,12 @@ export default function Preview() {
   const progress = (secondsLeft / COUNTDOWN_SECONDS) * 100;
 
   // Derived sample data
-  const clientCount = revenueSample < 5000 ? 4 : revenueSample < 15000 ? 8 : revenueSample < 50000 ? 14 : 22;
+  const clientCount =
+    revenueSample < 10_000 ? 5 :
+    revenueSample < 20_000 ? 9 :
+    revenueSample < 30_000 ? 13 :
+    revenueSample < 45_000 ? 17 :
+    revenueSample < 60_000 ? 22 : 28;
   const monthlyExpenses = Math.round(revenueSample * 0.35);
   const profit = revenueSample - monthlyExpenses;
   const growthPct = 18;
