@@ -255,7 +255,7 @@ export default function Preview() {
                     <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border/40">
                       <Hash className="w-3.5 h-3.5 text-muted-foreground" />
                       <span className="text-sm font-semibold text-foreground">général</span>
-                      <span className="text-[10px] text-muted-foreground ml-1">· 3 membres en ligne</span>
+                      <span className="text-[10px] text-muted-foreground ml-1">· 2 membres en ligne</span>
                     </div>
                     <div className="flex-1 p-4 space-y-3 overflow-hidden">
                       <ChatMessage author="Sandra" color={color1} time="10:42" message={`On a dépassé les objectifs ce mois! ${revenueSample > 15000 ? "Plus de $15k de revenu 🎉" : "Bonne tendance"}`} />
@@ -396,7 +396,7 @@ export default function Preview() {
               <p className="text-xs font-semibold user-c1 uppercase tracking-wider">Ce que tu obtiens</p>
               <p className="text-sm text-foreground">✓ Ton tracker personnalisé, prêt à utiliser</p>
               <p className="text-sm text-foreground">✓ IA Claude intégrée partout</p>
-              <p className="text-sm text-foreground">✓ Jusqu'à 3 membres dans ton équipe</p>
+              <p className="text-sm text-foreground">✓ Jusqu'à 2 membres dans ton équipe</p>
               <p className="text-sm text-foreground">✓ Annulation à tout moment</p>
             </div>
             <Button onClick={() => navigate("/login?intent=create")}

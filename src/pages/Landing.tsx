@@ -19,7 +19,7 @@ const FEATURES = [
 
 const FREE_FEATURES = [
   "Accès complet au tracker invité",
-  "Jusqu'à 3 membres par espace",
+  "Jusqu'à 2 membres par espace",
   "Tous les conseillers IA Claude",
   "Collaboration en temps réel",
   "Rejoindre sur invitation",
@@ -28,7 +28,7 @@ const FREE_FEATURES = [
 const PRO_FEATURES = [
   "Crée TON propre AI Business Tracker",
   "Branding personnalisé (logo, couleurs, nom)",
-  "Inviter jusqu'à 3 membres gratuitement",
+  "Inviter jusqu'à 2 membres gratuitement",
   "Intégrations : Stripe, Google Calendar",
   "IA Claude intégrée partout",
   "Support prioritaire",
@@ -102,7 +102,7 @@ export default function Landing() {
                 <Users className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
                 <span className="font-semibold text-foreground">Rejoindre un tracker</span>
               </div>
-              <span className="text-xs text-muted-foreground">Gratuit · Jusqu'à 3 membres</span>
+              <span className="text-xs text-muted-foreground">Gratuit · Jusqu'à 2 membres</span>
             </div>
           </button>
 

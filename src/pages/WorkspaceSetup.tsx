@@ -252,7 +252,7 @@ export default function WorkspaceSetup() {
               <p className="text-xs font-semibold text-muted-foreground mb-2">Ce qui est inclus</p>
               {[
                 "Dashboard complet + IA intégrée",
-                "Jusqu'à 3 membres dans ton équipe",
+                "Jusqu'à 2 membres dans ton équipe",
                 "Google Calendar & Stripe sync",
                 "Tous les conseillers IA (Sales, Category, Automation...)",
               ].map((f) => (
