@@ -8,10 +8,63 @@ import { Textarea } from "@/components/ui/textarea";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import {
   ExternalLink, FolderOpen, Link, Check, X, Copy, ChevronDown, ChevronUp,
-  Users, ClipboardList, Mail, Phone, FileText, Loader2, Sparkles,
+  Users, ClipboardList, Mail, Phone, FileText, Loader2, Sparkles, Lock, RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import Anthropic from "@anthropic-ai/sdk";
+
+// ─── Client portal access helpers ─────────────────────────────────────────────
+
+const AGENCY_NAME_KEY  = "echo_agency_name";
+const AGENCY_COLOR_KEY = "echo_agency_color";
+
+function getAgencyName():  string { return localStorage.getItem(AGENCY_NAME_KEY)  || "Mon Agence"; }
+function getAgencyColor(): string { return localStorage.getItem(AGENCY_COLOR_KEY) || "#7c3aed"; }
+
+function generateAccessCode(): string {
+  const chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // no confusing chars
+  return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+}
+
+function getClientCode(clientId: string): string | null {
+  return localStorage.getItem(`client_code_${clientId}`);
+}
+
+function setClientCode(clientId: string, code: string) {
+  localStorage.setItem(`client_code_${clientId}`, code);
+}
+
+interface PortalSnapshot {
+  clientId: string;
+  clientName: string;
+  monthlyFee: number;
+  driveUrl?: string;
+  agencyName: string;
+  agencyColor: string;
+}
+
+function syncPortalSnapshot(client: any, code: string) {
+  const snapshot: PortalSnapshot = {
+    clientId:    client.id,
+    clientName:  client.name,
+    monthlyFee:  client.monthly_recurring_revenue ?? 0,
+    driveUrl:    client.google_drive_url ?? undefined,
+    agencyName:  getAgencyName(),
+    agencyColor: getAgencyColor(),
+  };
+  localStorage.setItem(`client_portal_${code}`, JSON.stringify(snapshot));
+}
+
+function getOrCreateClientCode(client: any): string {
+  let code = getClientCode(client.id);
+  if (!code) {
+    code = generateAccessCode();
+    setClientCode(client.id, code);
+  }
+  // Always refresh the snapshot with latest data
+  syncPortalSnapshot(client, code);
+  return code;
+}
 
 // ─── Onboarding Data ──────────────────────────────────────────────────────────
 
@@ -441,6 +494,27 @@ export function ClientCenterTab() {
   const [editingDrive, setEditingDrive] = useState<string | null>(null);
   const [driveInput, setDriveInput] = useState("");
 
+  // Per-client Portal panel
+  const [portalShown, setPortalShown] = useState<string | null>(null);
+  const [portalCode, setPortalCode]   = useState<string>("");
+
+  const openPortalPanel = (client: any) => {
+    const code = getOrCreateClientCode(client);
+    setPortalCode(code);
+    setPortalShown(client.id);
+  };
+
+  const regenerateCode = (client: any) => {
+    const newCode = generateAccessCode();
+    // Clean up old code's snapshot
+    const oldCode = getClientCode(client.id);
+    if (oldCode) localStorage.removeItem(`client_portal_${oldCode}`);
+    setClientCode(client.id, newCode);
+    syncPortalSnapshot(client, newCode);
+    setPortalCode(newCode);
+    toast.success("Nouveau code généré");
+  };
+
   const startEdit = (clientId: string, currentUrl: string | null) => {
     setEditingDrive(clientId);
     setDriveInput(currentUrl ?? "");
@@ -550,6 +624,12 @@ export function ClientCenterTab() {
                         <Link className="w-3.5 h-3.5" />
                         {client.google_drive_url ? "Changer" : "Connecter Drive"}
                       </Button>
+                      <Button size="sm" variant="outline"
+                        className="gap-1.5 text-xs border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
+                        onClick={() => portalShown === client.id ? setPortalShown(null) : openPortalPanel(client)}>
+                        <Lock className="w-3.5 h-3.5" />
+                        Portail
+                      </Button>
                     </div>
                   </div>
                   {editingDrive === client.id && (
@@ -564,6 +644,60 @@ export function ClientCenterTab() {
                       <Button size="icon" variant="ghost" className="h-8 w-8 flex-shrink-0" onClick={cancelEdit}>
                         <X className="w-3.5 h-3.5" />
                       </Button>
+                    </div>
+                  )}
+
+                  {/* Portal access panel */}
+                  {portalShown === client.id && (
+                    <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-3 mt-1">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-2">
+                          <Lock className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <p className="text-xs font-semibold text-foreground">Portail client</p>
+                            <p className="text-[10px] text-muted-foreground">Partage le code ci-dessous avec {client.name} pour qu'il accède à son espace.</p>
+                          </div>
+                        </div>
+                        <button onClick={() => setPortalShown(null)} className="text-muted-foreground hover:text-foreground">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 px-3 py-2 rounded-md bg-card border border-border/50 font-mono text-base text-foreground text-center tracking-widest font-bold">
+                          {portalCode}
+                        </div>
+                        <Button size="icon" variant="outline" className="h-9 w-9 flex-shrink-0"
+                          onClick={() => { navigator.clipboard.writeText(portalCode); toast.success("Code copié"); }}
+                          title="Copier le code">
+                          <Copy className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button size="icon" variant="outline" className="h-9 w-9 flex-shrink-0"
+                          onClick={() => regenerateCode(client)} title="Régénérer un nouveau code">
+                          <RefreshCw className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <Button size="sm" className="flex-1 gap-1.5 bg-amber-500 hover:bg-amber-500/90 text-white border-0"
+                          onClick={() => window.open(`/portail?code=${portalCode}`, "_blank")}>
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          Ouvrir le portail (aperçu)
+                        </Button>
+                        <Button size="sm" variant="outline" className="flex-1 gap-1.5"
+                          onClick={() => {
+                            const url = `${window.location.origin}/portail?code=${portalCode}`;
+                            navigator.clipboard.writeText(url);
+                            toast.success("Lien copié — prêt à envoyer");
+                          }}>
+                          <Copy className="w-3.5 h-3.5" />
+                          Copier le lien d'invitation
+                        </Button>
+                      </div>
+
+                      <p className="text-[10px] text-muted-foreground italic">
+                        Le client verra : son forfait ({client.monthly_recurring_revenue ? formatCurrency(client.monthly_recurring_revenue) + "/mois" : "à définir"}), son Drive {client.google_drive_url ? "✓" : "(non configuré)"}, et un carnet d'idées partagé.
+                      </p>
                     </div>
                   )}
                 </CardContent>
