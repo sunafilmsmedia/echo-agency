@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import {
   Lock, ArrowRight, LogOut, ExternalLink, DollarSign,
   FolderOpen, Lightbulb, Send, User, Sparkles, Calendar as CalendarIcon, Loader2,
+  Eye, Target,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +14,8 @@ interface PortalData {
   clientId: string;
   clientName: string;
   monthlyFee: number;
+  monthlyViews?: number;
+  costPerLead?: number;
   driveUrl?: string;
   agencyName: string;
   agencyColor: string;
@@ -37,6 +40,8 @@ function lookupCode(code: string): PortalData | null {
       clientId: "demo-client",
       clientName: "Studio Lumière",
       monthlyFee: 2_400,
+      monthlyViews: 187_400,
+      costPerLead: 12.40,
       driveUrl: "https://drive.google.com/drive/folders/exemple",
       agencyName: "Ton Agence",
       agencyColor: "#7c3aed",
@@ -195,7 +200,7 @@ function LoginScreen({ onLogin }: { onLogin: (d: PortalData) => void }) {
 // ── Portal view ───────────────────────────────────────────────────────────────
 
 function PortalView({ session, onLogout }: { session: PortalData; onLogout: () => void }) {
-  const { clientId, clientName, monthlyFee, driveUrl, agencyName, agencyColor } = session;
+  const { clientId, clientName, monthlyFee, monthlyViews, costPerLead, driveUrl, agencyName, agencyColor } = session;
   const [entries, setEntries] = useState<JournalEntry[]>(() => loadJournal(clientId));
   const [newEntry, setNewEntry] = useState("");
 
@@ -273,41 +278,82 @@ function PortalView({ session, onLogout }: { session: PortalData; onLogout: () =
           <p className="text-sm text-muted-foreground mt-1">Voici ton espace personnel avec {agencyName}</p>
         </div>
 
-        {/* Top cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Performance metrics — 3 stat cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {/* Monthly fee */}
           <div className="rounded-2xl border border-border/50 bg-card p-5 space-y-3">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg acc-bg-soft flex items-center justify-center">
                 <DollarSign className="w-4 h-4 acc-c" />
               </div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Ton forfait mensuel</p>
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Forfait mensuel</p>
             </div>
             <div className="flex items-baseline gap-1">
-              <span className="text-3xl font-bold text-foreground">${monthlyFee.toLocaleString("fr-CA")}</span>
-              <span className="text-sm text-muted-foreground">/mois</span>
+              <span className="text-2xl font-bold text-foreground">${monthlyFee.toLocaleString("fr-CA")}</span>
+              <span className="text-xs text-muted-foreground">/mois</span>
             </div>
-            <p className="text-[11px] text-muted-foreground">Prochain renouvellement le 1er du mois</p>
+            <p className="text-[10px] text-muted-foreground">Prochain renouvellement le 1er du mois</p>
           </div>
 
-          {/* Drive link */}
+          {/* Monthly views */}
           <div className="rounded-2xl border border-border/50 bg-card p-5 space-y-3">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg acc-bg-soft flex items-center justify-center">
-                <FolderOpen className="w-4 h-4 acc-c" />
+                <Eye className="w-4 h-4 acc-c" />
               </div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tes vidéos & ressources</p>
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Vues moyennes / mois</p>
             </div>
-            <p className="text-sm text-foreground">Accède à toutes tes vidéos finalisées sur Google Drive.</p>
-            {driveUrl ? (
-              <a href={driveUrl} target="_blank" rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 acc-c text-sm font-semibold hover:underline">
-                Ouvrir mon dossier Drive <ExternalLink className="w-3.5 h-3.5" />
-              </a>
+            {monthlyViews !== undefined ? (
+              <>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-2xl font-bold text-foreground">{monthlyViews.toLocaleString("fr-CA")}</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground">Toutes plateformes confondues</p>
+              </>
             ) : (
-              <p className="text-xs text-muted-foreground italic">Ton agence n'a pas encore configuré ton dossier.</p>
+              <p className="text-xs text-muted-foreground italic">Données en attente</p>
             )}
           </div>
+
+          {/* Cost per lead */}
+          <div className="rounded-2xl border border-border/50 bg-card p-5 space-y-3">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg acc-bg-soft flex items-center justify-center">
+                <Target className="w-4 h-4 acc-c" />
+              </div>
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Coût par lead moyen</p>
+            </div>
+            {costPerLead !== undefined ? (
+              <>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-2xl font-bold text-foreground">${costPerLead.toFixed(2)}</span>
+                  <span className="text-xs text-muted-foreground">/ lead</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground">Performance des campagnes</p>
+              </>
+            ) : (
+              <p className="text-xs text-muted-foreground italic">Données en attente</p>
+            )}
+          </div>
+        </div>
+
+        {/* Drive link — full width below */}
+        <div className="rounded-2xl border border-border/50 bg-card p-5 space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg acc-bg-soft flex items-center justify-center">
+              <FolderOpen className="w-4 h-4 acc-c" />
+            </div>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tes vidéos & ressources</p>
+          </div>
+          <p className="text-sm text-foreground">Accède à toutes tes vidéos finalisées sur Google Drive.</p>
+          {driveUrl ? (
+            <a href={driveUrl} target="_blank" rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 acc-c text-sm font-semibold hover:underline">
+              Ouvrir mon dossier Drive <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+          ) : (
+            <p className="text-xs text-muted-foreground italic">Ton agence n'a pas encore configuré ton dossier.</p>
+          )}
         </div>
 
         {/* Journal */}
