@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import {
   Lock, ArrowRight, LogOut, ExternalLink, DollarSign,
   FolderOpen, Lightbulb, Send, User, Sparkles, Calendar as CalendarIcon, Loader2,
-  Eye, Target,
+  Eye, Target, Trophy, TrendingUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,6 +63,41 @@ function loadJournal(clientId: string): JournalEntry[] {
 
 function saveJournal(clientId: string, entries: JournalEntry[]) {
   localStorage.setItem(`client_journal_${clientId}`, JSON.stringify(entries));
+}
+
+// ── KPI sync — reads KPI Équipe data to compute the avg views for this client ──
+
+interface KpiSync {
+  avgViews: number | null;
+  monthsTracked: number;
+  latest: number | null;
+  previous: number | null;
+}
+
+function computeKpiSync(clientId: string, monthsBack = 3): KpiSync {
+  const now = new Date();
+  const values: { y: number; m: number; views: number }[] = [];
+  for (let i = 0; i < monthsBack; i++) {
+    let m = now.getMonth() + 1 - i;
+    let y = now.getFullYear();
+    while (m < 1) { m += 12; y--; }
+    try {
+      const raw = localStorage.getItem(`kpi_${y}_${String(m).padStart(2, "0")}`);
+      if (raw) {
+        const data = JSON.parse(raw);
+        const row = data?.[clientId];
+        if (row?.views != null) values.push({ y, m, views: row.views });
+      }
+    } catch {}
+  }
+  if (values.length === 0) return { avgViews: null, monthsTracked: 0, latest: null, previous: null };
+  const avg = Math.round(values.reduce((a, b) => a + b.views, 0) / values.length);
+  return {
+    avgViews: avg,
+    monthsTracked: values.length,
+    latest: values[0]?.views ?? null,
+    previous: values[1]?.views ?? null,
+  };
 }
 
 function seedDemoJournalIfNeeded(clientId: string): JournalEntry[] {
@@ -204,6 +239,15 @@ function PortalView({ session, onLogout }: { session: PortalData; onLogout: () =
   const [entries, setEntries] = useState<JournalEntry[]>(() => loadJournal(clientId));
   const [newEntry, setNewEntry] = useState("");
 
+  // Sync with KPI Équipe data (auto-computed avg views)
+  const kpi = useMemo(() => computeKpiSync(clientId, 3), [clientId]);
+  // KPI overrides static value if data exists
+  const displayedViews = kpi.avgViews ?? monthlyViews ?? null;
+  const viewsFromKpi   = kpi.avgViews !== null;
+  const trendPct = (kpi.latest !== null && kpi.previous !== null && kpi.previous > 0)
+    ? Math.round(((kpi.latest - kpi.previous) / kpi.previous) * 100)
+    : null;
+
   const todayKey = new Date().toISOString().split("T")[0];
 
   const addEntry = () => {
@@ -295,20 +339,37 @@ function PortalView({ session, onLogout }: { session: PortalData; onLogout: () =
             <p className="text-[10px] text-muted-foreground">Prochain renouvellement le 1er du mois</p>
           </div>
 
-          {/* Monthly views */}
+          {/* Monthly views — synced with KPI Équipe */}
           <div className="rounded-2xl border border-border/50 bg-card p-5 space-y-3">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg acc-bg-soft flex items-center justify-center">
                 <Eye className="w-4 h-4 acc-c" />
               </div>
-              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Vues moyennes / mois</p>
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex-1">Vues moyennes / mois</p>
+              {viewsFromKpi && (
+                <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full"
+                  style={{ background: `${agencyColor}1a`, color: agencyColor }}
+                  title="Synchronisé avec le KPI Équipe">
+                  <Trophy className="w-2.5 h-2.5 inline mr-0.5" /> KPI
+                </span>
+              )}
             </div>
-            {monthlyViews !== undefined ? (
+            {displayedViews !== null ? (
               <>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-2xl font-bold text-foreground">{monthlyViews.toLocaleString("fr-CA")}</span>
+                <div className="flex items-baseline gap-2 flex-wrap">
+                  <span className="text-2xl font-bold text-foreground">{displayedViews.toLocaleString("fr-CA")}</span>
+                  {trendPct !== null && trendPct !== 0 && (
+                    <span className={`text-[10px] font-semibold flex items-center gap-0.5 ${trendPct > 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                      <TrendingUp className={`w-2.5 h-2.5 ${trendPct < 0 ? "rotate-180" : ""}`} />
+                      {trendPct > 0 ? "+" : ""}{trendPct}%
+                    </span>
+                  )}
                 </div>
-                <p className="text-[10px] text-muted-foreground">Toutes plateformes confondues</p>
+                <p className="text-[10px] text-muted-foreground">
+                  {viewsFromKpi
+                    ? `Moyenne sur ${kpi.monthsTracked} mois — tracké par ${agencyName}`
+                    : "Toutes plateformes confondues"}
+                </p>
               </>
             ) : (
               <p className="text-xs text-muted-foreground italic">Données en attente</p>
