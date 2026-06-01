@@ -17,9 +17,19 @@ import Anthropic from "@anthropic-ai/sdk";
 
 const AGENCY_NAME_KEY  = "echo_agency_name";
 const AGENCY_COLOR_KEY = "echo_agency_color";
+const AGENCY_SLUG_KEY  = "echo_agency_slug";
 
 function getAgencyName():  string { return localStorage.getItem(AGENCY_NAME_KEY)  || "Mon Agence"; }
 function getAgencyColor(): string { return localStorage.getItem(AGENCY_COLOR_KEY) || "#7c3aed"; }
+function getAgencySlug():  string { return localStorage.getItem(AGENCY_SLUG_KEY)  || "mon-agence"; }
+
+function slugify(s: string): string {
+  return s.toLowerCase()
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 32) || "mon-agence";
+}
 
 function generateAccessCode(): string {
   const chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // no confusing chars
@@ -498,6 +508,23 @@ export function ClientCenterTab() {
   const [portalShown, setPortalShown] = useState<string | null>(null);
   const [portalCode, setPortalCode]   = useState<string>("");
 
+  // Agency branding settings
+  const [agencyName, setAgencyName]   = useState(getAgencyName);
+  const [agencySlug, setAgencySlug]   = useState(getAgencySlug);
+  const [agencyColor, setAgencyColor] = useState(getAgencyColor);
+  const [editingAgency, setEditingAgency] = useState(false);
+  const publicUrl = `${window.location.origin}/clients/${agencySlug}`;
+
+  const saveAgencySettings = () => {
+    const cleanSlug = slugify(agencySlug);
+    localStorage.setItem(AGENCY_NAME_KEY, agencyName.trim() || "Mon Agence");
+    localStorage.setItem(AGENCY_SLUG_KEY, cleanSlug);
+    localStorage.setItem(AGENCY_COLOR_KEY, agencyColor);
+    setAgencySlug(cleanSlug);
+    setEditingAgency(false);
+    toast.success("Réglages sauvegardés");
+  };
+
   const openPortalPanel = (client: any) => {
     const code = getOrCreateClientCode(client);
     setPortalCode(code);
@@ -573,6 +600,91 @@ export function ClientCenterTab() {
       {/* ── CLIENTS TAB ── */}
       {activeTab === "clients" && (
         <div className="space-y-3">
+
+          {/* Public client landing — shareable link */}
+          <Card className="border-amber-500/30 bg-amber-500/5">
+            <CardContent className="pt-4 pb-4 space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-2.5">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                    style={{ background: `linear-gradient(135deg, ${agencyColor}, ${agencyColor}cc)` }}>
+                    <span className="text-sm font-bold text-white">{agencyName.charAt(0).toUpperCase()}</span>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Lien public pour tes clients</p>
+                    <p className="text-[11px] text-muted-foreground">À partager par email ou à embed sur ton site web. Chaque client utilise son code pour entrer.</p>
+                  </div>
+                </div>
+                <Button size="sm" variant="ghost" className="text-xs text-muted-foreground"
+                  onClick={() => setEditingAgency(!editingAgency)}>
+                  {editingAgency ? "Annuler" : "Configurer"}
+                </Button>
+              </div>
+
+              {!editingAgency ? (
+                <>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 px-3 py-2 rounded-md bg-card border border-border/50 text-xs text-foreground font-mono truncate">
+                      {publicUrl}
+                    </code>
+                    <Button size="sm" variant="outline" className="gap-1.5 text-xs h-9"
+                      onClick={() => { navigator.clipboard.writeText(publicUrl); toast.success("Lien copié"); }}>
+                      <Copy className="w-3 h-3" /> Copier
+                    </Button>
+                    <Button size="sm" className="gap-1.5 text-xs h-9 bg-amber-500 hover:bg-amber-500/90 text-white border-0"
+                      onClick={() => window.open(publicUrl, "_blank")}>
+                      <ExternalLink className="w-3 h-3" /> Aperçu
+                    </Button>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground italic">
+                    Tes clients verront : <span className="font-semibold text-foreground">« Accède à ton profil client {agencyName} »</span>
+                    {" · "}couleur <span className="inline-block w-2 h-2 rounded-full align-middle ml-0.5" style={{ background: agencyColor }} />
+                  </p>
+                </>
+              ) : (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Nom de l'agence</label>
+                      <Input value={agencyName}
+                        onChange={(e) => { setAgencyName(e.target.value); setAgencySlug(slugify(e.target.value)); }}
+                        placeholder="SFM" className="h-9 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">URL slug</label>
+                      <div className="flex items-center gap-1">
+                        <span className="text-[10px] text-muted-foreground font-mono">/clients/</span>
+                        <Input value={agencySlug}
+                          onChange={(e) => setAgencySlug(e.target.value.toLowerCase())}
+                          placeholder="sfm" className="h-9 text-sm font-mono" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Couleur de marque</label>
+                    <div className="flex items-center gap-2">
+                      <input type="color" value={agencyColor}
+                        onChange={(e) => setAgencyColor(e.target.value)}
+                        className="w-12 h-9 rounded-md cursor-pointer border-0 bg-transparent" />
+                      <span className="text-xs text-muted-foreground font-mono">{agencyColor.toUpperCase()}</span>
+                      <div className="flex gap-1 ml-auto">
+                        {["#7c3aed","#2563eb","#ea580c","#dc2626","#059669","#ca8a04","#000000"].map(c => (
+                          <button key={c} onClick={() => setAgencyColor(c)}
+                            className="w-6 h-6 rounded-md border-2 transition-all"
+                            style={{ background: c, borderColor: agencyColor === c ? "white" : "transparent" }} />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <Button onClick={saveAgencySettings} className="w-full gap-1.5"
+                    style={{ background: agencyColor, color: "white" }}>
+                    <Check className="w-4 h-4" /> Enregistrer
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {showGeneralInput && (
             <Card>
               <CardContent className="pt-4 pb-4 flex gap-2">
