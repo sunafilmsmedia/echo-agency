@@ -13,15 +13,12 @@ function currentPeriod() {
 }
 
 export function useExpenseItems() {
-  const { start, end } = currentPeriod();
   return useQuery({
     queryKey: ["expense-items"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("expense_items")
         .select("*")
-        .eq("period_start", start)
-        .eq("period_end", end)
         .order("created_at");
       if (error) throw error;
       return data as ExpenseItem[];
