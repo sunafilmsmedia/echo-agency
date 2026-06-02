@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useRevenueMetrics, useRevenueMetricsHistory, useRevenueMetricsYTD, useUpdateRevenueMetrics } from "@/hooks/useRevenueMetrics";
+import { useRevenueMetrics, useRevenueMetricsHistory, useRevenueMetricsYTD, useUpdateRevenueMetrics, useUpdateRevenueMetricsForPeriod } from "@/hooks/useRevenueMetrics";
 import { useExpenseItems, useCreateExpenseItem, useDeleteExpenseItem } from "@/hooks/useExpenseItems";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,7 @@ import { formatCurrency } from "@/lib/utils";
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from "recharts";
-import { ChevronDown, Plus, Trash2, TrendingUp, DollarSign, AlertTriangle, Zap, RefreshCw } from "lucide-react";
+import { ChevronDown, Plus, Trash2, TrendingUp, DollarSign, AlertTriangle, Zap, RefreshCw, Pencil, Check, X, History } from "lucide-react";
 import { useStripeRevenue } from "@/hooks/useStripeRevenue";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -32,6 +32,7 @@ export function RevenueTab() {
   const { data: ytd = [] } = useRevenueMetricsYTD();
   const { data: expenseItems = [] } = useExpenseItems();
   const updateMetrics = useUpdateRevenueMetrics();
+  const updateMetricsForPeriod = useUpdateRevenueMetricsForPeriod();
   const createExpense = useCreateExpenseItem();
   const deleteExpense = useDeleteExpenseItem();
 
@@ -97,8 +98,11 @@ export function RevenueTab() {
   // YTD
   const now = new Date();
   const monthsElapsed = now.getMonth() + 1;
-  const ytdRevenue = ytd.reduce((s, m) => s + m.total_revenue + m.extra_revenue, 0);
+  const ytdRevenue   = ytd.reduce((s, m) => s + m.total_revenue + m.extra_revenue, 0);
+  const ytdExpenses  = ytd.reduce((s, m) => s + m.monthly_expenses, 0);
   const yearlyProjection = monthsElapsed > 0 ? (ytdRevenue / monthsElapsed) * 12 : 0;
+  // Annual expenses: actual YTD + run-rate × remaining months
+  const annualExpenses   = ytdExpenses + (totalExpenses * (12 - monthsElapsed));
 
   const saveGrowthMetrics = () => {
     updateMetrics.mutate(growthForm);
@@ -257,7 +261,7 @@ export function RevenueTab() {
             </AreaChart>
           </ResponsiveContainer>
           {/* YTD summary */}
-          <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-border/40">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 pt-4 border-t border-border/40">
             <div>
               <p className="text-xs text-muted-foreground">YTD Revenus</p>
               <p className="font-semibold text-sm">{formatCurrency(ytdRevenue)}</p>
@@ -268,13 +272,23 @@ export function RevenueTab() {
             </div>
             <div>
               <p className="text-xs text-muted-foreground">YTD Dépenses</p>
-              <p className="font-semibold text-sm text-destructive">
-                {formatCurrency(ytd.reduce((s, m) => s + m.monthly_expenses, 0))}
-              </p>
+              <p className="font-semibold text-sm text-destructive">{formatCurrency(ytdExpenses)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Dépenses annuelles</p>
+              <p className="font-semibold text-sm text-destructive">{formatCurrency(annualExpenses)}</p>
+              <p className="text-[10px] text-muted-foreground">YTD + run-rate × {12 - monthsElapsed}m</p>
             </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* Editable monthly history */}
+      <MonthlyHistoryCard
+        history={history}
+        updateForPeriod={(period_start, total_revenue) =>
+          updateMetricsForPeriod.mutate({ period_start, total_revenue })}
+      />
 
       {/* Growth metrics */}
       <Card>
@@ -448,5 +462,127 @@ export function RevenueTab() {
         </Card>
       </div>
     </div>
+  );
+}
+
+// ── Editable monthly history card ─────────────────────────────────────────────
+
+function MonthlyHistoryCard({
+  history,
+  updateForPeriod,
+}: {
+  history: any[];
+  updateForPeriod: (period_start: string, total_revenue: number) => void;
+}) {
+  const [editing, setEditing] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+
+  // Last 12 months, most recent first
+  const rows = [...history].slice(-12).reverse();
+  const currentPeriodStart = (() => {
+    const n = new Date();
+    return new Date(n.getFullYear(), n.getMonth(), 1).toISOString().split("T")[0];
+  })();
+
+  const monthLabel = (iso: string) =>
+    new Date(iso).toLocaleDateString("fr-CA", { month: "long", year: "numeric" });
+
+  const startEdit = (m: any) => {
+    setEditing(m.period_start);
+    setEditValue(String(m.total_revenue + m.extra_revenue));
+  };
+  const cancelEdit = () => { setEditing(null); setEditValue(""); };
+  const saveEdit = (period_start: string) => {
+    const val = Number(editValue);
+    if (isNaN(val)) return;
+    updateForPeriod(period_start, val);
+    cancelEdit();
+  };
+
+  if (rows.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm flex items-center gap-2">
+            <History className="w-4 h-4 text-primary" /> Historique mensuel
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-xs text-muted-foreground">Aucun mois enregistré pour l'instant.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm flex items-center justify-between">
+          <span className="flex items-center gap-2">
+            <History className="w-4 h-4 text-primary" /> Historique mensuel (modifiable)
+          </span>
+          <span className="text-xs text-muted-foreground font-normal">Corrige une valeur si elle est inexacte</span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="divide-y divide-border/30">
+          {rows.map((m) => {
+            const total = m.total_revenue + m.extra_revenue;
+            const isCurrent = m.period_start === currentPeriodStart;
+            const isEditing = editing === m.period_start;
+            return (
+              <div key={m.period_start} className="flex items-center gap-3 py-2.5">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium capitalize text-foreground">{monthLabel(m.period_start)}</p>
+                    {isCurrent && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/15 text-primary font-semibold uppercase tracking-wider">
+                        En cours
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    Dépenses: {formatCurrency(m.monthly_expenses)} · Profit: {formatCurrency(total - m.monthly_expenses)}
+                  </p>
+                </div>
+
+                {isEditing ? (
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      autoFocus
+                      type="number"
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") saveEdit(m.period_start);
+                        if (e.key === "Escape") cancelEdit();
+                      }}
+                      className="h-8 w-28 text-sm text-right font-mono"
+                    />
+                    <Button size="icon" className="h-8 w-8" onClick={() => saveEdit(m.period_start)}>
+                      <Check className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={cancelEdit}>
+                      <X className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-foreground font-mono">{formatCurrency(total)}</span>
+                    <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-primary"
+                      onClick={() => startEdit(m)}>
+                      <Pencil className="w-3 h-3" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <p className="text-[10px] text-muted-foreground mt-3 italic">
+          La projection annuelle utilise ces valeurs. Une correction ici améliore la précision.
+        </p>
+      </CardContent>
+    </Card>
   );
 }

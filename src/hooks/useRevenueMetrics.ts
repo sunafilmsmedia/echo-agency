@@ -81,3 +81,24 @@ export function useUpdateRevenueMetrics() {
     onError: () => toast.error("Erreur lors de la sauvegarde"),
   });
 }
+
+// Update a specific past month (for correcting historical values)
+export function useUpdateRevenueMetricsForPeriod() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ period_start, ...payload }: Partial<RevenueMetrics> & { period_start: string }) => {
+      const { error } = await supabase
+        .from("revenue_metrics")
+        .update(payload)
+        .eq("period_start", period_start);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["revenue-metrics-history"] });
+      qc.invalidateQueries({ queryKey: ["revenue-metrics-ytd"] });
+      qc.invalidateQueries({ queryKey: ["revenue-metrics"] });
+      toast.success("Mois mis à jour");
+    },
+    onError: () => toast.error("Erreur lors de la mise à jour du mois"),
+  });
+}
