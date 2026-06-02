@@ -286,8 +286,8 @@ export function RevenueTab() {
       {/* Editable monthly history */}
       <MonthlyHistoryCard
         history={history}
-        updateForPeriod={(period_start, total_revenue) =>
-          updateMetricsForPeriod.mutate({ period_start, total_revenue })}
+        updateForPeriod={(period_start, total_revenue, monthly_expenses) =>
+          updateMetricsForPeriod.mutate({ period_start, total_revenue, extra_revenue: 0, monthly_expenses })}
       />
 
       {/* Growth metrics */}
@@ -472,107 +472,135 @@ function MonthlyHistoryCard({
   updateForPeriod,
 }: {
   history: any[];
-  updateForPeriod: (period_start: string, total_revenue: number) => void;
+  updateForPeriod: (period_start: string, total_revenue: number, monthly_expenses: number) => void;
 }) {
   const [editing, setEditing] = useState<string | null>(null);
-  const [editValue, setEditValue] = useState("");
+  const [editRevenue, setEditRevenue]   = useState("");
+  const [editExpenses, setEditExpenses] = useState("");
 
-  // Last 12 months, most recent first
-  const rows = [...history].slice(-12).reverse();
-  const currentPeriodStart = (() => {
-    const n = new Date();
-    return new Date(n.getFullYear(), n.getMonth(), 1).toISOString().split("T")[0];
-  })();
+  // Build all months of current year up to current month, most recent first
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1; // 1-12
+  const currentPeriodStart = new Date(currentYear, now.getMonth(), 1).toISOString().split("T")[0];
+
+  const allMonths: { period_start: string; existing: any | null }[] = [];
+  for (let m = 1; m <= currentMonth; m++) {
+    const period_start = new Date(currentYear, m - 1, 1).toISOString().split("T")[0];
+    const existing = history.find((h: any) => h.period_start === period_start) ?? null;
+    allMonths.push({ period_start, existing });
+  }
+  allMonths.reverse();
 
   const monthLabel = (iso: string) =>
     new Date(iso).toLocaleDateString("fr-CA", { month: "long", year: "numeric" });
 
-  const startEdit = (m: any) => {
-    setEditing(m.period_start);
-    setEditValue(String(m.total_revenue + m.extra_revenue));
+  const startEdit = (period_start: string, existing: any) => {
+    setEditing(period_start);
+    setEditRevenue(existing ? String(existing.total_revenue + existing.extra_revenue) : "");
+    setEditExpenses(existing ? String(existing.monthly_expenses) : "");
   };
-  const cancelEdit = () => { setEditing(null); setEditValue(""); };
+  const cancelEdit = () => { setEditing(null); setEditRevenue(""); setEditExpenses(""); };
   const saveEdit = (period_start: string) => {
-    const val = Number(editValue);
-    if (isNaN(val)) return;
-    updateForPeriod(period_start, val);
+    const rev = Number(editRevenue) || 0;
+    const exp = Number(editExpenses) || 0;
+    updateForPeriod(period_start, rev, exp);
     cancelEdit();
   };
-
-  if (rows.length === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm flex items-center gap-2">
-            <History className="w-4 h-4 text-primary" /> Historique mensuel
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-xs text-muted-foreground">Aucun mois enregistré pour l'instant.</p>
-        </CardContent>
-      </Card>
-    );
-  }
+  const applyMargin = (margin: number) => {
+    const rev = Number(editRevenue) || 0;
+    if (rev > 0) setEditExpenses(String(Math.round(rev * (1 - margin / 100))));
+  };
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-sm flex items-center justify-between">
           <span className="flex items-center gap-2">
-            <History className="w-4 h-4 text-primary" /> Historique mensuel (modifiable)
+            <History className="w-4 h-4 text-primary" /> Historique mensuel {currentYear} (modifiable)
           </span>
           <span className="text-xs text-muted-foreground font-normal">Corrige une valeur si elle est inexacte</span>
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="divide-y divide-border/30">
-          {rows.map((m) => {
-            const total = m.total_revenue + m.extra_revenue;
-            const isCurrent = m.period_start === currentPeriodStart;
-            const isEditing = editing === m.period_start;
+          {allMonths.map(({ period_start, existing }) => {
+            const total    = existing ? (existing.total_revenue + existing.extra_revenue) : 0;
+            const expenses = existing ? existing.monthly_expenses : 0;
+            const profit   = total - expenses;
+            const margin   = total > 0 ? Math.round((profit / total) * 100) : 0;
+            const isCurrent  = period_start === currentPeriodStart;
+            const isEditing  = editing === period_start;
+            const isMissing  = !existing;
+
             return (
-              <div key={m.period_start} className="flex items-center gap-3 py-2.5">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium capitalize text-foreground">{monthLabel(m.period_start)}</p>
-                    {isCurrent && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/15 text-primary font-semibold uppercase tracking-wider">
-                        En cours
-                      </span>
+              <div key={period_start} className="py-2.5">
+                {/* Row header */}
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-medium capitalize text-foreground">{monthLabel(period_start)}</p>
+                      {isCurrent && (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/15 text-primary font-semibold uppercase tracking-wider">
+                          En cours
+                        </span>
+                      )}
+                      {isMissing && (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 font-semibold uppercase tracking-wider">
+                          Non rempli
+                        </span>
+                      )}
+                    </div>
+                    {!isMissing && !isEditing && (
+                      <p className="text-[10px] text-muted-foreground">
+                        Dépenses: {formatCurrency(expenses)} · Profit: {formatCurrency(profit)}
+                        {total > 0 && <span className={`ml-1 font-semibold ${margin >= 30 ? "text-emerald-400" : margin >= 15 ? "text-amber-400" : "text-destructive"}`}>({margin}%)</span>}
+                      </p>
                     )}
                   </div>
-                  <p className="text-[10px] text-muted-foreground">
-                    Dépenses: {formatCurrency(m.monthly_expenses)} · Profit: {formatCurrency(total - m.monthly_expenses)}
-                  </p>
+
+                  {!isEditing && (
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm font-bold font-mono ${isMissing ? "text-muted-foreground" : "text-foreground"}`}>
+                        {isMissing ? "—" : formatCurrency(total)}
+                      </span>
+                      <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-primary"
+                        onClick={() => startEdit(period_start, existing)}>
+                        <Pencil className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
 
-                {isEditing ? (
-                  <div className="flex items-center gap-1.5">
-                    <Input
-                      autoFocus
-                      type="number"
-                      value={editValue}
-                      onChange={(e) => setEditValue(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") saveEdit(m.period_start);
-                        if (e.key === "Escape") cancelEdit();
-                      }}
-                      className="h-8 w-28 text-sm text-right font-mono"
-                    />
-                    <Button size="icon" className="h-8 w-8" onClick={() => saveEdit(m.period_start)}>
-                      <Check className="w-3.5 h-3.5" />
-                    </Button>
-                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={cancelEdit}>
-                      <X className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-foreground font-mono">{formatCurrency(total)}</span>
-                    <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-primary"
-                      onClick={() => startEdit(m)}>
-                      <Pencil className="w-3 h-3" />
-                    </Button>
+                {/* Inline edit form */}
+                {isEditing && (
+                  <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Revenu total</label>
+                      <Input autoFocus type="number" placeholder="35000"
+                        value={editRevenue}
+                        onChange={(e) => setEditRevenue(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") saveEdit(period_start); if (e.key === "Escape") cancelEdit(); }}
+                        className="h-8 text-sm font-mono" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold flex items-center justify-between">
+                        Dépenses
+                        <button onClick={() => applyMargin(30)} className="text-[9px] text-primary hover:underline font-bold normal-case"
+                          title="Auto-remplir avec une marge de 30%">
+                          Auto 30% marge
+                        </button>
+                      </label>
+                      <Input type="number" placeholder="24500"
+                        value={editExpenses}
+                        onChange={(e) => setEditExpenses(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") saveEdit(period_start); if (e.key === "Escape") cancelEdit(); }}
+                        className="h-8 text-sm font-mono" />
+                    </div>
+                    <div className="sm:col-span-2 flex items-center gap-2 justify-end">
+                      <Button size="sm" variant="ghost" onClick={cancelEdit} className="gap-1.5"><X className="w-3.5 h-3.5"/> Annuler</Button>
+                      <Button size="sm" onClick={() => saveEdit(period_start)} className="gap-1.5"><Check className="w-3.5 h-3.5"/> Enregistrer</Button>
+                    </div>
                   </div>
                 )}
               </div>

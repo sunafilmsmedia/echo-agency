@@ -82,23 +82,35 @@ export function useUpdateRevenueMetrics() {
   });
 }
 
-// Update a specific past month (for correcting historical values)
+// Insert or update a specific month (for correcting/adding historical values)
 export function useUpdateRevenueMetricsForPeriod() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ period_start, ...payload }: Partial<RevenueMetrics> & { period_start: string }) => {
-      const { error } = await supabase
+      // Derive period_end (last day of the same month)
+      const d = new Date(period_start);
+      const period_end = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split("T")[0];
+
+      const { data: existing } = await supabase
         .from("revenue_metrics")
-        .update(payload)
-        .eq("period_start", period_start);
-      if (error) throw error;
+        .select("id")
+        .eq("period_start", period_start)
+        .maybeSingle();
+
+      if (existing) {
+        const { error } = await supabase.from("revenue_metrics").update(payload).eq("period_start", period_start);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("revenue_metrics").insert({ ...payload, period_start, period_end });
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["revenue-metrics-history"] });
       qc.invalidateQueries({ queryKey: ["revenue-metrics-ytd"] });
       qc.invalidateQueries({ queryKey: ["revenue-metrics"] });
-      toast.success("Mois mis à jour");
+      toast.success("Mois sauvegardé");
     },
-    onError: () => toast.error("Erreur lors de la mise à jour du mois"),
+    onError: () => toast.error("Erreur lors de la sauvegarde du mois"),
   });
 }
