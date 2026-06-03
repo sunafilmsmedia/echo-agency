@@ -87,9 +87,12 @@ export function useUpdateRevenueMetricsForPeriod() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ period_start, ...payload }: Partial<RevenueMetrics> & { period_start: string }) => {
-      // Derive period_end (last day of the same month)
-      const d = new Date(period_start);
-      const period_end = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split("T")[0];
+      // Derive period_end (last day of the same month) — timezone-safe
+      const [yearStr, monthStr] = period_start.split("-");
+      const year = parseInt(yearStr, 10);
+      const month = parseInt(monthStr, 10);
+      const lastDay = new Date(year, month, 0).getDate(); // day count is timezone-independent
+      const period_end = `${yearStr}-${monthStr}-${String(lastDay).padStart(2, "0")}`;
 
       const { data: existing } = await supabase
         .from("revenue_metrics")

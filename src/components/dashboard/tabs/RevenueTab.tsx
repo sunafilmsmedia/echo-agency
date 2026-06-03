@@ -482,18 +482,22 @@ function MonthlyHistoryCard({
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth() + 1; // 1-12
-  const currentPeriodStart = new Date(currentYear, now.getMonth(), 1).toISOString().split("T")[0];
+  // Build date strings manually to avoid UTC/local timezone shifts
+  const periodStartFor = (m: number) => `${currentYear}-${String(m).padStart(2, "0")}-01`;
+  const currentPeriodStart = periodStartFor(currentMonth);
 
   const allMonths: { period_start: string; existing: any | null }[] = [];
   for (let m = 1; m <= currentMonth; m++) {
-    const period_start = new Date(currentYear, m - 1, 1).toISOString().split("T")[0];
+    const period_start = periodStartFor(m);
     const existing = history.find((h: any) => h.period_start === period_start) ?? null;
     allMonths.push({ period_start, existing });
   }
   allMonths.reverse();
 
-  const monthLabel = (iso: string) =>
-    new Date(iso).toLocaleDateString("fr-CA", { month: "long", year: "numeric" });
+  const monthLabel = (iso: string) => {
+    const [y, mo] = iso.split("-").map(Number);
+    return new Date(y, mo - 1, 1).toLocaleDateString("fr-CA", { month: "long", year: "numeric" });
+  };
 
   const startEdit = (period_start: string, existing: any) => {
     setEditing(period_start);
