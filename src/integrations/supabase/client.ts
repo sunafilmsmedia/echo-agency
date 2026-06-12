@@ -101,3 +101,30 @@ export interface ExpenseItem {
   created_at: string;
   updated_at: string;
 }
+
+export interface AgencySettings {
+  id: string;
+  name: string;
+  slug: string;
+  color: string;
+  script_gpt_url: string | null;
+  brand_guide_url: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ClientPortalCode {
+  id: string;
+  client_id: string;
+  access_code: string;
+  created_at: string;
+}
+
+export interface ClientJournalEntry {
+  id: string;
+  client_id: string;
+  content: string;
+  author: "client" | "agency";
+  entry_date: string;
+  created_at: string;
+}

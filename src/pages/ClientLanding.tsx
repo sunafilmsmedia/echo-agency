@@ -1,43 +1,20 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Lock, ArrowRight, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-
-interface AgencyConfig {
-  name: string;
-  slug: string;
-  color: string;
-}
-
-function loadAgencyForSlug(slug: string): AgencyConfig | null {
-  const savedName  = localStorage.getItem("echo_agency_name");
-  const savedSlug  = localStorage.getItem("echo_agency_slug");
-  const savedColor = localStorage.getItem("echo_agency_color");
-  if (!savedSlug || savedSlug.toLowerCase() !== slug.toLowerCase()) return null;
-  return {
-    name:  savedName  || "Mon Agence",
-    slug:  savedSlug,
-    color: savedColor || "#7c3aed",
-  };
-}
+import { useAgencySettingsBySlug, useResolveAccessCode } from "@/hooks/usePortal";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function ClientLanding() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
-  const [agency, setAgency]   = useState<AgencyConfig | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: agency, isLoading } = useAgencySettingsBySlug(slug);
   const [code, setCode]       = useState("");
   const [error, setError]     = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (!slug) { navigate("/", { replace: true }); return; }
-    setAgency(loadAgencyForSlug(slug));
-    setLoading(false);
-  }, [slug, navigate]);
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-6 h-6 animate-spin text-primary" />
@@ -45,7 +22,6 @@ export default function ClientLanding() {
     );
   }
 
-  // Agency not found for this slug
   if (!agency) {
     return (
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-6">
@@ -55,31 +31,27 @@ export default function ClientLanding() {
           </div>
           <h1 className="text-xl font-bold text-foreground">Agence introuvable</h1>
           <p className="text-sm text-muted-foreground">
-            Le lien <span className="font-mono">/clients/{slug}</span> ne correspond à aucune agence enregistrée sur ce navigateur.
-          </p>
-          <p className="text-xs text-muted-foreground/60 pt-2">
-            (Note MVP : les agences sont stockées localement. La vraie résolution cross-device viendra avec la migration Supabase.)
+            Le lien <span className="font-mono">/clients/{slug}</span> ne correspond à aucune agence enregistrée.
           </p>
         </div>
       </div>
     );
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!code.trim()) return;
     setError("");
     setSubmitting(true);
-    // Validate code exists in localStorage
-    setTimeout(() => {
-      const upperCode = code.trim().toUpperCase();
-      const exists = localStorage.getItem(`client_portal_${upperCode}`) || upperCode === "DEMO01";
-      if (!exists) {
-        setError("Code introuvable. Vérifie avec ton agence.");
-        setSubmitting(false);
-        return;
-      }
-      navigate(`/portail?code=${upperCode}`);
-    }, 400);
+    const upperCode = code.trim().toUpperCase();
+    const { data, error: qError } = await supabase
+      .from("client_portal_codes")
+      .select("access_code")
+      .eq("access_code", upperCode)
+      .maybeSingle();
+    setSubmitting(false);
+    if (qError) { setError("Erreur réseau. Réessaie."); return; }
+    if (!data) { setError("Code introuvable. Vérifie avec ton agence."); return; }
+    navigate(`/portail?code=${upperCode}`);
   };
 
   const initials = agency.name.charAt(0).toUpperCase();
@@ -98,8 +70,6 @@ export default function ClientLanding() {
         style={{ background: `radial-gradient(circle at 50% 0%, ${agency.color}15, transparent 70%)` }} />
 
       <div className="relative w-full max-w-md space-y-6">
-
-        {/* Brand header */}
         <div className="text-center space-y-3">
           <div className="w-16 h-16 mx-auto rounded-3xl acc-grad flex items-center justify-center shadow-2xl"
             style={{ boxShadow: `0 0 40px ${agency.color}40` }}>
@@ -113,7 +83,6 @@ export default function ClientLanding() {
           </div>
         </div>
 
-        {/* Login card */}
         <div className="rounded-2xl border acc-border bg-card p-6 space-y-4">
           <div className="space-y-2">
             <label className="text-xs text-muted-foreground flex items-center gap-1.5">
@@ -141,12 +110,10 @@ export default function ClientLanding() {
           </Button>
         </div>
 
-        {/* Help */}
         <div className="text-center text-xs text-muted-foreground space-y-1">
           <p>Pas encore de code? Contacte ton équipe {agency.name}.</p>
         </div>
 
-        {/* Powered by */}
         <div className="text-center pt-4">
           <p className="text-[10px] text-muted-foreground/70 inline-flex items-center gap-1">
             <Sparkles className="w-2.5 h-2.5" />

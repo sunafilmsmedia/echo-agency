@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useClients, useUpdateClient } from "@/hooks/useClients";
+import { useAgencySettings, useUpdateAgencySettings, useClientPortalCodes, useEnsureClientCode, useRegenerateClientCode } from "@/hooks/usePortal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,78 +14,12 @@ import {
 import { toast } from "sonner";
 import Anthropic from "@anthropic-ai/sdk";
 
-// ─── Client portal access helpers ─────────────────────────────────────────────
-
-const AGENCY_NAME_KEY  = "echo_agency_name";
-const AGENCY_COLOR_KEY = "echo_agency_color";
-const AGENCY_SLUG_KEY  = "echo_agency_slug";
-const AGENCY_SCRIPT_GPT_KEY   = "echo_agency_script_gpt_url";
-const AGENCY_BRAND_GUIDE_KEY  = "echo_agency_brand_guide_url";
-
-const DEFAULT_SCRIPT_GPT_URL  = "https://chatgpt.com/g/g-6a1cc632a0008191bece845f1662e819-machine-a-scripts-video-by-suna-films";
-const DEFAULT_BRAND_GUIDE_URL = "https://sunafilmsmedia.com/personalbrand";
-
-function getAgencyName():  string { return localStorage.getItem(AGENCY_NAME_KEY)  || "Mon Agence"; }
-function getAgencyColor(): string { return localStorage.getItem(AGENCY_COLOR_KEY) || "#7c3aed"; }
-function getAgencySlug():  string { return localStorage.getItem(AGENCY_SLUG_KEY)  || "mon-agence"; }
-function getAgencyScriptGptUrl():  string { return localStorage.getItem(AGENCY_SCRIPT_GPT_KEY)  || DEFAULT_SCRIPT_GPT_URL; }
-function getAgencyBrandGuideUrl(): string { return localStorage.getItem(AGENCY_BRAND_GUIDE_KEY) || DEFAULT_BRAND_GUIDE_URL; }
-
 function slugify(s: string): string {
   return s.toLowerCase()
     .normalize("NFD").replace(/[̀-ͯ]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 32) || "mon-agence";
-}
-
-function generateAccessCode(): string {
-  const chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // no confusing chars
-  return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
-}
-
-function getClientCode(clientId: string): string | null {
-  return localStorage.getItem(`client_code_${clientId}`);
-}
-
-function setClientCode(clientId: string, code: string) {
-  localStorage.setItem(`client_code_${clientId}`, code);
-}
-
-interface PortalSnapshot {
-  clientId: string;
-  clientName: string;
-  monthlyFee: number;
-  driveUrl?: string;
-  scriptGptUrl?: string;
-  brandGuideUrl?: string;
-  agencyName: string;
-  agencyColor: string;
-}
-
-function syncPortalSnapshot(client: any, code: string) {
-  const snapshot: PortalSnapshot = {
-    clientId:      client.id,
-    clientName:    client.name,
-    monthlyFee:    client.monthly_recurring_revenue ?? 0,
-    driveUrl:      client.google_drive_url ?? undefined,
-    scriptGptUrl:  getAgencyScriptGptUrl(),
-    brandGuideUrl: getAgencyBrandGuideUrl(),
-    agencyName:    getAgencyName(),
-    agencyColor:   getAgencyColor(),
-  };
-  localStorage.setItem(`client_portal_${code}`, JSON.stringify(snapshot));
-}
-
-function getOrCreateClientCode(client: any): string {
-  let code = getClientCode(client.id);
-  if (!code) {
-    code = generateAccessCode();
-    setClientCode(client.id, code);
-  }
-  // Always refresh the snapshot with latest data
-  syncPortalSnapshot(client, code);
-  return code;
 }
 
 // ─── Onboarding Data ──────────────────────────────────────────────────────────
@@ -515,46 +450,55 @@ export function ClientCenterTab() {
   const [editingDrive, setEditingDrive] = useState<string | null>(null);
   const [driveInput, setDriveInput] = useState("");
 
-  // Per-client Portal panel
-  const [portalShown, setPortalShown] = useState<string | null>(null);
-  const [portalCode, setPortalCode]   = useState<string>("");
+  // Portal codes (Supabase)
+  const { data: portalCodes = [] } = useClientPortalCodes();
+  const ensureCode      = useEnsureClientCode();
+  const regenerateCodeMut = useRegenerateClientCode();
+  const codeForClient = (clientId: string) => portalCodes.find((c) => c.client_id === clientId)?.access_code ?? null;
 
-  // Agency branding settings
-  const [agencyName, setAgencyName]   = useState(getAgencyName);
-  const [agencySlug, setAgencySlug]   = useState(getAgencySlug);
-  const [agencyColor, setAgencyColor] = useState(getAgencyColor);
-  const [agencyScriptGpt, setAgencyScriptGpt] = useState(getAgencyScriptGptUrl);
-  const [agencyBrandGuide, setAgencyBrandGuide] = useState(getAgencyBrandGuideUrl);
+  const [portalShown, setPortalShown] = useState<string | null>(null);
+
+  const openPortalPanel = async (clientId: string) => {
+    setPortalShown(clientId);
+    if (!codeForClient(clientId)) {
+      await ensureCode.mutateAsync(clientId);
+    }
+  };
+  const regenerateCode = (clientId: string) => regenerateCodeMut.mutate(clientId);
+
+  // Agency settings (Supabase)
+  const { data: agencyData } = useAgencySettings();
+  const updateAgency = useUpdateAgencySettings();
+
+  const [agencyName, setAgencyName]   = useState("Mon Agence");
+  const [agencySlug, setAgencySlug]   = useState("mon-agence");
+  const [agencyColor, setAgencyColor] = useState("#7c3aed");
+  const [agencyScriptGpt, setAgencyScriptGpt]   = useState("");
+  const [agencyBrandGuide, setAgencyBrandGuide] = useState("");
   const [editingAgency, setEditingAgency] = useState(false);
+
+  useEffect(() => {
+    if (!agencyData) return;
+    setAgencyName(agencyData.name);
+    setAgencySlug(agencyData.slug);
+    setAgencyColor(agencyData.color);
+    setAgencyScriptGpt(agencyData.script_gpt_url ?? "");
+    setAgencyBrandGuide(agencyData.brand_guide_url ?? "");
+  }, [agencyData]);
+
   const publicUrl = `${window.location.origin}/clients/${agencySlug}`;
 
   const saveAgencySettings = () => {
     const cleanSlug = slugify(agencySlug);
-    localStorage.setItem(AGENCY_NAME_KEY, agencyName.trim() || "Mon Agence");
-    localStorage.setItem(AGENCY_SLUG_KEY, cleanSlug);
-    localStorage.setItem(AGENCY_COLOR_KEY, agencyColor);
-    localStorage.setItem(AGENCY_SCRIPT_GPT_KEY, agencyScriptGpt.trim());
-    localStorage.setItem(AGENCY_BRAND_GUIDE_KEY, agencyBrandGuide.trim());
-    setAgencySlug(cleanSlug);
-    setEditingAgency(false);
-    toast.success("Réglages sauvegardés");
-  };
-
-  const openPortalPanel = (client: any) => {
-    const code = getOrCreateClientCode(client);
-    setPortalCode(code);
-    setPortalShown(client.id);
-  };
-
-  const regenerateCode = (client: any) => {
-    const newCode = generateAccessCode();
-    // Clean up old code's snapshot
-    const oldCode = getClientCode(client.id);
-    if (oldCode) localStorage.removeItem(`client_portal_${oldCode}`);
-    setClientCode(client.id, newCode);
-    syncPortalSnapshot(client, newCode);
-    setPortalCode(newCode);
-    toast.success("Nouveau code généré");
+    updateAgency.mutate({
+      name:            agencyName.trim() || "Mon Agence",
+      slug:            cleanSlug,
+      color:           agencyColor,
+      script_gpt_url:  agencyScriptGpt.trim() || null,
+      brand_guide_url: agencyBrandGuide.trim() || null,
+    }, {
+      onSuccess: () => { setAgencySlug(cleanSlug); setEditingAgency(false); }
+    });
   };
 
   const startEdit = (clientId: string, currentUrl: string | null) => {
@@ -771,7 +715,7 @@ export function ClientCenterTab() {
                       </Button>
                       <Button size="sm" variant="outline"
                         className="gap-1.5 text-xs border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
-                        onClick={() => portalShown === client.id ? setPortalShown(null) : openPortalPanel(client)}>
+                        onClick={() => portalShown === client.id ? setPortalShown(null) : openPortalPanel(client.id)}>
                         <Lock className="w-3.5 h-3.5" />
                         Portail
                       </Button>
@@ -808,37 +752,51 @@ export function ClientCenterTab() {
                         </button>
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 px-3 py-2 rounded-md bg-card border border-border/50 font-mono text-base text-foreground text-center tracking-widest font-bold">
-                          {portalCode}
-                        </div>
-                        <Button size="icon" variant="outline" className="h-9 w-9 flex-shrink-0"
-                          onClick={() => { navigator.clipboard.writeText(portalCode); toast.success("Code copié"); }}
-                          title="Copier le code">
-                          <Copy className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button size="icon" variant="outline" className="h-9 w-9 flex-shrink-0"
-                          onClick={() => regenerateCode(client)} title="Régénérer un nouveau code">
-                          <RefreshCw className="w-3.5 h-3.5" />
-                        </Button>
-                      </div>
+                      {(() => {
+                        const code = codeForClient(client.id);
+                        if (!code) {
+                          return (
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Génération du code…
+                            </div>
+                          );
+                        }
+                        return (
+                          <>
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 px-3 py-2 rounded-md bg-card border border-border/50 font-mono text-base text-foreground text-center tracking-widest font-bold">
+                                {code}
+                              </div>
+                              <Button size="icon" variant="outline" className="h-9 w-9 flex-shrink-0"
+                                onClick={() => { navigator.clipboard.writeText(code); toast.success("Code copié"); }}
+                                title="Copier le code">
+                                <Copy className="w-3.5 h-3.5" />
+                              </Button>
+                              <Button size="icon" variant="outline" className="h-9 w-9 flex-shrink-0"
+                                onClick={() => regenerateCode(client.id)} title="Régénérer un nouveau code">
+                                <RefreshCw className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
 
-                      <div className="flex flex-col sm:flex-row gap-2">
-                        <Button size="sm" className="flex-1 gap-1.5 bg-amber-500 hover:bg-amber-500/90 text-white border-0"
-                          onClick={() => window.open(`/portail?code=${portalCode}`, "_blank")}>
-                          <ExternalLink className="w-3.5 h-3.5" />
-                          Ouvrir le portail (aperçu)
-                        </Button>
-                        <Button size="sm" variant="outline" className="flex-1 gap-1.5"
-                          onClick={() => {
-                            const url = `${window.location.origin}/portail?code=${portalCode}`;
-                            navigator.clipboard.writeText(url);
-                            toast.success("Lien copié — prêt à envoyer");
-                          }}>
-                          <Copy className="w-3.5 h-3.5" />
-                          Copier le lien d'invitation
-                        </Button>
-                      </div>
+                            <div className="flex flex-col sm:flex-row gap-2">
+                              <Button size="sm" className="flex-1 gap-1.5 bg-amber-500 hover:bg-amber-500/90 text-white border-0"
+                                onClick={() => window.open(`/portail?code=${code}`, "_blank")}>
+                                <ExternalLink className="w-3.5 h-3.5" />
+                                Ouvrir le portail (aperçu)
+                              </Button>
+                              <Button size="sm" variant="outline" className="flex-1 gap-1.5"
+                                onClick={() => {
+                                  const url = `${window.location.origin}/portail?code=${code}`;
+                                  navigator.clipboard.writeText(url);
+                                  toast.success("Lien copié — prêt à envoyer");
+                                }}>
+                                <Copy className="w-3.5 h-3.5" />
+                                Copier le lien d'invitation
+                              </Button>
+                            </div>
+                          </>
+                        );
+                      })()}
 
                       <p className="text-[10px] text-muted-foreground italic">
                         Le client verra : son forfait ({client.monthly_recurring_revenue ? formatCurrency(client.monthly_recurring_revenue) + "/mois" : "à définir"}), son Drive {client.google_drive_url ? "✓" : "(non configuré)"}, et un carnet d'idées partagé.
