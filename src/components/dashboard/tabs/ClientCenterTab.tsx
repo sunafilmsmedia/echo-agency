@@ -18,14 +18,17 @@ import Anthropic from "@anthropic-ai/sdk";
 const AGENCY_NAME_KEY  = "echo_agency_name";
 const AGENCY_COLOR_KEY = "echo_agency_color";
 const AGENCY_SLUG_KEY  = "echo_agency_slug";
-const AGENCY_SCRIPT_GPT_KEY = "echo_agency_script_gpt_url";
+const AGENCY_SCRIPT_GPT_KEY   = "echo_agency_script_gpt_url";
+const AGENCY_BRAND_GUIDE_KEY  = "echo_agency_brand_guide_url";
 
-const DEFAULT_SCRIPT_GPT_URL = "https://chatgpt.com/g/g-6a1cc632a0008191bece845f1662e819-machine-a-scripts-video-by-suna-films";
+const DEFAULT_SCRIPT_GPT_URL  = "https://chatgpt.com/g/g-6a1cc632a0008191bece845f1662e819-machine-a-scripts-video-by-suna-films";
+const DEFAULT_BRAND_GUIDE_URL = "https://sunafilmsmedia.com/personalbrand";
 
 function getAgencyName():  string { return localStorage.getItem(AGENCY_NAME_KEY)  || "Mon Agence"; }
 function getAgencyColor(): string { return localStorage.getItem(AGENCY_COLOR_KEY) || "#7c3aed"; }
 function getAgencySlug():  string { return localStorage.getItem(AGENCY_SLUG_KEY)  || "mon-agence"; }
-function getAgencyScriptGptUrl(): string { return localStorage.getItem(AGENCY_SCRIPT_GPT_KEY) || DEFAULT_SCRIPT_GPT_URL; }
+function getAgencyScriptGptUrl():  string { return localStorage.getItem(AGENCY_SCRIPT_GPT_KEY)  || DEFAULT_SCRIPT_GPT_URL; }
+function getAgencyBrandGuideUrl(): string { return localStorage.getItem(AGENCY_BRAND_GUIDE_KEY) || DEFAULT_BRAND_GUIDE_URL; }
 
 function slugify(s: string): string {
   return s.toLowerCase()
@@ -54,19 +57,21 @@ interface PortalSnapshot {
   monthlyFee: number;
   driveUrl?: string;
   scriptGptUrl?: string;
+  brandGuideUrl?: string;
   agencyName: string;
   agencyColor: string;
 }
 
 function syncPortalSnapshot(client: any, code: string) {
   const snapshot: PortalSnapshot = {
-    clientId:    client.id,
-    clientName:  client.name,
-    monthlyFee:  client.monthly_recurring_revenue ?? 0,
-    driveUrl:    client.google_drive_url ?? undefined,
-    scriptGptUrl: getAgencyScriptGptUrl(),
-    agencyName:  getAgencyName(),
-    agencyColor: getAgencyColor(),
+    clientId:      client.id,
+    clientName:    client.name,
+    monthlyFee:    client.monthly_recurring_revenue ?? 0,
+    driveUrl:      client.google_drive_url ?? undefined,
+    scriptGptUrl:  getAgencyScriptGptUrl(),
+    brandGuideUrl: getAgencyBrandGuideUrl(),
+    agencyName:    getAgencyName(),
+    agencyColor:   getAgencyColor(),
   };
   localStorage.setItem(`client_portal_${code}`, JSON.stringify(snapshot));
 }
@@ -519,6 +524,7 @@ export function ClientCenterTab() {
   const [agencySlug, setAgencySlug]   = useState(getAgencySlug);
   const [agencyColor, setAgencyColor] = useState(getAgencyColor);
   const [agencyScriptGpt, setAgencyScriptGpt] = useState(getAgencyScriptGptUrl);
+  const [agencyBrandGuide, setAgencyBrandGuide] = useState(getAgencyBrandGuideUrl);
   const [editingAgency, setEditingAgency] = useState(false);
   const publicUrl = `${window.location.origin}/clients/${agencySlug}`;
 
@@ -528,6 +534,7 @@ export function ClientCenterTab() {
     localStorage.setItem(AGENCY_SLUG_KEY, cleanSlug);
     localStorage.setItem(AGENCY_COLOR_KEY, agencyColor);
     localStorage.setItem(AGENCY_SCRIPT_GPT_KEY, agencyScriptGpt.trim());
+    localStorage.setItem(AGENCY_BRAND_GUIDE_KEY, agencyBrandGuide.trim());
     setAgencySlug(cleanSlug);
     setEditingAgency(false);
     toast.success("Réglages sauvegardés");
@@ -692,6 +699,15 @@ export function ClientCenterTab() {
                       onChange={(e) => setAgencyScriptGpt(e.target.value)}
                       placeholder="https://chatgpt.com/g/..." className="h-9 text-xs font-mono" />
                     <p className="text-[10px] text-muted-foreground">Apparaîtra dans le portail de chaque client pour qu'ils puissent scripter leurs vidéos.</p>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
+                      Guide privé — URL
+                    </label>
+                    <Input value={agencyBrandGuide}
+                      onChange={(e) => setAgencyBrandGuide(e.target.value)}
+                      placeholder="https://tonsite.com/guide" className="h-9 text-xs font-mono" />
+                    <p className="text-[10px] text-muted-foreground">Guide exclusif partagé avec tes clients dans leur portail (frameworks, stratégies, etc.).</p>
                   </div>
                   <Button onClick={saveAgencySettings} className="w-full gap-1.5"
                     style={{ background: agencyColor, color: "white" }}>
