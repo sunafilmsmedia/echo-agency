@@ -18,10 +18,14 @@ import Anthropic from "@anthropic-ai/sdk";
 const AGENCY_NAME_KEY  = "echo_agency_name";
 const AGENCY_COLOR_KEY = "echo_agency_color";
 const AGENCY_SLUG_KEY  = "echo_agency_slug";
+const AGENCY_SCRIPT_GPT_KEY = "echo_agency_script_gpt_url";
+
+const DEFAULT_SCRIPT_GPT_URL = "https://chatgpt.com/g/g-6a1cc632a0008191bece845f1662e819-machine-a-scripts-video-by-suna-films";
 
 function getAgencyName():  string { return localStorage.getItem(AGENCY_NAME_KEY)  || "Mon Agence"; }
 function getAgencyColor(): string { return localStorage.getItem(AGENCY_COLOR_KEY) || "#7c3aed"; }
 function getAgencySlug():  string { return localStorage.getItem(AGENCY_SLUG_KEY)  || "mon-agence"; }
+function getAgencyScriptGptUrl(): string { return localStorage.getItem(AGENCY_SCRIPT_GPT_KEY) || DEFAULT_SCRIPT_GPT_URL; }
 
 function slugify(s: string): string {
   return s.toLowerCase()
@@ -49,6 +53,7 @@ interface PortalSnapshot {
   clientName: string;
   monthlyFee: number;
   driveUrl?: string;
+  scriptGptUrl?: string;
   agencyName: string;
   agencyColor: string;
 }
@@ -59,6 +64,7 @@ function syncPortalSnapshot(client: any, code: string) {
     clientName:  client.name,
     monthlyFee:  client.monthly_recurring_revenue ?? 0,
     driveUrl:    client.google_drive_url ?? undefined,
+    scriptGptUrl: getAgencyScriptGptUrl(),
     agencyName:  getAgencyName(),
     agencyColor: getAgencyColor(),
   };
@@ -512,6 +518,7 @@ export function ClientCenterTab() {
   const [agencyName, setAgencyName]   = useState(getAgencyName);
   const [agencySlug, setAgencySlug]   = useState(getAgencySlug);
   const [agencyColor, setAgencyColor] = useState(getAgencyColor);
+  const [agencyScriptGpt, setAgencyScriptGpt] = useState(getAgencyScriptGptUrl);
   const [editingAgency, setEditingAgency] = useState(false);
   const publicUrl = `${window.location.origin}/clients/${agencySlug}`;
 
@@ -520,6 +527,7 @@ export function ClientCenterTab() {
     localStorage.setItem(AGENCY_NAME_KEY, agencyName.trim() || "Mon Agence");
     localStorage.setItem(AGENCY_SLUG_KEY, cleanSlug);
     localStorage.setItem(AGENCY_COLOR_KEY, agencyColor);
+    localStorage.setItem(AGENCY_SCRIPT_GPT_KEY, agencyScriptGpt.trim());
     setAgencySlug(cleanSlug);
     setEditingAgency(false);
     toast.success("Réglages sauvegardés");
@@ -675,6 +683,15 @@ export function ClientCenterTab() {
                         ))}
                       </div>
                     </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
+                      Lien GPT — Machine à scripts vidéo
+                    </label>
+                    <Input value={agencyScriptGpt}
+                      onChange={(e) => setAgencyScriptGpt(e.target.value)}
+                      placeholder="https://chatgpt.com/g/..." className="h-9 text-xs font-mono" />
+                    <p className="text-[10px] text-muted-foreground">Apparaîtra dans le portail de chaque client pour qu'ils puissent scripter leurs vidéos.</p>
                   </div>
                   <Button onClick={saveAgencySettings} className="w-full gap-1.5"
                     style={{ background: agencyColor, color: "white" }}>
