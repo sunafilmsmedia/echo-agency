@@ -71,7 +71,7 @@ export default function ClientLanding() {
       <div className="relative w-full max-w-md space-y-6">
         <div className="text-center space-y-3">
           <div className="mx-auto inline-block">
-            <EchoTintedLogo color={agency.color} size="w-20 h-20" rounded="rounded-3xl" glow />
+            <EchoTintedLogo color={agency.color} size="w-24 h-24" pose="waving" glow />
           </div>
           <div>
             <h1 className="text-3xl font-bold text-foreground tracking-tight">{agency.name}</h1>
