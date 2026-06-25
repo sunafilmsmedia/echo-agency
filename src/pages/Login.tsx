@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Loader2, Eye, EyeOff } from "lucide-react";
+import { EchoTintedLogo } from "@/components/EchoTintedLogo";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -64,7 +65,7 @@ export default function Login() {
         {/* Logo / Brand */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-3 mb-4">
-            <img src="/echo-avatar.png" alt="Echo" className="w-10 h-10 rounded-xl object-cover" />
+            <EchoTintedLogo color="#7c3aed" pose="waving" size="w-12 h-12" />
             <span className="text-2xl font-bold text-foreground">Echo</span>
           </div>
           <p className="text-muted-foreground text-sm">Connectez-vous à votre espace agency</p>

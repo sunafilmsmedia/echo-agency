@@ -675,8 +675,9 @@ export function ClientCenterTab() {
 
           {activeClients.length === 0 ? (
             <Card>
-              <CardContent className="pt-8 pb-8 text-center text-muted-foreground text-sm">
-                Aucun client actif
+              <CardContent className="pt-8 pb-8 flex flex-col items-center text-center gap-3">
+                <EchoTintedLogo color={agencyColor} pose="sitting" size="w-20 h-20" />
+                <p className="text-muted-foreground text-sm">Aucun client actif pour l'instant.<br/>Ajoute ton premier client depuis Client Management.</p>
               </CardContent>
             </Card>
           ) : (

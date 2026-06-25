@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { sendMessage, Message } from "@/lib/ai-tools";
 import { X, Send, Loader2, Sparkles } from "lucide-react";
+import { EchoTintedLogo } from "@/components/EchoTintedLogo";
+import { useAgencySettings } from "@/hooks/usePortal";
 
 const SUGGESTIONS = [
   "Ajouter un client Nike à 5000$/mois",
@@ -14,6 +16,8 @@ const SUGGESTIONS = [
 
 export function AIChat() {
   const qc = useQueryClient();
+  const { data: agency } = useAgencySettings();
+  const agencyColor = agency?.color || "#7c3aed";
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -21,6 +25,9 @@ export function AIChat() {
   const [streaming, setStreaming] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Pose changes based on state: thinking when AI is processing, default otherwise
+  const pose = loading ? "thinking" as const : "default" as const;
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -70,7 +77,7 @@ export function AIChat() {
             <X className="w-5 h-5 text-muted-foreground" />
           </div>
         ) : (
-          <img src="/echo-avatar.png" alt="Echo" className="w-full h-full object-cover" />
+          <EchoTintedLogo color={agencyColor} pose={pose} size="w-full h-full" rounded="rounded-full" />
         )}
       </button>
 
@@ -82,7 +89,7 @@ export function AIChat() {
         >
           {/* Header */}
           <div className="flex items-center gap-2.5 px-4 py-3 border-b border-border/40 bg-sidebar flex-shrink-0">
-            <img src="/echo-avatar.png" alt="Echo" className="w-7 h-7 rounded-full object-cover border border-primary/30" />
+            <EchoTintedLogo color={agencyColor} pose={pose} size="w-8 h-8" rounded="rounded-full" />
             <div>
               <p className="text-sm font-semibold text-foreground">Echo AI</p>
               <p className="text-[10px] text-muted-foreground">Gère ton agence par chat</p>

@@ -405,8 +405,9 @@ function PortalView({ client, agency, onLogout }: { client: Client; agency: Agen
 
           <div className="divide-y divide-border/30">
             {grouped.length === 0 ? (
-              <div className="px-5 py-10 text-center text-sm text-muted-foreground">
-                Aucune entrée pour l'instant. Partage ta première idée!
+              <div className="px-5 py-10 flex flex-col items-center text-center gap-3">
+                <EchoTintedLogo color={agencyColor} pose="sitting" size="w-20 h-20" />
+                <p className="text-sm text-muted-foreground">Aucune entrée pour l'instant.<br/>Partage ta première idée!</p>
               </div>
             ) : (
               grouped.map(([date, dayEntries]) => (

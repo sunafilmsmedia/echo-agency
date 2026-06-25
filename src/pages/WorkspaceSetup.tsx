@@ -136,7 +136,7 @@ export default function WorkspaceSetup() {
         {/* Logo */}
         <div className="text-center">
           <div className="inline-flex items-center gap-2.5 mb-2">
-            <EchoTintedLogo color="#7c3aed" size="w-9 h-9" rounded="rounded-xl" />
+            <EchoTintedLogo color="#7c3aed" pose="waving" size="w-12 h-12" />
             <span className="text-xl font-bold text-foreground">Echo</span>
           </div>
           <p className="text-sm text-muted-foreground">

@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Client, ClientTask } from "@/integrations/supabase/client";
 import { ArrowLeft, Plus, Zap, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
+import { EchoTintedLogo } from "@/components/EchoTintedLogo";
 
 // ─── Single task row ──────────────────────────────────────────────────────────
 
@@ -196,9 +197,10 @@ export default function Tasks() {
 
         {/* Client grid */}
         {activeClients.length === 0 ? (
-          <div className="text-center py-20 text-muted-foreground">
+          <div className="flex flex-col items-center text-center py-20 gap-3 text-muted-foreground">
+            <EchoTintedLogo color="#7c3aed" pose="sitting" size="w-24 h-24" />
             <p className="text-sm">Aucun client actif.</p>
-            <p className="text-xs mt-1">Ajoutez des clients dans le CRM et marquez-les comme actifs.</p>
+            <p className="text-xs">Ajoutez des clients dans le CRM et marquez-les comme actifs.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">

@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Check, Copy } from "lucide-react";
+import { Check, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { EchoTintedLogo } from "@/components/EchoTintedLogo";
 
 // Generate a random 6-char invite code
 function generateCode(): string {
@@ -84,7 +85,7 @@ export default function WorkspaceSuccess() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center space-y-4">
-          <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto" />
+          <EchoTintedLogo color="#7c3aed" pose="thinking" size="w-24 h-24" glow />
           <p className="text-sm text-muted-foreground">Création de ton espace...</p>
         </div>
       </div>
@@ -95,6 +96,7 @@ export default function WorkspaceSuccess() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="text-center space-y-4 max-w-sm">
+          <EchoTintedLogo color="#dc2626" pose="thinking" size="w-20 h-20" />
           <p className="text-foreground font-semibold">Une erreur s'est produite</p>
           <p className="text-sm text-muted-foreground">Ton paiement a bien été traité. Contacte le support pour activer ton espace.</p>
           <Button onClick={() => navigate("/workspace-setup")}>Réessayer</Button>
@@ -107,9 +109,12 @@ export default function WorkspaceSuccess() {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-gradient-glow pointer-events-none" />
       <div className="relative z-10 w-full max-w-md text-center space-y-6">
-        {/* Success icon */}
-        <div className="w-16 h-16 rounded-full bg-emerald-400/15 border border-emerald-400/30 flex items-center justify-center mx-auto">
-          <Check className="w-8 h-8 text-emerald-400" />
+        {/* Success: Echo jumping for joy */}
+        <div className="flex items-center justify-center gap-2">
+          <EchoTintedLogo color="#10b981" pose="jumping" size="w-28 h-28" glow />
+          <div className="w-12 h-12 rounded-full bg-emerald-400/15 border border-emerald-400/30 flex items-center justify-center -ml-4">
+            <Check className="w-6 h-6 text-emerald-400" />
+          </div>
         </div>
 
         <div>

@@ -7,6 +7,7 @@ import {
   ArrowRight, Check, Shield, Star, Palette, Sparkles, LayoutDashboard,
 } from "lucide-react";
 import { LandingChat } from "@/components/landing/LandingChat";
+import { EchoTintedLogo } from "@/components/EchoTintedLogo";
 
 const FEATURES = [
   { icon: Palette,         label: "100% personnalisable",  desc: "Ton logo, tes couleurs, ton nom — ton tracker reflète ta marque" },
@@ -90,8 +91,8 @@ export default function Landing() {
       {/* Nav */}
       <nav className="relative z-10 flex items-center justify-between px-6 py-4 max-w-6xl mx-auto">
         <div className="flex items-center gap-3">
-          <div className="relative">
-            <img src="/echo-avatar.png" alt="Echo" className="echo-avatar w-12 h-12 rounded-2xl object-cover" />
+          <div className="relative echo-avatar">
+            <EchoTintedLogo color="#10b981" pose="waving" size="w-14 h-14" untinted />
             <Sparkles className="echo-spark absolute -top-1 -right-1 w-3.5 h-3.5 text-primary" />
           </div>
           <span className="font-bold text-xl text-foreground tracking-tight">Echo</span>
@@ -263,7 +264,7 @@ export default function Landing() {
       {/* Footer */}
       <footer className="relative z-10 border-t border-border/40 px-6 py-6 text-center">
         <div className="flex items-center justify-center gap-2 mb-2">
-          <img src="/echo-avatar.png" alt="Echo" className="echo-avatar w-6 h-6 rounded-lg object-cover" />
+          <EchoTintedLogo color="#10b981" size="w-7 h-7" untinted />
           <span className="text-sm font-semibold text-foreground">Echo</span>
           <span className="text-xs text-muted-foreground">— Construis ton AI Business Tracker</span>
         </div>

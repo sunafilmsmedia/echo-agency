@@ -3,6 +3,8 @@ import { useRevenueMetrics } from "@/hooks/useRevenueMetrics";
 import { formatCurrency, getDayOfYear } from "@/lib/utils";
 import { Users, DollarSign, Target, TrendingUp } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EchoTintedLogo } from "@/components/EchoTintedLogo";
+import { useAgencySettings } from "@/hooks/usePortal";
 
 const ECHO_TIPS = [
   "Contactez vos clients inactifs depuis plus de 30 jours pour prévenir le churn.",
@@ -18,6 +20,8 @@ const ECHO_TIPS = [
 export function OverviewTab() {
   const { data: clients = [] } = useClients();
   const { data: metrics } = useRevenueMetrics();
+  const { data: agency } = useAgencySettings();
+  const agencyColor = agency?.color || "#7c3aed";
 
   const activeClients = clients.filter((c) => c.status === "active");
   const pipelineClients = clients.filter((c) => c.status === "pipeline");
@@ -63,7 +67,7 @@ export function OverviewTab() {
       <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">
         <CardContent className="pt-6">
           <div className="flex items-start gap-4">
-            <img src="/echo-avatar.png" alt="Echo" className="w-10 h-10 rounded-full object-cover border border-primary/30 flex-shrink-0" />
+            <EchoTintedLogo color={agencyColor} pose="thinking" size="w-12 h-12" rounded="rounded-full" />
             <div>
               <p className="text-sm font-medium text-primary mb-1">Conseil du jour — Echo</p>
               <p className="text-sm text-muted-foreground">{tip}</p>
