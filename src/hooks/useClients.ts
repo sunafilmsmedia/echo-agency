@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { supabase, type Client, type ClientStatus } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -20,6 +20,15 @@ async function recalcRevenue() {
   await supabase.rpc("calculate_revenue_metrics");
 }
 
+// Invalidate every revenue-related query so any open view auto-refreshes
+function invalidateRevenueChain(qc: QueryClient) {
+  qc.invalidateQueries({ queryKey: ["clients"] });
+  qc.invalidateQueries({ queryKey: ["revenue-metrics"] });
+  qc.invalidateQueries({ queryKey: ["revenue-metrics-ytd"] });
+  qc.invalidateQueries({ queryKey: ["revenue-metrics-history"] });
+  qc.invalidateQueries({ queryKey: ["stripe-revenue"] });
+}
+
 export function useCreateClient() {
   const qc = useQueryClient();
   return useMutation({
@@ -30,8 +39,7 @@ export function useCreateClient() {
     },
     onSuccess: async () => {
       await recalcRevenue();
-      qc.invalidateQueries({ queryKey: ["clients"] });
-      qc.invalidateQueries({ queryKey: ["revenue-metrics"] });
+      invalidateRevenueChain(qc);
       toast.success("Client créé");
     },
     onError: () => toast.error("Erreur lors de la création du client"),
@@ -48,8 +56,7 @@ export function useUpdateClient() {
     },
     onSuccess: async () => {
       await recalcRevenue();
-      qc.invalidateQueries({ queryKey: ["clients"] });
-      qc.invalidateQueries({ queryKey: ["revenue-metrics"] });
+      invalidateRevenueChain(qc);
       toast.success("Client mis à jour");
     },
     onError: () => toast.error("Erreur lors de la mise à jour"),
@@ -65,8 +72,7 @@ export function useDeleteClient() {
     },
     onSuccess: async () => {
       await recalcRevenue();
-      qc.invalidateQueries({ queryKey: ["clients"] });
-      qc.invalidateQueries({ queryKey: ["revenue-metrics"] });
+      invalidateRevenueChain(qc);
       toast.success("Client supprimé");
     },
     onError: () => toast.error("Erreur lors de la suppression"),
@@ -82,8 +88,7 @@ export function useUpdateClientStatus() {
     },
     onSuccess: async () => {
       await recalcRevenue();
-      qc.invalidateQueries({ queryKey: ["clients"] });
-      qc.invalidateQueries({ queryKey: ["revenue-metrics"] });
+      invalidateRevenueChain(qc);
     },
     onError: () => toast.error("Erreur lors du changement de statut"),
   });

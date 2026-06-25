@@ -73,10 +73,12 @@ export function useUpdateRevenueMetrics() {
         .eq("period_end", end);
       if (error) throw error;
     },
+    // Silent on success — this fires on every auto-sync (expense add, extra revenue change).
+    // Use useUpdateRevenueMetricsForPeriod for explicit user saves.
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["revenue-metrics"] });
       qc.invalidateQueries({ queryKey: ["revenue-metrics-ytd"] });
-      toast.success("Métriques sauvegardées");
+      qc.invalidateQueries({ queryKey: ["revenue-metrics-history"] });
     },
     onError: () => toast.error("Erreur lors de la sauvegarde"),
   });

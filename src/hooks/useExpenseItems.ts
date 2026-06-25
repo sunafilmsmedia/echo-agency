@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { supabase, type ExpenseItem } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -10,6 +10,15 @@ function currentPeriod() {
     start: start.toISOString().split("T")[0],
     end: end.toISOString().split("T")[0],
   };
+}
+
+// Recalc revenue + invalidate everything so the monthly history table refreshes
+async function recalcAndInvalidate(qc: QueryClient) {
+  await supabase.rpc("calculate_revenue_metrics");
+  qc.invalidateQueries({ queryKey: ["expense-items"] });
+  qc.invalidateQueries({ queryKey: ["revenue-metrics"] });
+  qc.invalidateQueries({ queryKey: ["revenue-metrics-ytd"] });
+  qc.invalidateQueries({ queryKey: ["revenue-metrics-history"] });
 }
 
 export function useExpenseItems() {
@@ -38,9 +47,7 @@ export function useCreateExpenseItem() {
       }]);
       if (error) throw error;
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["expense-items"] });
-    },
+    onSuccess: () => recalcAndInvalidate(qc),
     onError: () => toast.error("Erreur lors de l'ajout"),
   });
 }
@@ -52,9 +59,7 @@ export function useDeleteExpenseItem() {
       const { error } = await supabase.from("expense_items").delete().eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["expense-items"] });
-    },
+    onSuccess: () => recalcAndInvalidate(qc),
     onError: () => toast.error("Erreur lors de la suppression"),
   });
 }
