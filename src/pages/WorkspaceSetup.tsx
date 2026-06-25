@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Loader2, Users, Zap, ArrowRight, LogOut } from "lucide-react";
+import { Loader2, Users, Zap, ArrowRight, LogOut, LogIn } from "lucide-react";
+import { EchoTintedLogo } from "@/components/EchoTintedLogo";
 
 type Intent = "choose" | "join" | "create";
 
@@ -135,7 +136,7 @@ export default function WorkspaceSetup() {
         {/* Logo */}
         <div className="text-center">
           <div className="inline-flex items-center gap-2.5 mb-2">
-            <img src="/echo-avatar.png" alt="Echo" className="w-9 h-9 rounded-xl object-cover" />
+            <EchoTintedLogo color="#7c3aed" size="w-9 h-9" rounded="rounded-xl" />
             <span className="text-xl font-bold text-foreground">Echo</span>
           </div>
           <p className="text-sm text-muted-foreground">
@@ -148,6 +149,26 @@ export default function WorkspaceSetup() {
         {/* ── CHOOSE ── */}
         {intent === "choose" && (
           <div className="space-y-3">
+            <button
+              onClick={() => navigate("/dashboard")}
+              className="w-full group flex items-center gap-4 p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/5 hover:border-emerald-500/60 hover:bg-emerald-500/10 transition-all text-left"
+            >
+              <div className="w-10 h-10 rounded-lg bg-emerald-500/15 flex items-center justify-center flex-shrink-0">
+                <LogIn className="w-5 h-5 text-emerald-400" />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-sm text-foreground">Accéder à mon espace</p>
+                <p className="text-xs text-muted-foreground">J'ai déjà un espace — emmène-moi à mon dashboard</p>
+              </div>
+              <ArrowRight className="w-4 h-4 text-emerald-400 group-hover:translate-x-1 transition-transform" />
+            </button>
+
+            <div className="flex items-center gap-2 py-1">
+              <div className="flex-1 h-px bg-border/40" />
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wider">ou</span>
+              <div className="flex-1 h-px bg-border/40" />
+            </div>
+
             <button
               onClick={() => setIntent("join")}
               className="w-full group flex items-center gap-4 p-4 rounded-xl border border-border/60 bg-card hover:border-primary/40 hover:bg-primary/5 transition-all text-left"
