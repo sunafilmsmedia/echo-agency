@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useClients, useUpdateClient } from "@/hooks/useClients";
 import { useAgencySettings, useUpdateAgencySettings, useClientPortalCodes, useEnsureClientCode, useRegenerateClientCode } from "@/hooks/usePortal";
+import { EchoTintedLogo } from "@/components/EchoTintedLogo";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -565,10 +566,7 @@ export function ClientCenterTab() {
             <CardContent className="pt-4 pb-4 space-y-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-start gap-2.5">
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-                    style={{ background: `linear-gradient(135deg, ${agencyColor}, ${agencyColor}cc)` }}>
-                    <span className="text-sm font-bold text-white">{agencyName.charAt(0).toUpperCase()}</span>
-                  </div>
+                  <EchoTintedLogo color={agencyColor} size="w-9 h-9" rounded="rounded-xl" />
                   <div>
                     <p className="text-sm font-semibold text-foreground">Lien public pour tes clients</p>
                     <p className="text-[11px] text-muted-foreground">À partager par email ou à embed sur ton site web. Chaque client utilise son code pour entrer.</p>

@@ -3,8 +3,9 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Lock, ArrowRight, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useAgencySettingsBySlug, useResolveAccessCode } from "@/hooks/usePortal";
+import { useAgencySettingsBySlug } from "@/hooks/usePortal";
 import { supabase } from "@/integrations/supabase/client";
+import { EchoTintedLogo } from "@/components/EchoTintedLogo";
 
 export default function ClientLanding() {
   const { slug } = useParams<{ slug: string }>();
@@ -54,8 +55,6 @@ export default function ClientLanding() {
     navigate(`/portail?code=${upperCode}`);
   };
 
-  const initials = agency.name.charAt(0).toUpperCase();
-
   return (
     <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-6 relative">
       <style>{`
@@ -71,9 +70,8 @@ export default function ClientLanding() {
 
       <div className="relative w-full max-w-md space-y-6">
         <div className="text-center space-y-3">
-          <div className="w-16 h-16 mx-auto rounded-3xl acc-grad flex items-center justify-center shadow-2xl"
-            style={{ boxShadow: `0 0 40px ${agency.color}40` }}>
-            <span className="text-2xl font-bold text-white">{initials}</span>
+          <div className="mx-auto inline-block">
+            <EchoTintedLogo color={agency.color} size="w-20 h-20" rounded="rounded-3xl" glow />
           </div>
           <div>
             <h1 className="text-3xl font-bold text-foreground tracking-tight">{agency.name}</h1>

@@ -4,8 +4,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Save, Lock, Palette, Copy, ExternalLink, Zap, Calendar, Check, Image as ImageIcon } from "lucide-react";
+import { Save, Lock, Palette, Copy, ExternalLink, Zap, Calendar, Check } from "lucide-react";
 import { useAgencySettings, useUpdateAgencySettings } from "@/hooks/usePortal";
+import { EchoTintedLogo } from "@/components/EchoTintedLogo";
 
 const COLOR_PALETTE = [
   "#7c3aed", "#2563eb", "#0891b2", "#059669",
@@ -67,7 +68,6 @@ export function SettingsTab() {
   };
 
   const publicUrl = `${window.location.origin}/clients/${slug}`;
-  const initials  = name.charAt(0).toUpperCase();
 
   return (
     <div className="p-6 space-y-6 max-w-3xl">
@@ -81,10 +81,7 @@ export function SettingsTab() {
         <CardContent className="space-y-5">
           {/* Logo preview + Name */}
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg"
-              style={{ background: `linear-gradient(135deg, ${color}, ${color}cc)` }}>
-              <span className="text-2xl font-bold text-white">{initials}</span>
-            </div>
+            <EchoTintedLogo color={color} size="w-16 h-16" rounded="rounded-2xl" glow />
             <div className="flex-1 space-y-1">
               <Label className="text-xs text-muted-foreground">Nom de l'agence</Label>
               <Input value={name} onChange={(e) => { setName(e.target.value); setSlug(slugify(e.target.value)); }}
@@ -154,14 +151,6 @@ export function SettingsTab() {
             <p className="text-[10px] text-muted-foreground">
               Document exclusif partagé dans le portail (stratégies, frameworks, etc.).
             </p>
-          </div>
-
-          {/* Logo upload — placeholder for future */}
-          <div className="space-y-1 opacity-50">
-            <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
-              <ImageIcon className="w-3 h-3" /> Logo personnalisé (à venir)
-            </Label>
-            <p className="text-[10px] text-muted-foreground italic">Pour l'instant, ton avatar utilise la première lettre de ton nom d'agence + ta couleur.</p>
           </div>
 
           <Button onClick={saveBranding} disabled={updateAgency.isPending} className="w-full gap-2"

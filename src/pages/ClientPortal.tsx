@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase, type AgencySettings, type Client, type ClientJournalEntry } from "@/integrations/supabase/client";
 import { useResolveAccessCode, useClientJournal, useAddJournalEntry } from "@/hooks/usePortal";
+import { EchoTintedLogo } from "@/components/EchoTintedLogo";
 
 const SESSION_KEY = "client_portal_session"; // stores access code only
 
@@ -219,9 +220,7 @@ function PortalView({ client, agency, onLogout }: { client: Client; agency: Agen
       <header className="relative z-10 border-b border-border/40 bg-background/80 backdrop-blur-sm">
         <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl acc-bg flex items-center justify-center">
-              <span className="text-sm font-bold text-white">{client.name.charAt(0)}</span>
-            </div>
+            <EchoTintedLogo color={agencyColor} size="w-10 h-10" rounded="rounded-xl" />
             <div>
               <p className="text-sm font-bold text-foreground">{client.name}</p>
               <p className="text-[11px] text-muted-foreground">Portail · powered by {agencyName}</p>
