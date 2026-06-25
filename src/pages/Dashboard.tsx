@@ -22,6 +22,26 @@ import { AdvisorsTab } from "@/components/dashboard/tabs/AdvisorsTab";
 import { SettingsTab } from "@/components/dashboard/tabs/SettingsTab";
 import { TeamTab } from "@/components/dashboard/tabs/TeamTab";
 import { KpiTab } from "@/components/dashboard/tabs/KpiTab";
+import { useAgencySettings } from "@/hooks/usePortal";
+import { EchoTintedLogo } from "@/components/EchoTintedLogo";
+
+/** Convert #rrggbb to "H S% L%" string used by Tailwind/shadcn CSS vars */
+function hexToHsl(hex: string): string {
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  if (max === min) return `0 0% ${Math.round(l * 100)}%`;
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h = 0;
+  if      (max === r) h = ((g - b) / d + (g < b ? 6 : 0));
+  else if (max === g) h = (b - r) / d + 2;
+  else                h = (r - g) / d + 4;
+  h /= 6;
+  return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
+}
 
 const DEFAULT_SIDEBAR_ITEMS = [
   { id: "overview",  label: "Dashboard",          icon: LayoutDashboard, protected: false },
@@ -41,6 +61,10 @@ type TabId = typeof DEFAULT_SIDEBAR_ITEMS[number]["id"];
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { data: agency } = useAgencySettings();
+  const agencyColor = agency?.color || "#7c3aed";
+  const agencyName  = agency?.name  || "Echo";
+  const themeHsl    = hexToHsl(agencyColor);
 
   // Sidebar order (persisted)
   const [sidebarOrder, setSidebarOrder] = useState<string[]>(() => {
@@ -144,13 +168,22 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
+    <div
+      className="flex h-screen bg-background overflow-hidden"
+      style={{
+        ["--primary" as any]: themeHsl,
+        ["--ring"    as any]: themeHsl,
+      }}
+    >
       {/* Sidebar */}
       <aside className="w-64 flex-shrink-0 flex flex-col border-r border-sidebar-border bg-sidebar">
-        {/* Logo */}
-        <div className="flex items-center gap-2 px-4 py-5 border-b border-sidebar-border">
-          <img src="/echo-avatar.png" alt="Echo" className="w-8 h-8 rounded-lg object-cover" />
-          <span className="font-bold text-sidebar-foreground">Echo</span>
+        {/* Logo — agency brand + powered by Echo */}
+        <div className="flex items-center gap-2.5 px-4 py-4 border-b border-sidebar-border">
+          <EchoTintedLogo color={agencyColor} size="w-9 h-9" rounded="rounded-lg" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold text-sidebar-foreground truncate leading-tight">{agencyName}</p>
+            <p className="text-[10px] text-muted-foreground leading-tight">powered by Echo</p>
+          </div>
         </div>
 
         {/* Nav items */}
