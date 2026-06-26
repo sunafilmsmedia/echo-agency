@@ -77,8 +77,21 @@ export default function Landing() {
           0%, 100% { opacity: 0; transform: scale(0.6) rotate(0deg); }
           50%      { opacity: 1; transform: scale(1.2) rotate(180deg); }
         }
+        @keyframes echoHeroFloat {
+          0%, 100% { transform: translateY(0px) rotate(-3deg); }
+          25%      { transform: translateY(-6px) rotate(0deg); }
+          50%      { transform: translateY(-10px) rotate(3deg); }
+          75%      { transform: translateY(-6px) rotate(0deg); }
+        }
+        @keyframes echoHeroGlow {
+          0%, 100% { filter: drop-shadow(0 12px 32px rgba(16, 185, 129, 0.35)) drop-shadow(0 0 40px rgba(16, 185, 129, 0.25)); }
+          50%      { filter: drop-shadow(0 18px 48px rgba(16, 185, 129, 0.55)) drop-shadow(0 0 60px rgba(16, 185, 129, 0.45)); }
+        }
         .echo-avatar {
           animation: echoFloat 4s ease-in-out infinite, echoGlow 3s ease-in-out infinite;
+        }
+        .echo-hero {
+          animation: echoHeroFloat 5s ease-in-out infinite, echoHeroGlow 4s ease-in-out infinite;
         }
         .echo-spark {
           animation: echoSpark 2.5s ease-in-out infinite;
@@ -92,10 +105,10 @@ export default function Landing() {
       <nav className="relative z-10 flex items-center justify-between px-6 py-4 max-w-6xl mx-auto">
         <div className="flex items-center gap-3">
           <div className="relative echo-avatar">
-            <EchoTintedLogo color="#10b981" pose="waving" size="w-14 h-14" untinted />
-            <Sparkles className="echo-spark absolute -top-1 -right-1 w-3.5 h-3.5 text-primary" />
+            <EchoTintedLogo color="#10b981" pose="waving" size="w-16 h-16" untinted />
+            <Sparkles className="echo-spark absolute top-0 right-0 w-4 h-4 text-primary" />
           </div>
-          <span className="font-bold text-xl text-foreground tracking-tight">Echo</span>
+          <span className="font-bold text-2xl text-foreground tracking-tight">Echo</span>
         </div>
         <Button
           variant="outline"
@@ -108,10 +121,15 @@ export default function Landing() {
       </nav>
 
       {/* Hero with embedded chat (Lovable-style) */}
-      <section className="relative z-10 text-center px-6 pt-16 pb-12 max-w-3xl mx-auto">
+      <section className="relative z-10 text-center px-6 pt-8 pb-12 max-w-3xl mx-auto">
+        {/* Giant Echo — the hero mascot */}
+        <div className="echo-hero inline-block mb-6">
+          <EchoTintedLogo color="#10b981" pose="waving" size="w-44 h-44 sm:w-56 sm:h-56" untinted />
+        </div>
+
         <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-full px-3 py-1 mb-6">
           <Sparkles className="w-3 h-3 text-primary" />
-          <span className="text-xs text-primary font-medium">Construis ton propre AI Business Tracker</span>
+          <span className="text-xs text-primary font-medium">Salut! Je suis Echo, ton AI Business Tracker</span>
         </div>
         <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-foreground leading-tight mb-5 tracking-tight">
           Ton dashboard business.<br />
