@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useClients, useUpdateClient } from "@/hooks/useClients";
-import { useAgencySettings, useUpdateAgencySettings, useClientPortalCodes, useEnsureClientCode, useRegenerateClientCode } from "@/hooks/usePortal";
+import { useAgencySettings, useUpdateAgencySettings, useClientPortalCodes, useEnsureClientCode, useRegenerateClientCode, useClientJournal, useAddJournalEntry } from "@/hooks/usePortal";
 import { EchoTintedLogo } from "@/components/EchoTintedLogo";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +11,9 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import {
   ExternalLink, FolderOpen, Link, Check, X, Copy, ChevronDown, ChevronUp,
   Users, ClipboardList, Mail, Phone, FileText, Loader2, Sparkles, Lock, RefreshCw,
+  BookOpen, Send, User as UserIcon, Calendar as CalendarIcon,
 } from "lucide-react";
+import type { Client } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import Anthropic from "@anthropic-ai/sdk";
 
@@ -459,6 +461,7 @@ export function ClientCenterTab() {
   const codeForClient = (clientId: string) => portalCodes.find((c) => c.client_id === clientId)?.access_code ?? null;
 
   const [portalShown, setPortalShown] = useState<string | null>(null);
+  const [journalClient, setJournalClient] = useState<Client | null>(null);
 
   const openPortalPanel = async (clientId: string) => {
     setPortalShown(clientId);
@@ -707,6 +710,12 @@ export function ClientCenterTab() {
                         {client.google_drive_url ? "Changer" : "Connecter Drive"}
                       </Button>
                       <Button size="sm" variant="outline"
+                        className="gap-1.5 text-xs border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10"
+                        onClick={() => setJournalClient(client)}>
+                        <BookOpen className="w-3.5 h-3.5" />
+                        Carnet
+                      </Button>
+                      <Button size="sm" variant="outline"
                         className="gap-1.5 text-xs border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
                         onClick={() => portalShown === client.id ? setPortalShown(null) : openPortalPanel(client.id)}>
                         <Lock className="w-3.5 h-3.5" />
@@ -871,6 +880,162 @@ export function ClientCenterTab() {
           <ChecklistSection />
         </div>
       )}
+
+      {/* ── Journal slide-in panel ── */}
+      {journalClient && (
+        <ClientJournalPanel
+          client={journalClient}
+          agencyColor={agencyColor}
+          onClose={() => setJournalClient(null)}
+        />
+      )}
     </div>
+  );
+}
+
+// ── Client Journal Panel (slides in from the right) ──────────────────────────
+
+function ClientJournalPanel({ client, agencyColor, onClose }: {
+  client: Client; agencyColor: string; onClose: () => void;
+}) {
+  const { data: entries = [], isLoading } = useClientJournal(client.id);
+  const addEntry = useAddJournalEntry();
+  const [text, setText] = useState("");
+
+  const submit = () => {
+    if (!text.trim()) return;
+    addEntry.mutate(
+      { client_id: client.id, content: text.trim(), author: "agency" },
+      { onSuccess: () => setText("") }
+    );
+  };
+
+  // Group entries by month (YYYY-MM)
+  const grouped = useMemo(() => {
+    const map = new Map<string, typeof entries>();
+    for (const e of entries) {
+      const monthKey = e.entry_date.slice(0, 7); // YYYY-MM
+      if (!map.has(monthKey)) map.set(monthKey, []);
+      map.get(monthKey)!.push(e);
+    }
+    return Array.from(map.entries()).sort(([a], [b]) => b.localeCompare(a));
+  }, [entries]);
+
+  const monthLabel = (key: string) => {
+    const [y, m] = key.split("-").map(Number);
+    return new Date(y, m - 1, 1).toLocaleDateString("fr-CA", { month: "long", year: "numeric" });
+  };
+  const formatTime = (iso: string) =>
+    new Date(iso).toLocaleString("fr-CA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div className="fixed inset-0 bg-background/40 backdrop-blur-sm z-40 animate-in fade-in"
+        onClick={onClose} />
+
+      {/* Panel */}
+      <aside className="fixed top-0 right-0 h-full w-full sm:w-[480px] bg-card border-l border-border/50 shadow-2xl z-50 flex flex-col animate-in slide-in-from-right">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border/40"
+          style={{ background: `linear-gradient(135deg, ${agencyColor}15, transparent)` }}>
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+              style={{ background: `${agencyColor}25` }}>
+              <BookOpen className="w-4 h-4" style={{ color: agencyColor }} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-foreground truncate">Carnet d'idées</p>
+              <p className="text-[11px] text-muted-foreground truncate">{client.name}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted/50 text-muted-foreground hover:text-foreground">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Entries (grouped by month) */}
+        <div className="flex-1 overflow-y-auto p-5 space-y-6">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : grouped.length === 0 ? (
+            <div className="text-center py-10 space-y-2">
+              <BookOpen className="w-8 h-8 mx-auto text-muted-foreground/40" />
+              <p className="text-sm text-muted-foreground">Aucune entrée encore.</p>
+              <p className="text-xs text-muted-foreground/70">Les idées de {client.name} apparaîtront ici dès qu'il les ajoute sur son portail.</p>
+            </div>
+          ) : (
+            grouped.map(([monthKey, monthEntries]) => (
+              <div key={monthKey}>
+                <div className="sticky top-0 -mt-1 mb-3 z-10 bg-card/95 backdrop-blur-sm py-1.5">
+                  <div className="flex items-center gap-2">
+                    <CalendarIcon className="w-3.5 h-3.5" style={{ color: agencyColor }} />
+                    <h3 className="text-xs font-bold uppercase tracking-wider capitalize" style={{ color: agencyColor }}>
+                      {monthLabel(monthKey)}
+                    </h3>
+                    <span className="text-[10px] text-muted-foreground">· {monthEntries.length} {monthEntries.length === 1 ? "entrée" : "entrées"}</span>
+                  </div>
+                </div>
+                <div className="space-y-3 pl-1 border-l-2" style={{ borderColor: `${agencyColor}33` }}>
+                  {monthEntries.map((e) => {
+                    const isClient = e.author === "client";
+                    return (
+                      <div key={e.id} className="pl-4 -ml-0.5 relative">
+                        <div className="absolute -left-[7px] top-2 w-3 h-3 rounded-full border-2 border-card"
+                          style={{ background: isClient ? agencyColor : `${agencyColor}40` }} />
+                        <div className="flex items-baseline gap-2 mb-1.5">
+                          <span className="text-xs font-bold text-foreground">{isClient ? client.name.split(" ")[0] : "Toi (Agence)"}</span>
+                          <span className="text-[10px] text-muted-foreground">{formatTime(e.created_at)}</span>
+                          {!isClient && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider"
+                              style={{ background: `${agencyColor}1a`, color: agencyColor }}>
+                              Agence
+                            </span>
+                          )}
+                        </div>
+                        <div className={`rounded-lg px-3 py-2 text-sm leading-relaxed ${isClient ? "bg-muted/40 text-foreground" : "text-foreground border"}`}
+                          style={!isClient ? { background: `${agencyColor}0a`, borderColor: `${agencyColor}33` } : {}}>
+                          {e.content}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* New entry — agency reply */}
+        <div className="border-t border-border/40 p-4 bg-muted/10">
+          <div className="flex items-start gap-2.5">
+            <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+              style={{ background: agencyColor }}>
+              <Sparkles className="w-3.5 h-3.5 text-white" />
+            </div>
+            <div className="flex-1 space-y-2">
+              <textarea
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submit(); }}
+                placeholder={`Répondre à ${client.name.split(" ")[0]} ou ajouter une idée…`}
+                rows={3}
+                className="w-full bg-background border border-border/50 rounded-lg p-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 resize-none"
+              />
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] text-muted-foreground">⌘+Enter pour envoyer</p>
+                <Button onClick={submit} disabled={!text.trim() || addEntry.isPending} size="sm"
+                  className="gap-1.5 text-white border-0 hover:opacity-90"
+                  style={{ background: agencyColor }}>
+                  {addEntry.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <><Send className="w-3.5 h-3.5" /> Publier</>}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </>
   );
 }
