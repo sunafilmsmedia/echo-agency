@@ -430,6 +430,7 @@ export function ClientCenterTab() {
   const { data: clients = [] } = useClients();
   const updateClient = useUpdateClient();
   const activeClients = clients.filter((c) => c.status === "active");
+  const pausedClients = clients.filter((c) => c.status === "on_hold");
 
   const [activeTab, setActiveTab] = useState<"clients" | "onboarding">("clients");
 
@@ -673,15 +674,8 @@ export function ClientCenterTab() {
             </Card>
           )}
 
-          {activeClients.length === 0 ? (
-            <Card>
-              <CardContent className="pt-8 pb-8 flex flex-col items-center text-center gap-3">
-                <EchoTintedLogo color={agencyColor} pose="sitting" size="w-20 h-20" />
-                <p className="text-muted-foreground text-sm">Aucun client actif pour l'instant.<br/>Ajoute ton premier client depuis Client Management.</p>
-              </CardContent>
-            </Card>
-          ) : (
-            activeClients.map((client) => (
+          {(() => {
+            const renderClientCard = (client: any) => (
               <Card key={client.id} className="hover:border-border/80 transition-colors">
                 <CardContent className="pt-4 pb-4 space-y-3">
                   <div className="flex items-center gap-4">
@@ -804,8 +798,51 @@ export function ClientCenterTab() {
                   )}
                 </CardContent>
               </Card>
-            ))
-          )}
+            );
+
+            if (activeClients.length === 0 && pausedClients.length === 0) {
+              return (
+                <Card>
+                  <CardContent className="pt-8 pb-8 flex flex-col items-center text-center gap-3">
+                    <EchoTintedLogo color={agencyColor} pose="sitting" size="w-20 h-20" />
+                    <p className="text-muted-foreground text-sm">Aucun client actif pour l'instant.<br/>Ajoute ton premier client depuis Client Management.</p>
+                  </CardContent>
+                </Card>
+              );
+            }
+
+            return (
+              <div className="space-y-6">
+                {/* Active section */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-semibold text-foreground">Clients actifs</h3>
+                    <Badge variant="success" className="text-xs">{activeClients.length}</Badge>
+                  </div>
+                  {activeClients.length === 0 ? (
+                    <p className="text-xs text-muted-foreground italic px-1">Aucun client actif pour l'instant.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {activeClients.map(renderClientCard)}
+                    </div>
+                  )}
+                </div>
+
+                {/* Paused section */}
+                {pausedClients.length > 0 && (
+                  <div className="space-y-3 pt-4 border-t border-border/40">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">En pause</h3>
+                      <Badge variant="warning" className="text-xs">{pausedClients.length}</Badge>
+                    </div>
+                    <div className="space-y-3 opacity-75">
+                      {pausedClients.map(renderClientCard)}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
       )}
 
