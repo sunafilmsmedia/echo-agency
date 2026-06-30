@@ -3,19 +3,47 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
-  Users, Zap, BarChart3, Brain, Calendar, CheckSquare,
-  ArrowRight, Check, Shield, Star, Palette, Sparkles, LayoutDashboard,
+  Users, Zap, ArrowRight, Check, Shield, Brain, Sparkles,
+  Palette, UserCircle, MessagesSquare, MessageCircleQuestion,
 } from "lucide-react";
 import { LandingChat } from "@/components/landing/LandingChat";
 import { EchoTintedLogo } from "@/components/EchoTintedLogo";
 
-const FEATURES = [
-  { icon: Palette,         label: "100% personnalisable",  desc: "Ton logo, tes couleurs, ton nom — ton tracker reflète ta marque" },
-  { icon: Brain,            label: "IA intégrée",           desc: "Claude répond à tes questions business, analyse, conseille en temps réel" },
-  { icon: BarChart3,        label: "Revenue tracking",      desc: "MRR, pipeline, croissance — métriques en temps réel" },
-  { icon: Users,            label: "Gestion clients",       desc: "CRM léger, statuts, contrats, documents stratégiques" },
-  { icon: CheckSquare,      label: "KPI & équipe",          desc: "Track la perf de chaque membre, bonus auto-calculés" },
-  { icon: LayoutDashboard,  label: "Dashboard modulable",   desc: "Onglets déplaçables, sections protégées par PIN, à ton goût" },
+const AI_QUESTIONS = [
+  "Quels clients rapportent le plus ?",
+  "Quels revenus ont augmenté ce mois-ci ?",
+  "Quels suivis sont en retard ?",
+  "Quelles tâches devraient être prioritaires cette semaine ?",
+];
+
+const FEATURE_BLOCKS = [
+  {
+    num: "01",
+    icon: Brain,
+    title: "IA intégrée à ton entreprise",
+    description: "Pose des questions directement à ton assistant IA. Il analyse tes revenus, tes clients, tes données et tes opérations pour t'aider à prendre de meilleures décisions.",
+    questions: AI_QUESTIONS,
+  },
+  {
+    num: "02",
+    icon: UserCircle,
+    title: "Centre client personnalisé",
+    description: "Chaque client peut avoir son propre accès à un portail clair et professionnel. Il voit ses chiffres, ses documents, ses suivis, ses résultats et ses prochaines étapes selon ton type de business.",
+    callout: "Résultat : moins de messages inutiles, moins de confusion, plus de transparence.",
+  },
+  {
+    num: "03",
+    icon: MessagesSquare,
+    title: "Espace équipe intégré",
+    description: "Ton équipe discute, reçoit des tâches, suit les priorités et voit ce qui doit être fait. Assigne des tâches à tes employés, suis l'avancement et garde toute l'information au même endroit.",
+  },
+  {
+    num: "04",
+    icon: Palette,
+    title: "Dashboard à ton image",
+    description: "Ton logo. Tes couleurs. Ton nom. Ton expérience client. Ton système interne.",
+    callout: "Echo devient ton logiciel, pas juste un outil avec un logo collé dessus.",
+  },
 ];
 
 const FREE_FEATURES = [
@@ -129,14 +157,17 @@ export default function Landing() {
 
         <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-full px-3 py-1 mb-6">
           <Sparkles className="w-3 h-3 text-primary" />
-          <span className="text-xs text-primary font-medium">Salut! Je suis Echo, ton AI Business Tracker</span>
+          <span className="text-xs text-primary font-medium">Salut! Je suis Echo, ton centre de contrôle business</span>
         </div>
         <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-foreground leading-tight mb-5 tracking-tight">
-          Ton dashboard business.<br />
-          <span className="text-primary">À ton image.</span>
+          Ton centre de contrôle business.<br />
+          <span className="text-primary">Propulsé par l'IA. À ton image.</span>
         </h1>
-        <p className="text-base sm:text-lg text-muted-foreground max-w-xl mx-auto mb-10">
-          Crée ton application personnalisée — ton logo, tes couleurs, ton nom — avec une IA Claude intégrée partout.
+        <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto mb-4">
+          On crée ton application personnalisée avec ton logo, tes couleurs et ton univers de marque, pour centraliser tes chiffres, tes clients, ton équipe et tes opérations au même endroit.
+        </p>
+        <p className="text-sm sm:text-base text-muted-foreground/80 max-w-2xl mx-auto mb-10">
+          À l'intérieur, une IA intégrée analyse tes revenus, tes clients, tes performances et tes tâches pour t'aider à mieux comprendre ce qui se passe dans ton entreprise — <span className="text-foreground font-medium">et surtout quoi faire ensuite</span>.
         </p>
 
         {/* Chat — the centerpiece */}
@@ -166,15 +197,53 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Features grid */}
-      <section className="relative z-10 px-6 py-16 max-w-5xl mx-auto">
-        <p className="text-center text-xs text-muted-foreground font-semibold uppercase tracking-widest mb-10">Ce que tu peux construire</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {FEATURES.map(({ icon: Icon, label, desc }) => (
-            <div key={label} className="p-5 rounded-xl border border-border/50 bg-card/50 hover:border-primary/30 transition-colors">
-              <Icon className="w-5 h-5 text-primary mb-3" />
-              <p className="font-semibold text-sm text-foreground mb-1">{label}</p>
-              <p className="text-xs text-muted-foreground leading-relaxed">{desc}</p>
+      {/* Detailed features — 4 pillars */}
+      <section className="relative z-10 px-6 py-20 max-w-6xl mx-auto">
+        <div className="text-center mb-14 space-y-2">
+          <p className="text-xs text-muted-foreground font-semibold uppercase tracking-widest">Tout ce qu'Echo fait pour toi</p>
+          <h2 className="text-3xl sm:text-4xl font-bold text-foreground tracking-tight">
+            4 piliers pour <span className="text-primary">centraliser ton business</span>
+          </h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {FEATURE_BLOCKS.map(({ num, icon: Icon, title, description, questions, callout }) => (
+            <div key={num}
+              className="group relative p-7 rounded-2xl border border-border/50 bg-card/60 backdrop-blur-sm hover:border-primary/40 hover:bg-card transition-all space-y-4 flex flex-col">
+              {/* Number badge */}
+              <span className="absolute top-5 right-5 text-5xl font-black text-primary/10 group-hover:text-primary/20 transition-colors leading-none">
+                {num}
+              </span>
+
+              {/* Icon */}
+              <div className="w-12 h-12 rounded-xl bg-primary/15 border border-primary/20 flex items-center justify-center">
+                <Icon className="w-6 h-6 text-primary" />
+              </div>
+
+              {/* Title */}
+              <h3 className="text-lg font-bold text-foreground tracking-tight">{title}</h3>
+
+              {/* Description */}
+              <p className="text-sm text-muted-foreground leading-relaxed flex-1">{description}</p>
+
+              {/* AI question examples */}
+              {questions && (
+                <div className="rounded-xl bg-primary/5 border border-primary/15 p-3 space-y-1.5">
+                  {questions.map((q) => (
+                    <div key={q} className="flex items-start gap-2 text-xs text-foreground">
+                      <MessageCircleQuestion className="w-3.5 h-3.5 text-primary mt-0.5 flex-shrink-0" />
+                      <span className="italic">"{q}"</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Callout */}
+              {callout && (
+                <div className="rounded-lg bg-primary/8 border-l-2 border-primary px-3 py-2">
+                  <p className="text-xs text-foreground font-medium leading-relaxed">{callout}</p>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -284,7 +353,7 @@ export default function Landing() {
         <div className="flex items-center justify-center gap-2 mb-2">
           <EchoTintedLogo color="#10b981" size="w-7 h-7" untinted />
           <span className="text-sm font-semibold text-foreground">Echo</span>
-          <span className="text-xs text-muted-foreground">— Construis ton AI Business Tracker</span>
+          <span className="text-xs text-muted-foreground">— Ton centre de contrôle business, propulsé par l'IA</span>
         </div>
         <p className="text-xs text-muted-foreground">© 2026 Echo. Tous droits réservés.</p>
       </footer>
