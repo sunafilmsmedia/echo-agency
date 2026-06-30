@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, Users, Calendar, Calculator, UserCircle,
   CheckSquare, TrendingUp, Brain, Settings, GripVertical,
-  Bell, LogOut, ChevronRight, MessagesSquare, Trophy,
+  Bell, LogOut, ChevronRight, MessagesSquare, Trophy, Layers,
 } from "lucide-react";
 
 // Tab imports (we'll add these as we build them)
@@ -22,6 +22,7 @@ import { AdvisorsTab } from "@/components/dashboard/tabs/AdvisorsTab";
 import { SettingsTab } from "@/components/dashboard/tabs/SettingsTab";
 import { TeamTab } from "@/components/dashboard/tabs/TeamTab";
 import { KpiTab } from "@/components/dashboard/tabs/KpiTab";
+import { TasksSuivisTab } from "@/components/dashboard/tabs/TasksSuivisTab";
 import { useAgencySettings } from "@/hooks/usePortal";
 import { EchoTintedLogo } from "@/components/EchoTintedLogo";
 
@@ -50,6 +51,7 @@ const DEFAULT_SIDEBAR_ITEMS = [
   { id: "roi",       label: "ROI Calculator",     icon: Calculator,      protected: false },
   { id: "center",    label: "Client Center",      icon: UserCircle,      protected: false },
   { id: "tasks",     label: "Tâches du Jour",     icon: CheckSquare,     protected: false },
+  { id: "suivis",    label: "Tâches & Suivis",    icon: Layers,          protected: false },
   { id: "revenue",   label: "Revenue & Growth",   icon: TrendingUp,      protected: true  },
   { id: "advisors",  label: "Marketing Advisors", icon: Brain,           protected: false },
   { id: "team",      label: "Équipe & Canaux",    icon: MessagesSquare,  protected: false },
@@ -158,6 +160,7 @@ export default function Dashboard() {
       case "roi":       return <ROITab />;
       case "center":    return <ClientCenterTab />;
       case "tasks":     return <DailyTasksTab />;
+      case "suivis":    return <TasksSuivisTab />;
       case "revenue":   return <RevenueTab />;
       case "advisors":  return <AdvisorsTab />;
       case "team":      return <TeamTab />;
@@ -258,7 +261,7 @@ export default function Dashboard() {
 
         {/* Tab content */}
         <main className="flex-1 overflow-hidden">
-          {activeTab === "team"
+          {activeTab === "team" || activeTab === "suivis"
             ? <div className="h-full">{renderTab()}</div>
             : <div className="h-full overflow-y-auto">{renderTab()}</div>
           }
