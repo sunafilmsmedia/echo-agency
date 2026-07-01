@@ -178,6 +178,6 @@
   }
 
   .sidebar-item.active {
-    @apply bg-primary/12 text-primary;
+    @apply bg-primary/10 text-primary;
   }
 }
