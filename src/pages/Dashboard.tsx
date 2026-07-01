@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, Users, Calendar, Calculator, UserCircle,
   CheckSquare, TrendingUp, Brain, Settings, GripVertical,
-  Bell, LogOut, ChevronRight, MessagesSquare, Trophy, Layers,
+  Bell, LogOut, ChevronRight, MessagesSquare, Trophy, Layers, Sun, Moon,
 } from "lucide-react";
+import { useTheme } from "@/hooks/useTheme";
 
 // Tab imports (we'll add these as we build them)
 import { OverviewTab } from "@/components/dashboard/tabs/OverviewTab";
@@ -63,6 +64,7 @@ type TabId = typeof DEFAULT_SIDEBAR_ITEMS[number]["id"];
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { theme, toggle: toggleTheme } = useTheme();
   const { data: agency } = useAgencySettings();
   const agencyColor = agency?.color || "#7c3aed";
   const agencyName  = agency?.name  || "Echo";
@@ -250,6 +252,13 @@ export default function Dashboard() {
             {orderedItems.find((i) => i.id === activeTab)?.label || "Dashboard"}
           </h1>
           <div className="flex items-center gap-2">
+            <button
+              onClick={toggleTheme}
+              title={theme === "dark" ? "Passer en mode clair" : "Passer en mode sombre"}
+              className="p-2 rounded-lg hover:bg-accent transition-colors text-muted-foreground"
+            >
+              {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
             <button className="p-2 rounded-lg hover:bg-accent transition-colors text-muted-foreground">
               <Bell className="w-4 h-4" />
             </button>

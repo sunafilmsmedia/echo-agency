@@ -4,9 +4,10 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Save, Lock, Palette, Copy, ExternalLink, Zap, Calendar, Check } from "lucide-react";
+import { Save, Lock, Palette, Copy, ExternalLink, Zap, Calendar, Check, Sun, Moon } from "lucide-react";
 import { useAgencySettings, useUpdateAgencySettings } from "@/hooks/usePortal";
 import { EchoTintedLogo } from "@/components/EchoTintedLogo";
+import { useTheme } from "@/hooks/useTheme";
 
 const COLOR_PALETTE = [
   "#7c3aed", "#2563eb", "#0891b2", "#059669",
@@ -23,6 +24,7 @@ function slugify(s: string): string {
 }
 
 export function SettingsTab() {
+  const { theme, setTheme } = useTheme();
   const { data: agencyData } = useAgencySettings();
   const updateAgency = useUpdateAgencySettings();
 
@@ -184,6 +186,54 @@ export function SettingsTab() {
           />
           <p className="text-[10px] text-muted-foreground italic pt-1">
             Les intégrations sont débloquées avec les plans <span className="text-primary font-semibold">Pro (27$/mo)</span> et <span className="text-primary font-semibold">Business (57$/mo)</span>.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* ─────────────── Apparence ─────────────── */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            {theme === "dark" ? <Moon className="w-4 h-4 text-primary" /> : <Sun className="w-4 h-4 text-primary" />} Apparence
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-3">
+            <button onClick={() => setTheme("dark")}
+              className={`rounded-xl border-2 p-4 text-left transition-all ${theme === "dark" ? "border-primary bg-primary/5" : "border-border/50 hover:border-primary/40"}`}>
+              <div className="flex items-center gap-2 mb-3">
+                <Moon className="w-4 h-4" />
+                <span className="text-sm font-semibold">Mode sombre</span>
+                {theme === "dark" && <Check className="w-3.5 h-3.5 ml-auto text-primary" />}
+              </div>
+              {/* Preview */}
+              <div className="rounded-md h-16 bg-[hsl(240_7%_6%)] border border-[hsl(240_5%_18%)] flex items-center gap-1.5 px-2">
+                <div className="w-3 h-3 rounded-full" style={{ background: "hsl(158 100% 72%)" }} />
+                <div className="flex-1 space-y-1">
+                  <div className="h-1.5 w-8 rounded-full bg-[hsl(210_20%_92%)]/40" />
+                  <div className="h-1.5 w-12 rounded-full bg-[hsl(210_20%_92%)]/20" />
+                </div>
+              </div>
+            </button>
+            <button onClick={() => setTheme("light")}
+              className={`rounded-xl border-2 p-4 text-left transition-all ${theme === "light" ? "border-primary bg-primary/5" : "border-border/50 hover:border-primary/40"}`}>
+              <div className="flex items-center gap-2 mb-3">
+                <Sun className="w-4 h-4" />
+                <span className="text-sm font-semibold">Mode clair</span>
+                {theme === "light" && <Check className="w-3.5 h-3.5 ml-auto text-primary" />}
+              </div>
+              {/* Preview */}
+              <div className="rounded-md h-16 bg-white border border-[hsl(240_10%_88%)] flex items-center gap-1.5 px-2">
+                <div className="w-3 h-3 rounded-full" style={{ background: "hsl(158 65% 40%)" }} />
+                <div className="flex-1 space-y-1">
+                  <div className="h-1.5 w-8 rounded-full bg-[hsl(240_10%_12%)]/70" />
+                  <div className="h-1.5 w-12 rounded-full bg-[hsl(240_10%_12%)]/40" />
+                </div>
+              </div>
+            </button>
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-3">
+            Ton choix est sauvegardé pour ce navigateur.
           </p>
         </CardContent>
       </Card>
