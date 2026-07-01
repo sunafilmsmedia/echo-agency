@@ -44,10 +44,38 @@ export default function Landing() {
         .echo-nav-link:hover { color: #fff !important; }
         .echo-outline-btn:hover { background: rgba(255,255,255,0.1) !important; color: #fff !important; }
         ::selection { background: rgba(52,211,120,0.3); }
+
+        /* ═══ Mobile only — desktop stays untouched ═══ */
+        @media (max-width: 900px) {
+          .echo-nav-wrap { padding: 18px 20px !important; }
+          .echo-nav-links { display: none !important; }
+          .echo-hero-section { min-height: auto !important; padding-bottom: 40px !important; }
+          .echo-hero-content { padding: 20px 20px 40px !important; min-height: auto !important; }
+          .echo-hero-inner { max-width: 100% !important; }
+          .echo-hero-h1 { font-size: 40px !important; }
+          .echo-hero-p { font-size: 15.5px !important; }
+          .echo-widget { padding: 16px !important; max-width: 100% !important; }
+          .echo-widget-row { flex-direction: column !important; }
+          .echo-widget-input, .echo-widget-btn { width: 100% !important; }
+          .echo-widget-btn { justify-content: center !important; }
+          .echo-hero-veil-1 { background: linear-gradient(180deg, rgba(3,7,5,0.72) 0%, rgba(3,7,5,0.55) 45%, rgba(3,7,5,0.8) 100%) !important; }
+          .echo-hero-veil-2 { display: none !important; }
+          .echo-pillars-section { padding: 60px 20px 20px !important; }
+          .echo-pillar-row { gap: 32px !important; margin-bottom: 60px !important; }
+          .echo-pillar-h3 { font-size: 24px !important; }
+          .echo-pillar-p { font-size: 15px !important; }
+          .echo-section-h2 { font-size: 28px !important; }
+          .echo-pricing-section { padding: 70px 20px !important; }
+          .echo-pricing-grid { grid-template-columns: 1fr !important; gap: 16px !important; }
+          .echo-pricing-pro { transform: none !important; }
+          .echo-trust-row { gap: 14px !important; flex-direction: column !important; }
+          .echo-footer { padding: 36px 20px !important; }
+          .echo-footer-inner { flex-direction: column !important; text-align: center; gap: 16px !important; }
+        }
       `}</style>
 
       {/* ═════════════ HERO ═════════════ */}
-      <section style={{
+      <section className="echo-hero-section" style={{
         position: "relative", width: "100%", minHeight: "100vh", overflow: "hidden",
         background: "radial-gradient(1100px 800px at 74% 42%, rgba(43,180,100,0.20), transparent 60%), linear-gradient(180deg, #071410 0%, #050d09 46%, #020604 100%)",
       }}>
@@ -60,8 +88,8 @@ export default function Landing() {
           <source src="/echo-working.mp4" type="video/mp4" />
         </video>
         {/* Readability veils — softer so the video is clearly visible on the right */}
-        <div style={{ position: "absolute", inset: 0, zIndex: 1, background: "linear-gradient(90deg, rgba(3,7,5,0.9) 0%, rgba(3,7,5,0.72) 28%, rgba(3,7,5,0.45) 50%, rgba(3,7,5,0.22) 75%, rgba(3,7,5,0.15) 100%)", pointerEvents: "none" }} />
-        <div style={{ position: "absolute", inset: 0, zIndex: 1, background: "linear-gradient(180deg, rgba(3,7,5,0.35) 0%, rgba(3,7,5,0.1) 26%, rgba(3,7,5,0.1) 66%, rgba(2,6,4,0.8) 100%)", pointerEvents: "none" }} />
+        <div className="echo-hero-veil-1" style={{ position: "absolute", inset: 0, zIndex: 1, background: "linear-gradient(90deg, rgba(3,7,5,0.9) 0%, rgba(3,7,5,0.72) 28%, rgba(3,7,5,0.45) 50%, rgba(3,7,5,0.22) 75%, rgba(3,7,5,0.15) 100%)", pointerEvents: "none" }} />
+        <div className="echo-hero-veil-2" style={{ position: "absolute", inset: 0, zIndex: 1, background: "linear-gradient(180deg, rgba(3,7,5,0.35) 0%, rgba(3,7,5,0.1) 26%, rgba(3,7,5,0.1) 66%, rgba(2,6,4,0.8) 100%)", pointerEvents: "none" }} />
         {/* Beams */}
         <div style={{ position: "absolute", top: "-10%", right: "8%", width: 340, height: "130%", transform: "rotate(20deg)", background: "linear-gradient(180deg, rgba(180,255,210,0.10), transparent 70%)", filter: "blur(28px)", animation: "beam 7s ease-in-out infinite", pointerEvents: "none", zIndex: 1 }} />
         <div style={{ position: "absolute", top: "-10%", right: "26%", width: 180, height: "130%", transform: "rotate(20deg)", background: "linear-gradient(180deg, rgba(120,240,170,0.08), transparent 65%)", filter: "blur(22px)", animation: "beam 9s ease-in-out infinite", pointerEvents: "none" }} />
@@ -78,7 +106,7 @@ export default function Landing() {
         <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 3, background: "linear-gradient(90deg, transparent, rgba(52,211,120,0.35), transparent)", pointerEvents: "none" }} />
 
         {/* NAV */}
-        <nav style={{ position: "relative", zIndex: 5, display: "flex", alignItems: "center", justifyContent: "space-between", maxWidth: 1320, margin: "0 auto", padding: "26px 44px" }}>
+        <nav className="echo-nav-wrap" style={{ position: "relative", zIndex: 5, display: "flex", alignItems: "center", justifyContent: "space-between", maxWidth: 1320, margin: "0 auto", padding: "26px 44px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 44 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
               <div style={{
@@ -92,7 +120,7 @@ export default function Landing() {
               </div>
               <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em", color: "#fafefb" }}>Echo</span>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 28 }}>
+            <div className="echo-nav-links" style={{ display: "flex", alignItems: "center", gap: 28 }}>
               <a href="#piliers" className="echo-nav-link" style={{ textDecoration: "none", fontSize: 14.5, fontWeight: 500, color: "#b7c9be" }}>Fonctionnalités</a>
               <a href="#tarifs" className="echo-nav-link" style={{ textDecoration: "none", fontSize: 14.5, fontWeight: 500, color: "#b7c9be" }}>Tarifs</a>
               <a href="#" onClick={(e) => { e.preventDefault(); navigate("/preview"); }} className="echo-nav-link" style={{ textDecoration: "none", fontSize: 14.5, fontWeight: 500, color: "#b7c9be" }}>Démo</a>
@@ -109,24 +137,24 @@ export default function Landing() {
         </nav>
 
         {/* HERO COPY */}
-        <div style={{ position: "relative", zIndex: 4, maxWidth: 1320, margin: "0 auto", padding: "40px 44px 90px", minHeight: "calc(100vh - 90px)", display: "flex", alignItems: "center" }}>
-          <div style={{ maxWidth: 640 }}>
+        <div className="echo-hero-content" style={{ position: "relative", zIndex: 4, maxWidth: 1320, margin: "0 auto", padding: "40px 44px 90px", minHeight: "calc(100vh - 90px)", display: "flex", alignItems: "center" }}>
+          <div className="echo-hero-inner" style={{ maxWidth: 640 }}>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 9, padding: "7px 14px", borderRadius: 999, background: "rgba(52,211,120,0.10)", border: "1px solid rgba(52,211,120,0.28)", marginBottom: 26, boxShadow: "0 0 20px rgba(52,211,120,0.12)" }}>
               <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#4ade80", boxShadow: "0 0 10px #4ade80" }} />
               <span style={{ fontSize: 13, fontWeight: 600, color: "#8ff2b3" }}>Salut ! Je suis Echo, ton centre de contrôle business</span>
             </div>
 
-            <h1 style={{ margin: 0, fontFamily: "'Space Grotesk', sans-serif", fontSize: "clamp(42px, 5.2vw, 78px)", lineHeight: 0.99, fontWeight: 700, letterSpacing: "-0.035em", color: "#fafefb" }}>
+            <h1 className="echo-hero-h1" style={{ margin: 0, fontFamily: "'Space Grotesk', sans-serif", fontSize: "clamp(42px, 5.2vw, 78px)", lineHeight: 0.99, fontWeight: 700, letterSpacing: "-0.035em", color: "#fafefb" }}>
               Ton centre de contrôle business.<br />
               <span style={{ color: "#4ee288" }}>Propulsé par l'IA.</span>
             </h1>
 
-            <p style={{ margin: "26px 0 0", maxWidth: 510, fontSize: 18, lineHeight: 1.6, color: "#9db0a4" }}>
+            <p className="echo-hero-p" style={{ margin: "26px 0 0", maxWidth: 510, fontSize: 18, lineHeight: 1.6, color: "#9db0a4" }}>
               Une app personnalisée qui centralise chiffres, clients et opérations. L'IA analyse tout et te dit <strong style={{ color: "#eef4f0", fontWeight: 700 }}>quoi faire ensuite.</strong>
             </p>
 
             {/* Quick-start widget */}
-            <div style={{ marginTop: 34, maxWidth: 520, padding: 20, borderRadius: 18,
+            <div className="echo-widget" style={{ marginTop: 34, maxWidth: 520, padding: 20, borderRadius: 18,
               background: "linear-gradient(160deg, rgba(14,28,20,0.9), rgba(6,14,10,0.9))",
               border: "1px solid rgba(52,211,120,0.22)",
               boxShadow: "0 24px 50px -24px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.05)",
@@ -136,14 +164,15 @@ export default function Landing() {
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6z" /></svg>
                 <span style={{ fontSize: 14, fontWeight: 600, color: "#cfe9d8" }}>Construis ton tracker en 60 secondes</span>
               </div>
-              <div style={{ display: "flex", gap: 10 }}>
+              <div className="echo-widget-row" style={{ display: "flex", gap: 10 }}>
                 <input type="text" placeholder="Comment s'appelle ta business ?"
                   value={businessName}
                   onChange={(e) => setBusinessName(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") startFlow(); }}
+                  className="echo-widget-input"
                   style={{ flex: 1, minWidth: 0, padding: "14px 16px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.35)", color: "#eef4f0", fontFamily: "inherit", fontSize: 15, outline: "none" }}
                 />
-                <button onClick={startFlow} className="echo-btn-primary"
+                <button onClick={startFlow} className="echo-btn-primary echo-widget-btn"
                   style={{ flex: "0 0 auto", cursor: "pointer", border: 0, display: "inline-flex", alignItems: "center", gap: 8, padding: "14px 22px", borderRadius: 12, fontSize: 15, fontWeight: 700, color: "#052012", background: "linear-gradient(145deg,#6ef0a0,#34d378)", boxShadow: "0 10px 24px -8px rgba(52,211,120,0.5), inset 0 1px 0 rgba(255,255,255,0.4)", fontFamily: "inherit" }}>
                   Démarrer
                   <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
@@ -158,12 +187,12 @@ export default function Landing() {
       </section>
 
       {/* ═════════════ 4 PILIERS ═════════════ */}
-      <section id="piliers" style={{ position: "relative", padding: "110px 44px 40px", maxWidth: 1240, margin: "0 auto" }}>
+      <section id="piliers" className="echo-pillars-section" style={{ position: "relative", padding: "110px 44px 40px", maxWidth: 1240, margin: "0 auto" }}>
         <div style={{ textAlign: "center", marginBottom: 72 }}>
           <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 14px", borderRadius: 999, background: "rgba(52,211,120,0.09)", border: "1px solid rgba(52,211,120,0.24)", marginBottom: 20 }}>
             <span style={{ fontSize: 12.5, fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase", color: "#7ff0a8" }}>Tout ce qu'Echo fait pour toi</span>
           </div>
-          <h2 style={{ margin: 0, fontFamily: "'Space Grotesk', sans-serif", fontSize: "clamp(34px,4vw,54px)", lineHeight: 1.04, fontWeight: 700, letterSpacing: "-0.03em", color: "#fafefb" }}>
+          <h2 className="echo-section-h2" style={{ margin: 0, fontFamily: "'Space Grotesk', sans-serif", fontSize: "clamp(34px,4vw,54px)", lineHeight: 1.04, fontWeight: 700, letterSpacing: "-0.03em", color: "#fafefb" }}>
             4 piliers pour centraliser<br />ton business
           </h2>
         </div>
@@ -224,17 +253,17 @@ export default function Landing() {
       </section>
 
       {/* ═════════════ TARIFS ═════════════ */}
-      <section id="tarifs" style={{ position: "relative", padding: "110px 44px", background: "linear-gradient(180deg, #030705, #05100b 40%, #030705)", overflow: "hidden" }}>
+      <section id="tarifs" className="echo-pricing-section" style={{ position: "relative", padding: "110px 44px", background: "linear-gradient(180deg, #030705, #05100b 40%, #030705)", overflow: "hidden" }}>
         <div style={{ position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)", width: 900, height: 500, background: "radial-gradient(circle, rgba(52,211,120,0.12), transparent 65%)", filter: "blur(30px)", pointerEvents: "none" }} />
         <div style={{ position: "relative", maxWidth: 1160, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 60 }}>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 14px", borderRadius: 999, background: "rgba(52,211,120,0.09)", border: "1px solid rgba(52,211,120,0.24)", marginBottom: 20 }}>
               <span style={{ fontSize: 12.5, fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase", color: "#7ff0a8" }}>Tarifs simples</span>
             </div>
-            <h2 style={{ margin: 0, fontFamily: "'Space Grotesk', sans-serif", fontSize: "clamp(34px,4vw,54px)", lineHeight: 1.04, fontWeight: 700, letterSpacing: "-0.03em", color: "#fafefb" }}>Choisis ton plan</h2>
+            <h2 className="echo-section-h2" style={{ margin: 0, fontFamily: "'Space Grotesk', sans-serif", fontSize: "clamp(34px,4vw,54px)", lineHeight: 1.04, fontWeight: 700, letterSpacing: "-0.03em", color: "#fafefb" }}>Choisis ton plan</h2>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 20, alignItems: "stretch" }}>
+          <div className="echo-pricing-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 20, alignItems: "stretch" }}>
             <PricingCard
               name="Gratuit" tagline="Tracker de base, sans frais" price="0 $" priceColor="#fafefb"
               onSelect={() => navigate("/login?intent=create&plan=free")} ctaLabel="Démarrer gratuitement" primary={false}
@@ -269,7 +298,7 @@ export default function Landing() {
             />
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 26, marginTop: 38, flexWrap: "wrap" }}>
+          <div className="echo-trust-row" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 26, marginTop: 38, flexWrap: "wrap" }}>
             {[
               { label: "Paiement sécurisé Stripe", icon: <path d="M4 10h16v11H4z M8 10V7a4 4 0 018 0v3" /> },
               { label: "Annulation à tout moment", icon: <path d="M3 12a9 9 0 109-9M3 12l3-3M3 12l3 3" /> },
@@ -285,8 +314,8 @@ export default function Landing() {
       </section>
 
       {/* ═════════════ FOOTER ═════════════ */}
-      <footer style={{ borderTop: "1px solid rgba(255,255,255,0.07)", padding: "48px 44px" }}>
-        <div style={{ maxWidth: 1240, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 24, flexWrap: "wrap" }}>
+      <footer className="echo-footer" style={{ borderTop: "1px solid rgba(255,255,255,0.07)", padding: "48px 44px" }}>
+        <div className="echo-footer-inner" style={{ maxWidth: 1240, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 24, flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 13 }}>
             <div style={{ width: 40, height: 40, borderRadius: 11, overflow: "hidden", border: "1px solid rgba(52,211,120,0.35)", boxShadow: "0 0 18px rgba(52,211,120,0.25)", background: "radial-gradient(circle at 50% 40%, #123a24, #071109)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
               <img src="/echo-mascot.png" alt="Echo" style={{ width: "150%", marginBottom: -5 }} />
@@ -309,11 +338,11 @@ function PillarRow({ num, title, desc, leftExtra, rightVisual, reversed }: {
   num: string; title: string; desc: React.ReactNode; leftExtra?: React.ReactNode; rightVisual: React.ReactNode; reversed: boolean;
 }) {
   return (
-    <div style={{ display: "flex", gap: 64, alignItems: "center", marginBottom: 96, flexWrap: "wrap", flexDirection: reversed ? "row-reverse" : "row" }}>
+    <div className="echo-pillar-row" style={{ display: "flex", gap: 64, alignItems: "center", marginBottom: 96, flexWrap: "wrap", flexDirection: reversed ? "row-reverse" : "row" }}>
       <div style={{ flex: 1, minWidth: 320 }}>
         <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 15, fontWeight: 700, color: "#34d378", letterSpacing: "0.08em", marginBottom: 16 }}>{num}</div>
-        <h3 style={{ margin: "0 0 16px", fontFamily: "'Space Grotesk', sans-serif", fontSize: 30, fontWeight: 700, letterSpacing: "-0.02em", color: "#fafefb" }}>{title}</h3>
-        <p style={{ margin: "0 0 20px", fontSize: 17, lineHeight: 1.65, color: "#9db0a4", maxWidth: 460 }}>{desc}</p>
+        <h3 className="echo-pillar-h3" style={{ margin: "0 0 16px", fontFamily: "'Space Grotesk', sans-serif", fontSize: 30, fontWeight: 700, letterSpacing: "-0.02em", color: "#fafefb" }}>{title}</h3>
+        <p className="echo-pillar-p" style={{ margin: "0 0 20px", fontSize: 17, lineHeight: 1.65, color: "#9db0a4", maxWidth: 460 }}>{desc}</p>
         {leftExtra}
       </div>
       <div style={{ flex: 1, minWidth: 340 }}>{rightVisual}</div>
@@ -457,7 +486,7 @@ function PricingCard({ name, tagline, price, priceColor, features, ctaLabel, onS
     marginBottom: 24, fontFamily: "inherit",
   };
   return (
-    <div style={cardStyle}>
+    <div className={primary ? "echo-pricing-pro" : ""} style={cardStyle}>
       {primary && (
         <span style={{ position: "absolute", top: -13, left: "50%", transform: "translateX(-50%)", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "#052012", background: "linear-gradient(145deg,#6ef0a0,#34d378)", padding: "5px 14px", borderRadius: 999, boxShadow: "0 6px 16px -4px rgba(52,211,120,0.6)" }}>Populaire</span>
       )}
