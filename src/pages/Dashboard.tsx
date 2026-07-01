@@ -181,12 +181,12 @@ export default function Dashboard() {
       }}
     >
       {/* Sidebar */}
-      <aside className="w-64 flex-shrink-0 flex flex-col border-r border-sidebar-border bg-sidebar">
+      <aside className="w-60 flex-shrink-0 flex flex-col border-r border-sidebar-border/60 bg-sidebar">
         {/* Logo — agency brand + powered by Echo */}
-        <div className="flex items-center gap-2.5 px-4 py-4 border-b border-sidebar-border">
+        <div className="flex items-center gap-3 px-5 py-5">
           <EchoTintedLogo color={agencyColor} size="w-9 h-9" rounded="rounded-lg" />
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-bold text-sidebar-foreground truncate leading-tight">{agencyName}</p>
+            <p className="text-sm font-bold text-sidebar-foreground truncate leading-tight tracking-tight">{agencyName}</p>
             <p className="text-[10px] text-muted-foreground leading-tight">powered by Echo</p>
           </div>
         </div>
@@ -247,11 +247,11 @@ export default function Dashboard() {
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <header className="flex items-center justify-between px-6 py-4 border-b border-border/40 bg-background/80 backdrop-blur-sm flex-shrink-0">
-          <h1 className="text-lg font-semibold text-foreground capitalize">
+        <header className="flex items-center justify-between px-8 py-4 border-b border-border/30 bg-background/80 backdrop-blur-sm flex-shrink-0">
+          <h1 className="text-base font-semibold text-foreground tracking-tight">
             {orderedItems.find((i) => i.id === activeTab)?.label || "Dashboard"}
           </h1>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <button
               onClick={toggleTheme}
               title={theme === "dark" ? "Passer en mode clair" : "Passer en mode sombre"}

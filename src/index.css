@@ -172,12 +172,12 @@
 
   /* Sidebar item */
   .sidebar-item {
-    @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-sidebar-foreground
-      hover:bg-sidebar-accent hover:text-sidebar-accent-foreground
+    @apply flex items-center gap-2.5 px-3 py-2 rounded-lg text-sidebar-foreground/80
+      hover:bg-sidebar-accent/60 hover:text-sidebar-foreground
       transition-colors duration-150 cursor-pointer select-none text-sm font-medium;
   }
 
   .sidebar-item.active {
-    @apply bg-primary/15 text-primary border border-primary/30;
+    @apply bg-primary/12 text-primary;
   }
 }

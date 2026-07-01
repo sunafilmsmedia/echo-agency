@@ -62,43 +62,40 @@ export function OverviewTab() {
   ];
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Echo advice */}
-      <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">
-        <CardContent className="pt-6">
-          <div className="flex items-start gap-4">
-            <EchoTintedLogo color={agencyColor} pose="thinking" size="w-12 h-12" rounded="rounded-full" />
-            <div>
-              <p className="text-sm font-medium text-primary mb-1">Conseil du jour — Echo</p>
-              <p className="text-sm text-muted-foreground">{tip}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+    <div className="p-8 space-y-6 max-w-7xl mx-auto">
+      {/* Echo advice — subtle, spacious */}
+      <div className="rounded-2xl border border-border/30 bg-card p-5 flex items-start gap-4">
+        <EchoTintedLogo color={agencyColor} pose="thinking" size="w-10 h-10" rounded="rounded-full" />
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-primary mb-1">Conseil du jour · Echo</p>
+          <p className="text-sm text-foreground leading-relaxed">{tip}</p>
+        </div>
+      </div>
 
-      {/* KPI Stats */}
+      {/* KPI Stats — cleaner, less noisy */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map(({ label, value, sub, icon: Icon, color }) => (
-          <Card key={label}>
-            <CardContent className="pt-5">
-              <div className="flex items-start justify-between mb-3">
-                <p className="text-xs text-muted-foreground font-medium">{label}</p>
-                <Icon className={`w-4 h-4 ${color}`} />
+          <div key={label} className="rounded-2xl border border-border/30 bg-card p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
+              <div className="w-7 h-7 rounded-lg bg-muted/40 flex items-center justify-center">
+                <Icon className={`w-3.5 h-3.5 ${color}`} />
               </div>
-              <p className={`text-2xl font-bold ${color}`}>{value}</p>
-              <p className="text-xs text-muted-foreground mt-1">{sub}</p>
-            </CardContent>
-          </Card>
+            </div>
+            <p className="text-3xl font-bold text-foreground tracking-tight">{value}</p>
+            <p className="text-[11px] text-muted-foreground">{sub}</p>
+          </div>
         ))}
       </div>
 
-      {/* Recent activity (static) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-sm">Activité Récente</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
+      {/* Recent activity + Client progress */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 rounded-2xl border border-border/30 bg-card">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-border/30">
+            <h3 className="text-sm font-semibold text-foreground">Activité Récente</h3>
+            <button className="text-[11px] text-muted-foreground hover:text-primary transition-colors">Tout voir</button>
+          </div>
+          <div className="divide-y divide-border/20">
             {[
               { emoji: "✅", text: "Contrat signé — Client A", time: "Il y a 2h" },
               { emoji: "🎬", text: "Tournage planifié — Client B", time: "Il y a 5h" },
@@ -106,43 +103,44 @@ export function OverviewTab() {
               { emoji: "📞", text: "Call de suivi — Client C", time: "Hier" },
               { emoji: "📝", text: "Stratégie mise à jour — Client D", time: "Il y a 2j" },
             ].map(({ emoji, text, time }) => (
-              <div key={text} className="flex items-center gap-3 text-sm">
+              <div key={text} className="flex items-center gap-3 px-5 py-3 text-sm hover:bg-muted/20 transition-colors">
                 <span className="text-base">{emoji}</span>
                 <span className="flex-1 text-foreground">{text}</span>
-                <span className="text-muted-foreground text-xs">{time}</span>
+                <span className="text-muted-foreground text-[11px]">{time}</span>
               </div>
             ))}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Clients — Progrès</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
+        <div className="rounded-2xl border border-border/30 bg-card">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-border/30">
+            <h3 className="text-sm font-semibold text-foreground">Clients — Progrès</h3>
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{activeClients.length} actifs</span>
+          </div>
+          <div className="p-5 space-y-3.5">
             {activeClients.slice(0, 5).map((client) => {
               const match = client.notes?.match(/(\d+)%/);
               const progress = match ? parseInt(match[1]) : 0;
               return (
                 <div key={client.id}>
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="text-foreground truncate">{client.name}</span>
+                  <div className="flex justify-between text-xs mb-1.5">
+                    <span className="text-foreground truncate font-medium">{client.name}</span>
                     <span className="text-muted-foreground">{progress}%</span>
                   </div>
-                  <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
+                  <div className="h-1 rounded-full bg-muted/50 overflow-hidden">
                     <div
                       className="h-full bg-primary rounded-full transition-all"
-                      style={{ width: `${progress}%` }}
+                      style={{ width: `${Math.max(progress, 2)}%` }}
                     />
                   </div>
                 </div>
               );
             })}
             {activeClients.length === 0 && (
-              <p className="text-xs text-muted-foreground">Aucun client actif</p>
+              <p className="text-xs text-muted-foreground text-center py-4">Aucun client actif</p>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -159,15 +159,13 @@ export default function Landing() {
           <Sparkles className="w-3 h-3 text-primary" />
           <span className="text-xs text-primary font-medium">Salut! Je suis Echo, ton centre de contrôle business</span>
         </div>
-        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-foreground leading-tight mb-5 tracking-tight">
+        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-foreground leading-[1.05] mb-5 tracking-tight">
           Ton centre de contrôle business.<br />
           <span className="text-primary">Propulsé par l'IA. À ton image.</span>
         </h1>
-        <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto mb-4">
-          On crée ton application personnalisée avec ton logo, tes couleurs et ton univers de marque, pour centraliser tes chiffres, tes clients, ton équipe et tes opérations au même endroit.
-        </p>
-        <p className="text-sm sm:text-base text-muted-foreground/80 max-w-2xl mx-auto mb-10">
-          À l'intérieur, une IA intégrée analyse tes revenus, tes clients, tes performances et tes tâches pour t'aider à mieux comprendre ce qui se passe dans ton entreprise — <span className="text-foreground font-medium">et surtout quoi faire ensuite</span>.
+        <p className="text-base sm:text-lg text-muted-foreground max-w-xl mx-auto mb-10 leading-relaxed">
+          Une app personnalisée qui centralise chiffres, clients et opérations.
+          L'IA analyse tout et te dit <span className="text-foreground font-medium">quoi faire ensuite</span>.
         </p>
 
         {/* Chat — the centerpiece */}
