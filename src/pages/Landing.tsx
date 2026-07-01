@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { LandingChat } from "@/components/landing/LandingChat";
 
 /**
  * Echo landing page — dark theme with green accents.
@@ -14,6 +15,7 @@ export default function Landing() {
   const navigate = useNavigate();
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [businessName, setBusinessName] = useState("");
+  const [chatOpen, setChatOpen] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -24,7 +26,7 @@ export default function Landing() {
 
   const startFlow = () => {
     if (businessName.trim()) sessionStorage.setItem("echo_signup_business_name", businessName.trim());
-    navigate("/login?intent=create");
+    setChatOpen(true);
   };
 
   if (checkingAuth) {
@@ -328,6 +330,22 @@ export default function Landing() {
           <div style={{ fontSize: 13, color: "#6f8479" }}>© 2026 Echo. Tous droits réservés.</div>
         </div>
       </footer>
+
+      {/* ═════════════ Chat modal (interactive 60-second tracker builder) ═════════════ */}
+      {chatOpen && (
+        <div onClick={() => setChatOpen(false)}
+          style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(3,7,5,0.85)", backdropFilter: "blur(8px)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 20, overflowY: "auto" }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 560, marginTop: 40, marginBottom: 40 }}>
+            <div style={{ textAlign: "center", marginBottom: 20 }}>
+              <p style={{ fontSize: 13, fontWeight: 600, color: "#8ff2b3", margin: "0 0 4px", letterSpacing: "0.04em" }}>CONSTRUIS TON TRACKER EN 60 SECONDES</p>
+              <button onClick={() => setChatOpen(false)} style={{ background: "none", border: "1px solid rgba(255,255,255,0.15)", color: "#cfe9d8", cursor: "pointer", fontSize: 12, padding: "6px 12px", borderRadius: 999, fontFamily: "inherit" }}>
+                ← Fermer
+              </button>
+            </div>
+            <LandingChat onCreateClick={() => navigate("/login?intent=create")} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

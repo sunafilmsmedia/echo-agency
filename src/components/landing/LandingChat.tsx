@@ -40,7 +40,10 @@ interface Props { onCreateClick: () => void; }
 export function LandingChat({ onCreateClick }: Props) {
   const [step, setStep] = useState<0|1|2|3|4|5>(0);
 
-  const [businessName, setBusinessName] = useState("");
+  const [businessName, setBusinessName] = useState(() => {
+    try { return sessionStorage.getItem("echo_signup_business_name") || ""; }
+    catch { return ""; }
+  });
   const [services, setServices]         = useState("");
   const [revenue, setRevenue]           = useState("");
   const [color1, setColor1]             = useState("#7c3aed");
