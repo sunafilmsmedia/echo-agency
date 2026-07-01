@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 type EchoPose = "default" | "waving" | "jumping" | "sitting" | "thinking";
 
 const POSE_FILES: Record<EchoPose, string> = {
@@ -19,18 +21,20 @@ interface Props {
   glow?: boolean;
   /** Override blend strength (0–1). Default 1 = full tint. */
   intensity?: number;
-  /** Which pose to display */
+  /** Which pose to display (falls back to default if the pose file 404s) */
   pose?: EchoPose;
-  /** Drop the tint and show Echo in its native green */
+  /** Drop the tint and show Echo in its native color */
   untinted?: boolean;
 }
 
 /**
- * Echo mascot (PNG with alpha) tinted with an arbitrary color.
+ * Echo mascot tinted with an arbitrary color.
  *
- * Technique: the colored overlay is clipped to the Echo silhouette using
- * CSS mask-image. This keeps the tint INSIDE the character shape and lets
- * transparency around it show through cleanly.
+ * Works with both RGB (no-alpha) and RGBA (transparent) PNGs. Uses
+ * mix-blend-mode: color so the character silhouette takes on the agency's
+ * hue while keeping its luminance and highlights.
+ *
+ * If a specific pose PNG is missing, it silently falls back to /echo-avatar.png.
  */
 export function EchoTintedLogo({
   color,
@@ -41,31 +45,24 @@ export function EchoTintedLogo({
   pose = "default",
   untinted = false,
 }: Props) {
-  const src = POSE_FILES[pose];
+  const [src, setSrc] = useState(POSE_FILES[pose]);
 
   return (
     <div
-      className={`relative ${size} ${rounded} flex-shrink-0`}
-      style={glow ? { filter: `drop-shadow(0 0 12px ${color}66)` } : undefined}
+      className={`relative ${size} ${rounded} overflow-hidden flex-shrink-0`}
+      style={glow ? { filter: `drop-shadow(0 0 16px ${color}55)` } : undefined}
     >
-      <img src={src} alt="Echo" className="w-full h-full object-contain" />
+      <img
+        src={src}
+        alt="Echo"
+        className="w-full h-full object-contain"
+        onError={() => { if (src !== POSE_FILES.default) setSrc(POSE_FILES.default); }}
+      />
       {!untinted && (
         <div
           aria-hidden
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            backgroundColor: color,
-            mixBlendMode: "color",
-            opacity: intensity,
-            WebkitMaskImage: `url(${src})`,
-            maskImage: `url(${src})`,
-            WebkitMaskSize: "contain",
-            maskSize: "contain",
-            WebkitMaskRepeat: "no-repeat",
-            maskRepeat: "no-repeat",
-            WebkitMaskPosition: "center",
-            maskPosition: "center",
-          }}
+          className="absolute inset-0 pointer-events-none mix-blend-color"
+          style={{ backgroundColor: color, opacity: intensity }}
         />
       )}
     </div>
