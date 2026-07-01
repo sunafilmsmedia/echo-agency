@@ -7,9 +7,10 @@ import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, Users, Calendar, Calculator, UserCircle,
   CheckSquare, TrendingUp, Brain, Settings, GripVertical,
-  Bell, LogOut, ChevronRight, MessagesSquare, Trophy, Layers, Sun, Moon,
+  Bell, LogOut, ChevronRight, MessagesSquare, Trophy, Layers, Sun, Moon, Presentation,
 } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
+import { SoumissionsTab } from "@/components/dashboard/tabs/SoumissionsTab";
 
 // Tab imports (we'll add these as we build them)
 import { OverviewTab } from "@/components/dashboard/tabs/OverviewTab";
@@ -55,6 +56,7 @@ const DEFAULT_SIDEBAR_ITEMS = [
   { id: "suivis",    label: "Tâches & Suivis",    icon: Layers,          protected: false },
   { id: "revenue",   label: "Revenue & Growth",   icon: TrendingUp,      protected: true  },
   { id: "advisors",  label: "Marketing Advisors", icon: Brain,           protected: false },
+  { id: "soumissions", label: "Soumissions",      icon: Presentation,    protected: false },
   { id: "team",      label: "Équipe & Canaux",    icon: MessagesSquare,  protected: false },
   { id: "kpi",       label: "KPI Équipe",         icon: Trophy,          protected: true  },
   { id: "settings",  label: "Settings",           icon: Settings,        protected: false },
@@ -165,6 +167,7 @@ export default function Dashboard() {
       case "suivis":    return <TasksSuivisTab />;
       case "revenue":   return <RevenueTab />;
       case "advisors":  return <AdvisorsTab />;
+      case "soumissions": return <SoumissionsTab />;
       case "team":      return <TeamTab />;
       case "kpi":       return <KpiTab />;
       case "settings":  return <SettingsTab />;
