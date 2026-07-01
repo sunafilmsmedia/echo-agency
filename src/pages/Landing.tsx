@@ -59,10 +59,9 @@ export default function Landing() {
         }}>
           <source src="/echo-working.mp4" type="video/mp4" />
         </video>
-        {/* Readability veils */}
-        <div style={{ position: "absolute", inset: 0, zIndex: 1, background: "linear-gradient(90deg, rgba(3,7,5,0.97) 0%, rgba(3,7,5,0.9) 30%, rgba(3,7,5,0.74) 54%, rgba(3,7,5,0.58) 76%, rgba(3,7,5,0.48) 100%)", pointerEvents: "none" }} />
-        <div style={{ position: "absolute", inset: 0, zIndex: 1, background: "linear-gradient(180deg, rgba(3,7,5,0.55) 0%, rgba(3,7,5,0.2) 26%, rgba(3,7,5,0.2) 66%, rgba(2,6,4,0.88) 100%)", pointerEvents: "none" }} />
-        <div style={{ position: "absolute", inset: 0, zIndex: 1, background: "radial-gradient(120% 90% at 78% 45%, transparent 30%, rgba(3,7,5,0.5) 100%)", pointerEvents: "none" }} />
+        {/* Readability veils — softer so the video is clearly visible on the right */}
+        <div style={{ position: "absolute", inset: 0, zIndex: 1, background: "linear-gradient(90deg, rgba(3,7,5,0.9) 0%, rgba(3,7,5,0.72) 28%, rgba(3,7,5,0.45) 50%, rgba(3,7,5,0.22) 75%, rgba(3,7,5,0.15) 100%)", pointerEvents: "none" }} />
+        <div style={{ position: "absolute", inset: 0, zIndex: 1, background: "linear-gradient(180deg, rgba(3,7,5,0.35) 0%, rgba(3,7,5,0.1) 26%, rgba(3,7,5,0.1) 66%, rgba(2,6,4,0.8) 100%)", pointerEvents: "none" }} />
         {/* Beams */}
         <div style={{ position: "absolute", top: "-10%", right: "8%", width: 340, height: "130%", transform: "rotate(20deg)", background: "linear-gradient(180deg, rgba(180,255,210,0.10), transparent 70%)", filter: "blur(28px)", animation: "beam 7s ease-in-out infinite", pointerEvents: "none", zIndex: 1 }} />
         <div style={{ position: "absolute", top: "-10%", right: "26%", width: 180, height: "130%", transform: "rotate(20deg)", background: "linear-gradient(180deg, rgba(120,240,170,0.08), transparent 65%)", filter: "blur(22px)", animation: "beam 9s ease-in-out infinite", pointerEvents: "none" }} />
@@ -119,7 +118,7 @@ export default function Landing() {
 
             <h1 style={{ margin: 0, fontFamily: "'Space Grotesk', sans-serif", fontSize: "clamp(42px, 5.2vw, 78px)", lineHeight: 0.99, fontWeight: 700, letterSpacing: "-0.035em", color: "#fafefb" }}>
               Ton centre de contrôle business.<br />
-              <span style={{ color: "#4ee288" }}>Propulsé par l'IA. À ton image.</span>
+              <span style={{ color: "#4ee288" }}>Propulsé par l'IA.</span>
             </h1>
 
             <p style={{ margin: "26px 0 0", maxWidth: 510, fontSize: 18, lineHeight: 1.6, color: "#9db0a4" }}>
