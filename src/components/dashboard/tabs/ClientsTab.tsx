@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useClients, useCreateClient, useUpdateClient, useDeleteClient, useUpdateClientStatus } from "@/hooks/useClients";
-import { useClientTasks } from "@/hooks/useClientTasks";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,7 +25,6 @@ const STATUS_CONFIG: Record<ClientStatus, { label: string; variant: any }> = {
 
 // ─── ClientCard ───────────────────────────────────────────────
 function ClientCard({ client, onEdit, onDelete }: { client: Client; onEdit: () => void; onDelete: () => void }) {
-  const { data: tasks = [] } = useClientTasks(client.id);
   const updateStatus = useUpdateClientStatus();
 
   const endDate = getContractEndDate(client.contract_start_date, client.contract_length_months, client.contract_end_date);
@@ -38,9 +36,16 @@ function ClientCard({ client, onEdit, onDelete }: { client: Client; onEdit: () =
     monthsLeft <= 3 ? "text-amber-400" :
     "text-emerald-400";
 
-  const avgProgress = tasks.length > 0
-    ? Math.round(tasks.reduce((s, t) => s + t.progress, 0) / tasks.length)
-    : 0;
+  // Contract elapsed % — how much of the contract duration has passed
+  const contractProgress = (() => {
+    if (!client.contract_start_date || !endDate) return null;
+    const start = new Date(client.contract_start_date).getTime();
+    const end   = new Date(endDate).getTime();
+    const now   = Date.now();
+    if (end <= start) return null;
+    const pct = Math.round(((now - start) / (end - start)) * 100);
+    return Math.max(0, Math.min(100, pct));
+  })();
 
   const serviceIcon =
     client.notes?.includes("Content + Ads") ? "⚡" :
@@ -103,14 +108,20 @@ function ClientCard({ client, onEdit, onDelete }: { client: Client; onEdit: () =
           </div>
         )}
 
-        {/* Progress */}
-        <div>
-          <div className="flex justify-between text-xs text-muted-foreground mb-1">
-            <span>Progression</span>
-            <span>{avgProgress}%</span>
+        {/* Contract progress — % of contract duration elapsed */}
+        {contractProgress !== null ? (
+          <div>
+            <div className="flex justify-between text-xs text-muted-foreground mb-1">
+              <span>Progression du contrat</span>
+              <span className="font-medium text-foreground">{contractProgress}%</span>
+            </div>
+            <Progress value={contractProgress} className="h-1.5" />
           </div>
-          <Progress value={avgProgress} className="h-1.5" />
-        </div>
+        ) : (
+          <div className="text-[10px] text-muted-foreground italic">
+            Ajoute une date de début + durée pour tracker la progression du contrat
+          </div>
+        )}
 
         {/* Actions */}
         <div className="flex gap-2 pt-1">
