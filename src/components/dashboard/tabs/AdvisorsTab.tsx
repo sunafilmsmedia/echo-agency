@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import { ROITab } from "@/components/dashboard/tabs/ROITab";
 import { toast } from "sonner";
 import {
   ChevronDown, ChevronRight, Copy, Loader2, Upload, Send,
@@ -34,7 +35,7 @@ interface Skill {
   description: string;
   systemPrompt: string;
   starters: string[];
-  component?: "sales" | "category" | "automation" | "skillsmd";
+  component?: "sales" | "category" | "automation" | "skillsmd" | "roi";
 }
 
 interface SkillGroup {
@@ -166,6 +167,15 @@ const NAV: NavItem[] = [
     systemPrompt: "",
     starters: [],
     component: "automation",
+  },
+  {
+    id: "roi",
+    emoji: "📈",
+    label: "ROI Calculator",
+    description: "Calcule le retour sur investissement de tes campagnes",
+    systemPrompt: "",
+    starters: [],
+    component: "roi",
   },
   {
     id: "skillsmd",
@@ -994,6 +1004,7 @@ export function AdvisorsTab() {
     if (selected.component === "category") return <CategoryArchitectPanel />;
     if (selected.component === "automation") return <AutomationPanel />;
     if (selected.component === "skillsmd") return <SkillsMdPanel />;
+    if (selected.component === "roi")      return <ROITab />;
     return <ClaudeChat skill={selected} />;
   };
 

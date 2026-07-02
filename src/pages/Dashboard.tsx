@@ -5,7 +5,7 @@ import { PinDialog } from "@/components/dashboard/PinDialog";
 import { AIChat } from "@/components/dashboard/AIChat";
 import { Button } from "@/components/ui/button";
 import {
-  LayoutDashboard, Users, Calendar, Calculator, UserCircle,
+  LayoutDashboard, Users, Calendar, UserCircle,
   CheckSquare, TrendingUp, Brain, Settings, GripVertical,
   Bell, LogOut, ChevronRight, MessagesSquare, Trophy, Layers, Sun, Moon, Presentation,
 } from "lucide-react";
@@ -16,7 +16,6 @@ import { SoumissionsTab } from "@/components/dashboard/tabs/SoumissionsTab";
 import { OverviewTab } from "@/components/dashboard/tabs/OverviewTab";
 import { ClientsTab } from "@/components/dashboard/tabs/ClientsTab";
 import { CalendarTab } from "@/components/dashboard/tabs/CalendarTab";
-import { ROITab } from "@/components/dashboard/tabs/ROITab";
 import { ClientCenterTab } from "@/components/dashboard/tabs/ClientCenterTab";
 import { DailyTasksTab } from "@/components/dashboard/tabs/DailyTasksTab";
 import { RevenueTab } from "@/components/dashboard/tabs/RevenueTab";
@@ -50,7 +49,6 @@ const DEFAULT_SIDEBAR_ITEMS = [
   { id: "overview",  label: "Dashboard",          icon: LayoutDashboard, protected: false },
   { id: "clients",   label: "Client Management",  icon: Users,           protected: true  },
   { id: "calendar",  label: "Calendar",           icon: Calendar,        protected: false },
-  { id: "roi",       label: "ROI Calculator",     icon: Calculator,      protected: false },
   { id: "center",    label: "Client Center",      icon: UserCircle,      protected: false },
   { id: "tasks",     label: "Tâches du Jour",     icon: CheckSquare,     protected: false },
   { id: "suivis",    label: "Tâches & Suivis",    icon: Layers,          protected: false },
@@ -161,7 +159,6 @@ export default function Dashboard() {
       case "overview":  return <OverviewTab />;
       case "clients":   return <ClientsTab />;
       case "calendar":  return <CalendarTab />;
-      case "roi":       return <ROITab />;
       case "center":    return <ClientCenterTab />;
       case "tasks":     return <DailyTasksTab />;
       case "suivis":    return <TasksSuivisTab />;
