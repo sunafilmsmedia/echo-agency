@@ -25,6 +25,7 @@ interface Submission {
   monthsTotal: string;
   services: OfferService[];
   mainGoal: string;
+  expectedResults: string;
   deliverables: string;
   timeline: string;
   extraNotes: string;
@@ -36,6 +37,22 @@ interface Submission {
   error?: string;
   createdAt: number;
 }
+
+// TODO: once agencies can define their specialty when creating their Echo workspace,
+// load these dynamically from agency_settings.specialty_domains.
+const DOMAIN_OPTIONS = [
+  "Courtier immobilier",
+  "Courtier hypothécaire",
+  "Restaurant / Café",
+  "E-commerce / DTC",
+  "Coach / Formation en ligne",
+  "Cabinet médical / dentaire",
+  "Services professionnels (avocat, comptable)",
+  "Beauté / Bien-être",
+  "Fitness / Coaching sportif",
+  "SaaS / Tech",
+  "Autre",
+];
 
 const SERVICE_OPTIONS: { id: OfferService; label: string; emoji: string; desc: string }[] = [
   { id: "videos", label: "Vidéos",      emoji: "🎬", desc: "Production vidéo, reels, YouTube" },
@@ -216,14 +233,18 @@ function NewSubmissionForm({ onCancel, onCreate }: {
   // "Existing client" or new prospect
   const [clientId, setClientId]           = useState<string>("");
   const [prospectName, setProspectName]   = useState("");
-  const [domain, setDomain]               = useState("");
+  const [domainChoice, setDomainChoice]   = useState<string>("");
+  const [domainOther, setDomainOther]     = useState<string>("");
   const [pricePerMonth, setPricePerMonth] = useState("");
   const [monthsTotal, setMonthsTotal]     = useState("");
   const [services, setServices]           = useState<OfferService[]>([]);
   const [mainGoal, setMainGoal]           = useState("");
+  const [expectedResults, setExpectedResults] = useState("");
   const [deliverables, setDeliverables]   = useState("");
   const [timeline, setTimeline]           = useState("");
   const [extraNotes, setExtraNotes]       = useState("");
+
+  const domain = domainChoice === "Autre" ? domainOther : domainChoice;
 
   const selectedClient = clients.find((c) => c.id === clientId);
   const agencyName = agency?.name ?? "Mon Agence";
@@ -234,7 +255,11 @@ function NewSubmissionForm({ onCancel, onCreate }: {
     const c = clients.find((cl) => cl.id === id);
     if (c) {
       if (!prospectName) setProspectName(c.name);
-      if (!domain && c.industry) setDomain(c.industry);
+      if (!domainChoice && c.industry) {
+        const match = DOMAIN_OPTIONS.find((d) => d.toLowerCase() === c.industry!.toLowerCase());
+        if (match) setDomainChoice(match);
+        else { setDomainChoice("Autre"); setDomainOther(c.industry); }
+      }
       if (!pricePerMonth && c.monthly_recurring_revenue) setPricePerMonth(String(c.monthly_recurring_revenue));
     }
   };
@@ -268,6 +293,7 @@ ${pricePerMonth ? `Investissement mensuel : ${pricePerMonth} $ / mois` : ""}
 ${monthsTotal ? `Durée du contrat : ${monthsTotal} mois` : ""}
 ${total > 0 ? `Valeur totale du contrat : ${total.toLocaleString("fr-CA")} $` : ""}
 ${mainGoal ? `\nObjectif principal du prospect : ${mainGoal}` : ""}
+${expectedResults ? `\nRésultats prévus / promesse : ${expectedResults}` : ""}
 ${deliverables ? `\nLivrables clés : ${deliverables}` : ""}
 ${timeline ? `\nCalendrier / échéancier : ${timeline}` : ""}
 ${extraNotes ? `\nNotes additionnelles : ${extraNotes}` : ""}
@@ -281,7 +307,7 @@ STRUCTURE ATTENDUE (10-14 slides)
 4. Notre approche — méthodologie ${agencyName}
 5. Détail de l'offre — chaque service listé (${serviceLabels})
 6. Livrables mois par mois
-7. KPIs & indicateurs de succès
+7. Résultats prévus & KPIs${expectedResults ? ` (${expectedResults})` : ""}
 8. Investissement — ${pricePerMonth ? `${pricePerMonth} $/mois × ${monthsTotal || "?"} mois = ${total > 0 ? total.toLocaleString("fr-CA") + " $" : "à définir"}` : "à définir"}
 9. Calendrier de démarrage
 10. Pourquoi ${agencyName} — preuves & résultats
@@ -307,6 +333,7 @@ Couleur d'accent : ${agency?.color ?? "#7c3aed"}`;
       monthsTotal: monthsTotal.trim(),
       services,
       mainGoal: mainGoal.trim(),
+      expectedResults: expectedResults.trim(),
       deliverables: deliverables.trim(),
       timeline: timeline.trim(),
       extraNotes: extraNotes.trim(),
@@ -359,9 +386,18 @@ Couleur d'accent : ${agency?.color ?? "#7c3aed"}`;
                 placeholder="Ex: Studio Lumière" className="text-sm" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Domaine / Industrie</Label>
-              <Input value={domain} onChange={(e) => setDomain(e.target.value)}
-                placeholder="Ex: Restauration, E-commerce, SaaS…" className="text-sm" />
+              <Label className="text-xs">Domaine du prospect</Label>
+              <select value={domainChoice} onChange={(e) => setDomainChoice(e.target.value)}
+                className="w-full h-10 text-sm rounded-md border border-input bg-background px-3 text-foreground">
+                <option value="">— Choisir un domaine —</option>
+                {DOMAIN_OPTIONS.map((d) => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
+              {domainChoice === "Autre" && (
+                <Input value={domainOther} onChange={(e) => setDomainOther(e.target.value)}
+                  placeholder="Précise le domaine…" className="text-sm mt-1.5" autoFocus />
+              )}
             </div>
           </div>
         </div>
@@ -432,6 +468,13 @@ Couleur d'accent : ${agency?.color ?? "#7c3aed"}`;
             <Label className="text-xs">Objectif principal du prospect</Label>
             <Input value={mainGoal} onChange={(e) => setMainGoal(e.target.value)}
               placeholder="Ex: Doubler les réservations d'ici 3 mois" className="text-sm" />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs">Résultats prévus <span className="text-muted-foreground">(ta promesse chiffrée)</span></Label>
+            <Textarea value={expectedResults} onChange={(e) => setExpectedResults(e.target.value)}
+              placeholder="Ex:&#10;- +30% de nouvelles demandes en 90 jours&#10;- 15 leads qualifiés/mois via ads&#10;- 3-5 dossiers signés supplémentaires par mois"
+              rows={3} className="text-sm" />
           </div>
 
           <div className="space-y-1.5">
