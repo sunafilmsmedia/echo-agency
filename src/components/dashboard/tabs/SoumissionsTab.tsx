@@ -41,6 +41,7 @@ interface Submission {
   services: OfferService[];
   mainGoal: string;
   resultKpis: ResultKpi[];
+  kpiTargets: Partial<Record<ResultKpi, string>>;
   expectedResults: string;
   deliverables: string;
   timeline: string;
@@ -256,6 +257,7 @@ function NewSubmissionForm({ onCancel, onCreate }: {
   const [services, setServices]           = useState<OfferService[]>([]);
   const [mainGoal, setMainGoal]           = useState("");
   const [resultKpis, setResultKpis]       = useState<ResultKpi[]>([]);
+  const [kpiTargets, setKpiTargets]       = useState<Partial<Record<ResultKpi, string>>>({});
   const [expectedResults, setExpectedResults] = useState("");
   const [deliverables, setDeliverables]   = useState("");
   const [timeline, setTimeline]           = useState("");
@@ -286,6 +288,13 @@ function NewSubmissionForm({ onCancel, onCreate }: {
   };
   const toggleKpi = (k: ResultKpi) => {
     setResultKpis((prev) => prev.includes(k) ? prev.filter(x => x !== k) : [...prev, k]);
+    setKpiTargets((prev) => {
+      if (k in prev) { const { [k]: _, ...rest } = prev; return rest; }
+      return { ...prev, [k]: "" };
+    });
+  };
+  const setKpiTarget = (k: ResultKpi, v: string) => {
+    setKpiTargets((prev) => ({ ...prev, [k]: v }));
   };
 
   const totalContract = () => {
@@ -313,7 +322,11 @@ ${pricePerMonth ? `Investissement mensuel : ${pricePerMonth} $ / mois` : ""}
 ${monthsTotal ? `Durée du contrat : ${monthsTotal} mois` : ""}
 ${total > 0 ? `Valeur totale du contrat : ${total.toLocaleString("fr-CA")} $` : ""}
 ${mainGoal ? `\nObjectif principal du prospect : ${mainGoal}` : ""}
-${resultKpis.length ? `\nKPIs à mettre en avant : ${resultKpis.map((k) => RESULT_KPI_OPTIONS.find(o => o.id === k)?.label).filter(Boolean).join(", ")}` : ""}
+${resultKpis.length ? `\nKPIs à mettre en avant :\n${resultKpis.map((k) => {
+      const opt = RESULT_KPI_OPTIONS.find(o => o.id === k);
+      const target = kpiTargets[k];
+      return `  • ${opt?.label ?? k}${target ? ` : ${target}` : ""}`;
+    }).join("\n")}` : ""}
 ${expectedResults ? `\nRésultats prévus / promesse chiffrée : ${expectedResults}` : ""}
 ${deliverables ? `\nLivrables clés : ${deliverables}` : ""}
 ${timeline ? `\nCalendrier / échéancier : ${timeline}` : ""}
@@ -355,6 +368,7 @@ Couleur d'accent : ${agency?.color ?? "#7c3aed"}`;
       services,
       mainGoal: mainGoal.trim(),
       resultKpis,
+      kpiTargets,
       expectedResults: expectedResults.trim(),
       deliverables: deliverables.trim(),
       timeline: timeline.trim(),
@@ -492,8 +506,10 @@ Couleur d'accent : ${agency?.color ?? "#7c3aed"}`;
               placeholder="Ex: Doubler les réservations d'ici 3 mois" className="text-sm" />
           </div>
 
-          <div className="space-y-2">
-            <Label className="text-xs">KPIs à mettre en avant</Label>
+          <div className="space-y-3">
+            <Label className="text-xs">KPIs à mettre en avant <span className="text-muted-foreground">(click pour activer, tape la cible chiffrée)</span></Label>
+
+            {/* All chips */}
             <div className="flex flex-wrap gap-1.5">
               {RESULT_KPI_OPTIONS.map((k) => {
                 const active = resultKpis.includes(k.id);
@@ -507,6 +523,29 @@ Couleur d'accent : ${agency?.color ?? "#7c3aed"}`;
                 );
               })}
             </div>
+
+            {/* Target inputs for selected KPIs */}
+            {resultKpis.length > 0 && (
+              <div className="rounded-xl border border-border/40 bg-muted/10 p-3 space-y-2">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Cibles chiffrées</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {resultKpis.map((id) => {
+                    const opt = RESULT_KPI_OPTIONS.find(o => o.id === id);
+                    if (!opt) return null;
+                    return (
+                      <div key={id} className="flex items-center gap-2">
+                        <span className="text-xs w-32 flex-shrink-0 flex items-center gap-1.5">
+                          <span>{opt.emoji}</span>
+                          <span className="text-foreground font-medium">{opt.label}</span>
+                        </span>
+                        <Input value={kpiTargets[id] ?? ""} onChange={(e) => setKpiTarget(id, e.target.value)}
+                          placeholder="Ex: 500/mois, +30%…" className="h-8 text-xs" />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="space-y-1.5">
