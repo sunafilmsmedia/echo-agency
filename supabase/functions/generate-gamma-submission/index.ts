@@ -65,7 +65,6 @@ Deno.serve(async (req) => {
           textOptions: {
             textMode: "generate",     // v1.0: generate = full AI-write from brief; condense = shorten; preserve = keep as-is
             language: "fr",
-            amount: "detailed",       // still accepted for content depth
           },
           imageOptions: { source: "aiGenerated" },
           additionalInstructions: additionalInstructions ??
