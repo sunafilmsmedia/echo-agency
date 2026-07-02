@@ -7,7 +7,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const GAMMA_BASE = "https://public-api.gamma.app/v0.2";
+const GAMMA_BASE = "https://public-api.gamma.app/v1.0";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
