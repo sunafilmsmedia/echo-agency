@@ -62,7 +62,11 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           inputText,
           format: "presentation",
-          textOptions: { amount: "detailed", language: "fr" },
+          textOptions: {
+            textMode: "generate",     // v1.0: generate = full AI-write from brief; condense = shorten; preserve = keep as-is
+            language: "fr",
+            amount: "detailed",       // still accepted for content depth
+          },
           imageOptions: { source: "aiGenerated" },
           additionalInstructions: additionalInstructions ??
             `Utilise la couleur d'accent ${agency.color ?? "#7c3aed"} et présente comme si tu étais l'agence "${agency.name ?? "Mon Agence"}".`,
