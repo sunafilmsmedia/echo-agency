@@ -484,7 +484,32 @@ function SubmissionDetail({ submission, onBack, onUpdate, onDelete }: {
 
   const hasApiKey = !!agency?.gamma_api_key;
 
-  // Kick off generation via the Edge Function → returns generationId → then poll
+  // supabase.functions.invoke swallows the error body on non-2xx responses.
+  // We call the function via raw fetch so we can read the actual error message from Gamma.
+  const callGammaFn = async (payload: Record<string, unknown>) => {
+    const { data: session } = await supabase.auth.getSession();
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+    const res = await fetch(`${supabaseUrl}/functions/v1/generate-gamma-submission`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": supabaseKey,
+        "Authorization": `Bearer ${session.session?.access_token ?? supabaseKey}`,
+      },
+      body: JSON.stringify(payload),
+    });
+    const text = await res.text();
+    let body: any = {};
+    try { body = JSON.parse(text); } catch { body = { raw: text }; }
+    console.log(`[Gamma ${payload.action}]`, res.status, body);
+    if (!res.ok || body?.error) {
+      const msg = body?.message ?? body?.error ?? `HTTP ${res.status}: ${text.slice(0, 200)}`;
+      throw new Error(msg);
+    }
+    return body;
+  };
+
   const generateWithGamma = async () => {
     if (!hasApiKey) {
       toast.error("Configure d'abord ta clé Gamma dans Settings → Intégrations");
@@ -493,13 +518,7 @@ function SubmissionDetail({ submission, onBack, onUpdate, onDelete }: {
     setGenerating(true);
     onUpdate({ ...submission, prompt, status: "generating", error: undefined });
     try {
-      const { data, error } = await supabase.functions.invoke("generate-gamma-submission", {
-        body: { action: "create", inputText: prompt },
-      });
-      // Log for debugging
-      console.log("[Gamma create]", { data, error });
-      if (error) throw new Error(error.message ?? "Erreur Edge Function");
-      if (data?.error) throw new Error(data.message ?? data.error);
+      const data = await callGammaFn({ action: "create", inputText: prompt });
       if (!data?.generationId) throw new Error("Réponse Gamma sans generationId");
       const genId = data.generationId as string;
       onUpdate({ ...submission, prompt, status: "generating", gammaId: genId, error: undefined });
@@ -508,7 +527,6 @@ function SubmissionDetail({ submission, onBack, onUpdate, onDelete }: {
     } catch (e: any) {
       setGenerating(false);
       const msg = e?.message ?? "Erreur inconnue";
-      console.error("[Gamma create failed]", e);
       onUpdate({ ...submission, prompt, status: "error", error: msg });
       toast.error(msg);
     }
@@ -517,12 +535,7 @@ function SubmissionDetail({ submission, onBack, onUpdate, onDelete }: {
   const pollStatus = (genId: string) => {
     const tick = async () => {
       try {
-        const { data, error } = await supabase.functions.invoke("generate-gamma-submission", {
-          body: { action: "status", id: genId },
-        });
-        console.log("[Gamma poll]", { data, error });
-        if (error) throw new Error(error.message ?? "Erreur polling");
-        if (data?.error) throw new Error(data.message ?? data.error);
+        const data = await callGammaFn({ action: "status", id: genId });
         if (data?.status === "completed" && data?.gammaUrl) {
           setGenerating(false);
           onUpdate({ ...submission, prompt, gammaId: genId, gammaUrl: data.gammaUrl, status: "ready" });
@@ -535,12 +548,10 @@ function SubmissionDetail({ submission, onBack, onUpdate, onDelete }: {
           toast.error("Gamma a échoué la génération");
           return;
         }
-        // still pending/processing → poll again
         pollTimer.current = window.setTimeout(tick, 4000);
       } catch (e: any) {
         setGenerating(false);
         const msg = e?.message ?? "Erreur de polling";
-        console.error("[Gamma poll failed]", e);
         onUpdate({ ...submission, prompt, gammaId: genId, status: "error", error: msg });
         toast.error(msg);
       }
