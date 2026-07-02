@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Save, Lock, Palette, Copy, ExternalLink, Zap, Calendar, Check, Sun, Moon } from "lucide-react";
+import { Save, Lock, Palette, Copy, ExternalLink, Zap, Calendar, Check, Sun, Moon, Presentation, Eye, EyeOff } from "lucide-react";
 import { useAgencySettings, useUpdateAgencySettings } from "@/hooks/usePortal";
 import { EchoTintedLogo } from "@/components/EchoTintedLogo";
 import { useTheme } from "@/hooks/useTheme";
@@ -34,6 +34,8 @@ export function SettingsTab() {
   const [color, setColor]         = useState("#7c3aed");
   const [scriptGpt, setScriptGpt] = useState("");
   const [brandGuide, setBrandGuide] = useState("");
+  const [gammaKey, setGammaKey]   = useState("");
+  const [showGammaKey, setShowGammaKey] = useState(false);
 
   useEffect(() => {
     if (!agencyData) return;
@@ -42,6 +44,7 @@ export function SettingsTab() {
     setColor(agencyData.color);
     setScriptGpt(agencyData.script_gpt_url ?? "");
     setBrandGuide(agencyData.brand_guide_url ?? "");
+    setGammaKey(agencyData.gamma_api_key ?? "");
   }, [agencyData]);
 
   // PIN state
@@ -58,6 +61,12 @@ export function SettingsTab() {
       brand_guide_url: brandGuide.trim() || null,
     }, {
       onSuccess: () => setSlug(cleanSlug),
+    });
+  };
+
+  const saveGammaKey = () => {
+    updateAgency.mutate({ gamma_api_key: gammaKey.trim() || null }, {
+      onSuccess: () => toast.success(gammaKey.trim() ? "Clé Gamma sauvegardée" : "Clé Gamma retirée"),
     });
   };
 
@@ -184,8 +193,66 @@ export function SettingsTab() {
             status="connected"
             badge="Plan Pro+"
           />
+
+          {/* Gamma — with API key input */}
+          <div className="rounded-lg border border-border/40 bg-card hover:bg-muted/10 transition-colors">
+            <div className="flex items-center gap-3 p-3">
+              <div className="w-9 h-9 rounded-lg bg-muted/30 flex items-center justify-center flex-shrink-0">
+                <Presentation className="w-4 h-4 text-fuchsia-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-semibold text-foreground">Gamma AI</p>
+                  <a href="https://gamma.app/account/api-keys" target="_blank" rel="noopener noreferrer"
+                    className="text-[10px] text-primary hover:underline flex items-center gap-0.5">
+                    Obtenir ma clé <ExternalLink className="w-2.5 h-2.5" />
+                  </a>
+                </div>
+                <p className="text-[11px] text-muted-foreground truncate">Génère automatiquement des soumissions clients propulsées par IA</p>
+              </div>
+              {agencyData?.gamma_api_key ? (
+                <span className="flex items-center gap-1 text-[10px] font-semibold text-emerald-400 px-2 py-0.5 rounded-full bg-emerald-500/10">
+                  <Check className="w-3 h-3" /> Connecté
+                </span>
+              ) : (
+                <span className="text-[10px] font-semibold text-muted-foreground px-2 py-0.5 rounded-full bg-muted/30">
+                  Non connecté
+                </span>
+              )}
+            </div>
+            {/* Key input row */}
+            <div className="border-t border-border/30 p-3 space-y-2">
+              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                Clé API Gamma
+              </Label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Input
+                    type={showGammaKey ? "text" : "password"}
+                    value={gammaKey}
+                    onChange={(e) => setGammaKey(e.target.value)}
+                    placeholder="sk-gamma-…"
+                    className="text-xs font-mono pr-9"
+                  />
+                  <button type="button" onClick={() => setShowGammaKey((v) => !v)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                    {showGammaKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+                <Button onClick={saveGammaKey} size="sm" className="gap-1.5" disabled={updateAgency.isPending}>
+                  <Save className="w-3.5 h-3.5" /> Enregistrer
+                </Button>
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                La clé est stockée chiffrée dans ta base Supabase et n'est jamais exposée au frontend.
+                Chaque agence utilise sa propre clé.
+              </p>
+            </div>
+          </div>
+
           <p className="text-[10px] text-muted-foreground italic pt-1">
-            Les intégrations sont débloquées avec les plans <span className="text-primary font-semibold">Pro (27$/mo)</span> et <span className="text-primary font-semibold">Business (57$/mo)</span>.
+            Les intégrations Stripe et Calendar sont débloquées avec les plans <span className="text-primary font-semibold">Pro (27$/mo)</span> et <span className="text-primary font-semibold">Business (57$/mo)</span>.
+            Gamma est disponible sur tous les plans (clé requise).
           </p>
         </CardContent>
       </Card>

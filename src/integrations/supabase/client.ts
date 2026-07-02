@@ -109,6 +109,7 @@ export interface AgencySettings {
   color: string;
   script_gpt_url: string | null;
   brand_guide_url: string | null;
+  gamma_api_key: string | null;
   created_at: string;
   updated_at: string;
 }

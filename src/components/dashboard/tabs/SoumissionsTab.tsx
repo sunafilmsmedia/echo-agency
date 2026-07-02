@@ -1,12 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useClients } from "@/hooks/useClients";
 import { useAgencySettings } from "@/hooks/usePortal";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { FileText, Plus, Sparkles, ExternalLink, Loader2, Copy, Trash2, Wand2, ArrowLeft, Check, Presentation } from "lucide-react";
+import { FileText, Plus, Sparkles, ExternalLink, Loader2, Copy, Trash2, Wand2, ArrowLeft, Check, Presentation, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
 import { EchoTintedLogo } from "@/components/EchoTintedLogo";
@@ -323,20 +324,87 @@ Couleur d'accent : ${agency?.color ?? "#7c3aed"}`;
 function SubmissionDetail({ submission, onBack, onUpdate, onDelete }: {
   submission: Submission; onBack: () => void; onUpdate: (s: Submission) => void; onDelete: () => void;
 }) {
+  const { data: agency } = useAgencySettings();
   const [prompt, setPrompt] = useState(submission.prompt);
   const [gammaUrlInput, setGammaUrlInput] = useState(submission.gammaUrl ?? "");
+  const [generating, setGenerating] = useState(false);
+  const pollTimer = useRef<number | null>(null);
 
-  const openGamma = () => {
-    const gammaAppUrl = "https://gamma.app/create/generate?input=" + encodeURIComponent(prompt);
-    window.open(gammaAppUrl, "_blank");
-    onUpdate({ ...submission, prompt, status: "generating" });
-    toast.success("Gamma ouvert dans un nouvel onglet — colle le lien final ici quand c'est prêt");
+  const hasApiKey = !!agency?.gamma_api_key;
+
+  // Kick off generation via the Edge Function → returns generationId → then poll
+  const generateWithGamma = async () => {
+    if (!hasApiKey) {
+      toast.error("Configure d'abord ta clé Gamma dans Settings → Intégrations");
+      return;
+    }
+    setGenerating(true);
+    onUpdate({ ...submission, prompt, status: "generating", error: undefined });
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-gamma-submission?action=create", {
+        body: { inputText: prompt },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.message ?? data.error);
+      if (!data?.generationId) throw new Error("Réponse Gamma invalide");
+      const genId = data.generationId as string;
+      onUpdate({ ...submission, prompt, status: "generating", gammaId: genId, error: undefined });
+      toast.success("Génération lancée sur Gamma — j'affiche le lien dès qu'elle est prête");
+      pollStatus(genId);
+    } catch (e: any) {
+      setGenerating(false);
+      const msg = e?.message ?? "Erreur inconnue";
+      onUpdate({ ...submission, prompt, status: "error", error: msg });
+      toast.error(msg);
+    }
   };
+
+  const pollStatus = (genId: string) => {
+    const tick = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke(`generate-gamma-submission?action=status&id=${genId}`, { method: "GET" as any });
+        if (error) throw new Error(error.message);
+        if (data?.error) throw new Error(data.message ?? data.error);
+        if (data?.status === "completed" && data?.gammaUrl) {
+          setGenerating(false);
+          onUpdate({ ...submission, prompt, gammaId: genId, gammaUrl: data.gammaUrl, status: "ready" });
+          toast.success("Présentation prête!");
+          return;
+        }
+        if (data?.status === "failed") {
+          setGenerating(false);
+          onUpdate({ ...submission, prompt, gammaId: genId, status: "error", error: "Gamma a échoué la génération" });
+          toast.error("Gamma a échoué la génération");
+          return;
+        }
+        // still pending/processing → poll again
+        pollTimer.current = window.setTimeout(tick, 4000);
+      } catch (e: any) {
+        setGenerating(false);
+        const msg = e?.message ?? "Erreur de polling";
+        onUpdate({ ...submission, prompt, gammaId: genId, status: "error", error: msg });
+        toast.error(msg);
+      }
+    };
+    tick();
+  };
+
+  useEffect(() => {
+    // Resume polling if a generation is in progress
+    if (submission.status === "generating" && submission.gammaId && !pollTimer.current) {
+      setGenerating(true);
+      pollStatus(submission.gammaId);
+    }
+    return () => {
+      if (pollTimer.current) { window.clearTimeout(pollTimer.current); pollTimer.current = null; }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const saveGammaUrl = () => {
     if (!gammaUrlInput.trim()) return;
     onUpdate({ ...submission, gammaUrl: gammaUrlInput.trim(), status: "ready" });
-    toast.success("Soumission marquée comme prête");
+    toast.success("Lien Gamma sauvegardé");
   };
 
   const copyPrompt = () => {
@@ -409,28 +477,45 @@ function SubmissionDetail({ submission, onBack, onUpdate, onDelete }: {
         <Textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={14}
           className="text-xs font-mono leading-relaxed" />
         <p className="text-[10px] text-muted-foreground">
-          Ce prompt sera envoyé à Gamma. Ajuste-le si tu veux un ton différent ou plus de détails.
+          Ce prompt sera envoyé à l'API Gamma. Ajuste-le si tu veux un ton différent ou plus de détails.
         </p>
-        <Button onClick={openGamma} className="w-full gap-2 shadow-glow">
-          <Sparkles className="w-4 h-4" /> Générer avec Gamma
-          <ExternalLink className="w-3.5 h-3.5" />
-        </Button>
+        {!hasApiKey ? (
+          <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 flex items-start gap-3">
+            <KeyRound className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-foreground">Clé Gamma requise</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Va dans <span className="font-medium text-foreground">Settings → Intégrations → Gamma AI</span> pour coller ta clé API.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <Button onClick={generateWithGamma} disabled={generating} className="w-full gap-2 shadow-glow">
+            {generating
+              ? <><Loader2 className="w-4 h-4 animate-spin" /> Génération en cours…</>
+              : <><Sparkles className="w-4 h-4" /> Générer avec Gamma</>
+            }
+          </Button>
+        )}
+        {submission.error && (
+          <p className="text-xs text-destructive">{submission.error}</p>
+        )}
       </div>
 
-      {/* URL capture */}
+      {/* Manual URL capture — fallback if you generated on gamma.app directly */}
       <div className="rounded-2xl border border-border/40 bg-card p-6 space-y-3">
         <div className="flex items-center gap-2">
           <FileText className="w-4 h-4 text-primary" />
-          <h3 className="text-sm font-bold text-foreground">Lien de la présentation générée</h3>
+          <h3 className="text-sm font-bold text-foreground">Ou colle un lien Gamma existant</h3>
         </div>
         <p className="text-xs text-muted-foreground">
-          Une fois que Gamma a généré ta présentation, copie l'URL et colle-la ici pour la sauvegarder.
+          Si tu as généré la présentation directement sur gamma.app, colle l'URL ici pour l'associer à cette soumission.
         </p>
         <div className="flex gap-2">
           <Input value={gammaUrlInput} onChange={(e) => setGammaUrlInput(e.target.value)}
             placeholder="https://gamma.app/docs/..." className="text-sm font-mono" />
-          <Button onClick={saveGammaUrl} disabled={!gammaUrlInput.trim()} className="gap-1.5">
-            <Check className="w-4 h-4" /> Sauvegarder
+          <Button onClick={saveGammaUrl} disabled={!gammaUrlInput.trim()} variant="outline" className="gap-1.5">
+            <Check className="w-4 h-4" /> Associer
           </Button>
         </div>
       </div>
