@@ -1,15 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useClients } from "@/hooks/useClients";
 import { useAgencySettings } from "@/hooks/usePortal";
-import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { FileText, Plus, Sparkles, ExternalLink, Loader2, Copy, Trash2, Wand2, ArrowLeft, Check, Presentation, KeyRound } from "lucide-react";
+import { FileText, Plus, ExternalLink, Copy, Trash2, Wand2, ArrowLeft, Check, Presentation, Sparkles, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { formatCurrency } from "@/lib/utils";
 import { EchoTintedLogo } from "@/components/EchoTintedLogo";
 
 // ─── Types & storage ─────────────────────────────────────────────────────────
@@ -193,10 +191,10 @@ function SubmissionsList({ submissions, onNew, onOpen, onDelete }: {
 
 function StatusBadge({ status }: { status: Submission["status"] }) {
   const map: Record<Submission["status"], { label: string; cls: string }> = {
-    draft:      { label: "Brouillon",  cls: "bg-muted/40 text-muted-foreground" },
-    generating: { label: "Génération", cls: "bg-primary/15 text-primary" },
-    ready:      { label: "Prête",      cls: "bg-emerald-500/15 text-emerald-400" },
-    error:      { label: "Erreur",     cls: "bg-destructive/15 text-destructive" },
+    draft:      { label: "Brouillon",   cls: "bg-muted/40 text-muted-foreground" },
+    generating: { label: "En cours",    cls: "bg-primary/15 text-primary" },
+    ready:      { label: "Prête",       cls: "bg-emerald-500/15 text-emerald-400" },
+    error:      { label: "Erreur",      cls: "bg-destructive/15 text-destructive" },
   };
   const cfg = map[status];
   return (
@@ -476,110 +474,36 @@ Couleur d'accent : ${agency?.color ?? "#7c3aed"}`;
 function SubmissionDetail({ submission, onBack, onUpdate, onDelete }: {
   submission: Submission; onBack: () => void; onUpdate: (s: Submission) => void; onDelete: () => void;
 }) {
-  const { data: agency } = useAgencySettings();
   const [prompt, setPrompt] = useState(submission.prompt);
   const [gammaUrlInput, setGammaUrlInput] = useState(submission.gammaUrl ?? "");
-  const [generating, setGenerating] = useState(false);
-  const pollTimer = useRef<number | null>(null);
 
-  const hasApiKey = !!agency?.gamma_api_key;
-
-  // supabase.functions.invoke swallows the error body on non-2xx responses.
-  // We call the function via raw fetch so we can read the actual error message from Gamma.
-  const callGammaFn = async (payload: Record<string, unknown>) => {
-    const { data: session } = await supabase.auth.getSession();
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
-    const res = await fetch(`${supabaseUrl}/functions/v1/generate-gamma-submission`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "apikey": supabaseKey,
-        "Authorization": `Bearer ${session.session?.access_token ?? supabaseKey}`,
-      },
-      body: JSON.stringify(payload),
-    });
-    const text = await res.text();
-    let body: any = {};
-    try { body = JSON.parse(text); } catch { body = { raw: text }; }
-    console.log(`[Gamma ${payload.action}]`, res.status, body);
-    if (!res.ok || body?.error) {
-      const msg = body?.message ?? body?.error ?? `HTTP ${res.status}: ${text.slice(0, 200)}`;
-      throw new Error(msg);
-    }
-    return body;
-  };
-
-  const generateWithGamma = async () => {
-    if (!hasApiKey) {
-      toast.error("Configure d'abord ta clé Gamma dans Settings → Intégrations");
-      return;
-    }
-    setGenerating(true);
-    onUpdate({ ...submission, prompt, status: "generating", error: undefined });
-    try {
-      const data = await callGammaFn({ action: "create", inputText: prompt });
-      if (!data?.generationId) throw new Error("Réponse Gamma sans generationId");
-      const genId = data.generationId as string;
-      onUpdate({ ...submission, prompt, status: "generating", gammaId: genId, error: undefined });
-      toast.success("Génération lancée — j'affiche le lien dès qu'elle est prête (30-60s)");
-      pollStatus(genId);
-    } catch (e: any) {
-      setGenerating(false);
-      const msg = e?.message ?? "Erreur inconnue";
-      onUpdate({ ...submission, prompt, status: "error", error: msg });
-      toast.error(msg);
-    }
-  };
-
-  const pollStatus = (genId: string) => {
-    const tick = async () => {
-      try {
-        const data = await callGammaFn({ action: "status", id: genId });
-        if (data?.status === "completed" && data?.gammaUrl) {
-          setGenerating(false);
-          onUpdate({ ...submission, prompt, gammaId: genId, gammaUrl: data.gammaUrl, status: "ready" });
-          toast.success("Présentation prête!");
-          return;
-        }
-        if (data?.status === "failed") {
-          setGenerating(false);
-          onUpdate({ ...submission, prompt, gammaId: genId, status: "error", error: "Gamma a échoué la génération" });
-          toast.error("Gamma a échoué la génération");
-          return;
-        }
-        pollTimer.current = window.setTimeout(tick, 4000);
-      } catch (e: any) {
-        setGenerating(false);
-        const msg = e?.message ?? "Erreur de polling";
-        onUpdate({ ...submission, prompt, gammaId: genId, status: "error", error: msg });
-        toast.error(msg);
-      }
-    };
-    tick();
-  };
-
+  // Persist prompt edits automatically on blur
   useEffect(() => {
-    // Resume polling if a generation is in progress
-    if (submission.status === "generating" && submission.gammaId && !pollTimer.current) {
-      setGenerating(true);
-      pollStatus(submission.gammaId);
+    if (prompt !== submission.prompt) {
+      const t = setTimeout(() => onUpdate({ ...submission, prompt }), 500);
+      return () => clearTimeout(t);
     }
-    return () => {
-      if (pollTimer.current) { window.clearTimeout(pollTimer.current); pollTimer.current = null; }
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [prompt]);
+
+  const copyPrompt = async () => {
+    await navigator.clipboard.writeText(prompt);
+    toast.success("Prompt copié — colle-le dans ton outil de présentation IA");
+  };
+
+  const openTool = (baseUrl: string, urlParam?: string) => {
+    // Copy prompt first so user can paste immediately
+    navigator.clipboard.writeText(prompt).catch(() => {});
+    const url = urlParam ? `${baseUrl}?${urlParam}=${encodeURIComponent(prompt.slice(0, 8000))}` : baseUrl;
+    window.open(url, "_blank");
+    onUpdate({ ...submission, prompt, status: submission.status === "draft" ? "generating" : submission.status });
+    toast.success("Prompt copié dans le presse-papier + outil ouvert");
+  };
 
   const saveGammaUrl = () => {
     if (!gammaUrlInput.trim()) return;
     onUpdate({ ...submission, gammaUrl: gammaUrlInput.trim(), status: "ready" });
-    toast.success("Lien Gamma sauvegardé");
-  };
-
-  const copyPrompt = () => {
-    navigator.clipboard.writeText(prompt);
-    toast.success("Prompt copié");
+    toast.success("Lien de la présentation sauvegardé");
   };
 
   return (
@@ -651,61 +575,100 @@ function SubmissionDetail({ submission, onBack, onUpdate, onDelete }: {
         </div>
       )}
 
+      {/* Ready state — show the deck */}
+      {submission.status === "ready" && submission.gammaUrl && (
+        <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/5 p-5 space-y-3">
+          <div className="flex items-center gap-2">
+            <Check className="w-5 h-5 text-emerald-400" />
+            <h3 className="text-sm font-bold text-foreground">Soumission prête à envoyer</h3>
+          </div>
+          <a href={submission.gammaUrl} target="_blank" rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-400 hover:underline break-all">
+            {submission.gammaUrl} <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        </div>
+      )}
+
       {/* Prompt editor */}
       <div className="rounded-2xl border border-border/40 bg-card p-6 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Wand2 className="w-4 h-4 text-primary" />
-            <h3 className="text-sm font-bold text-foreground">Brief Gamma</h3>
+            <h3 className="text-sm font-bold text-foreground">Ton prompt de soumission</h3>
           </div>
-          <div className="flex gap-2">
-            <Button size="sm" variant="ghost" onClick={copyPrompt} className="gap-1.5 text-xs">
-              <Copy className="w-3.5 h-3.5" /> Copier
-            </Button>
-          </div>
+          <Button size="sm" onClick={copyPrompt} className="gap-1.5 shadow-glow">
+            <Copy className="w-3.5 h-3.5" /> Copier le prompt
+          </Button>
         </div>
-        <Textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={14}
+        <Textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={16}
           className="text-xs font-mono leading-relaxed" />
         <p className="text-[10px] text-muted-foreground">
-          Ce prompt sera envoyé à l'API Gamma. Ajuste-le si tu veux un ton différent ou plus de détails.
+          Modifie le prompt si tu veux ajuster le ton ou les détails. Sauvegarde auto.
         </p>
-        {!hasApiKey ? (
-          <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 flex items-start gap-3">
-            <KeyRound className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-foreground">Clé Gamma requise</p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                Va dans <span className="font-medium text-foreground">Settings → Intégrations → Gamma AI</span> pour coller ta clé API.
-              </p>
-            </div>
-          </div>
-        ) : (
-          <Button onClick={generateWithGamma} disabled={generating} className="w-full gap-2 shadow-glow">
-            {generating
-              ? <><Loader2 className="w-4 h-4 animate-spin" /> Génération en cours…</>
-              : <><Sparkles className="w-4 h-4" /> Générer avec Gamma</>
-            }
-          </Button>
-        )}
-        {submission.error && (
-          <p className="text-xs text-destructive">{submission.error}</p>
-        )}
       </div>
 
-      {/* Manual URL capture — fallback if you generated on gamma.app directly */}
+      {/* Quick-open with AI tools */}
+      <div className="rounded-2xl border border-border/40 bg-card p-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-primary" />
+          <h3 className="text-sm font-bold text-foreground">Générer la présentation</h3>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Un click ouvre l'outil et copie ton prompt dans le presse-papier — tu n'as qu'à coller (Cmd+V).
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <button
+            onClick={() => openTool("https://gamma.app/create/generate")}
+            className="group flex flex-col items-start gap-1.5 p-4 rounded-xl border border-border/40 bg-muted/10 hover:border-fuchsia-500/50 hover:bg-fuchsia-500/5 transition-all text-left"
+          >
+            <div className="flex items-center gap-2 w-full">
+              <Presentation className="w-4 h-4 text-fuchsia-400" />
+              <span className="text-sm font-bold text-foreground">Gamma</span>
+              <ExternalLink className="w-3 h-3 text-muted-foreground ml-auto group-hover:text-foreground" />
+            </div>
+            <p className="text-[11px] text-muted-foreground">Meilleur pour présentations design</p>
+          </button>
+
+          <button
+            onClick={() => openTool("https://claude.ai/new")}
+            className="group flex flex-col items-start gap-1.5 p-4 rounded-xl border border-border/40 bg-muted/10 hover:border-orange-500/50 hover:bg-orange-500/5 transition-all text-left"
+          >
+            <div className="flex items-center gap-2 w-full">
+              <Wand2 className="w-4 h-4 text-orange-400" />
+              <span className="text-sm font-bold text-foreground">Claude</span>
+              <ExternalLink className="w-3 h-3 text-muted-foreground ml-auto group-hover:text-foreground" />
+            </div>
+            <p className="text-[11px] text-muted-foreground">Meilleur pour rédaction fine</p>
+          </button>
+
+          <button
+            onClick={() => openTool("https://chatgpt.com/")}
+            className="group flex flex-col items-start gap-1.5 p-4 rounded-xl border border-border/40 bg-muted/10 hover:border-emerald-500/50 hover:bg-emerald-500/5 transition-all text-left"
+          >
+            <div className="flex items-center gap-2 w-full">
+              <Sparkles className="w-4 h-4 text-emerald-400" />
+              <span className="text-sm font-bold text-foreground">ChatGPT</span>
+              <ExternalLink className="w-3 h-3 text-muted-foreground ml-auto group-hover:text-foreground" />
+            </div>
+            <p className="text-[11px] text-muted-foreground">Polyvalent, avec GPTs custom</p>
+          </button>
+        </div>
+      </div>
+
+      {/* Manual URL capture */}
       <div className="rounded-2xl border border-border/40 bg-card p-6 space-y-3">
         <div className="flex items-center gap-2">
           <FileText className="w-4 h-4 text-primary" />
-          <h3 className="text-sm font-bold text-foreground">Ou colle un lien Gamma existant</h3>
+          <h3 className="text-sm font-bold text-foreground">Lien de la présentation finale</h3>
         </div>
         <p className="text-xs text-muted-foreground">
-          Si tu as généré la présentation directement sur gamma.app, colle l'URL ici pour l'associer à cette soumission.
+          Une fois ta présentation créée, colle son URL ici pour la retrouver facilement.
         </p>
         <div className="flex gap-2">
           <Input value={gammaUrlInput} onChange={(e) => setGammaUrlInput(e.target.value)}
-            placeholder="https://gamma.app/docs/..." className="text-sm font-mono" />
+            placeholder="https://gamma.app/docs/... ou toute autre URL" className="text-sm font-mono" />
           <Button onClick={saveGammaUrl} disabled={!gammaUrlInput.trim()} variant="outline" className="gap-1.5">
-            <Check className="w-4 h-4" /> Associer
+            <Check className="w-4 h-4" /> Sauvegarder
           </Button>
         </div>
       </div>
