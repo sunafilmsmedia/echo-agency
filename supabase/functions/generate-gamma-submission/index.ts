@@ -4,15 +4,25 @@
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 const GAMMA_BASE = "https://public-api.gamma.app/v0.2";
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
+    const body = await req.json().catch(() => ({}));
+    const action = body?.action ?? "create";
+
     const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -26,25 +36,21 @@ Deno.serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
-    if (agencyErr) throw agencyErr;
+    if (agencyErr) return json({ error: "AGENCY_QUERY_FAILED", message: agencyErr.message }, 500);
     if (!agency?.gamma_api_key) {
-      return new Response(JSON.stringify({
+      return json({
         error: "GAMMA_KEY_MISSING",
         message: "Aucune clé API Gamma configurée. Va dans Settings → Intégrations pour la coller.",
-      }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }, 400);
     }
 
     const gammaKey = agency.gamma_api_key as string;
-    const url = new URL(req.url);
-    const action = url.searchParams.get("action") ?? "create";
 
-    // ═══ action: create — kicks off a generation and returns the generationId ═══
+    // ═══ action: create ═══
     if (action === "create") {
-      const body = await req.json();
-      const { inputText, additionalInstructions } = body as { inputText: string; additionalInstructions?: string };
+      const { inputText, additionalInstructions } = body as { inputText?: string; additionalInstructions?: string };
       if (!inputText || inputText.length < 20) {
-        return new Response(JSON.stringify({ error: "INVALID_INPUT", message: "Brief trop court" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        return json({ error: "INVALID_INPUT", message: "Le brief est trop court (min 20 caractères)." }, 400);
       }
 
       const gRes = await fetch(`${GAMMA_BASE}/generations`, {
@@ -63,56 +69,59 @@ Deno.serve(async (req) => {
         }),
       });
 
+      const responseText = await gRes.text();
+      let gData: any = {};
+      try { gData = JSON.parse(responseText); } catch { /* ignore */ }
+
       if (!gRes.ok) {
-        const errText = await gRes.text();
-        return new Response(JSON.stringify({
+        return json({
           error: "GAMMA_ERROR",
-          message: `Gamma API a répondu ${gRes.status}: ${errText.slice(0, 300)}`,
-        }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+          message: `Gamma API ${gRes.status}: ${gData?.message ?? responseText.slice(0, 300)}`,
+          status: gRes.status,
+        }, 502);
       }
 
-      const data = await gRes.json();
-      return new Response(JSON.stringify({
-        generationId: data.generationId ?? data.id,
-      }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      const generationId = gData?.generationId ?? gData?.id;
+      if (!generationId) {
+        return json({ error: "NO_GEN_ID", message: "Réponse Gamma sans generationId", raw: gData }, 502);
+      }
+
+      return json({ generationId });
     }
 
-    // ═══ action: status — polls a generation and returns its state ═══
+    // ═══ action: status ═══
     if (action === "status") {
-      const generationId = url.searchParams.get("id");
-      if (!generationId) {
-        return new Response(JSON.stringify({ error: "MISSING_ID" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
+      const generationId = body?.id;
+      if (!generationId) return json({ error: "MISSING_ID", message: "id manquant" }, 400);
 
       const gRes = await fetch(`${GAMMA_BASE}/generations/${generationId}`, {
         headers: { "X-API-KEY": gammaKey },
       });
+      const responseText = await gRes.text();
+      let gData: any = {};
+      try { gData = JSON.parse(responseText); } catch { /* ignore */ }
 
       if (!gRes.ok) {
-        const errText = await gRes.text();
-        return new Response(JSON.stringify({
+        return json({
           error: "GAMMA_ERROR",
-          message: `Gamma API a répondu ${gRes.status}: ${errText.slice(0, 300)}`,
-        }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+          message: `Gamma API ${gRes.status}: ${gData?.message ?? responseText.slice(0, 300)}`,
+        }, 502);
       }
 
-      const data = await gRes.json();
-      return new Response(JSON.stringify({
-        status: data.status,       // "pending" | "processing" | "completed" | "failed"
-        gammaUrl: data.gammaUrl,   // present when completed
-        thumbnailUrl: data.thumbnailUrl,
-        credits: data.credits,
-      }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return json({
+        status: gData?.status,           // "pending" | "processing" | "completed" | "failed"
+        gammaUrl: gData?.gammaUrl,
+        thumbnailUrl: gData?.thumbnailUrl,
+        credits: gData?.credits,
+      });
     }
 
-    return new Response(JSON.stringify({ error: "UNKNOWN_ACTION" }),
-      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return json({ error: "UNKNOWN_ACTION", message: `action=${action}` }, 400);
 
   } catch (e: any) {
-    return new Response(JSON.stringify({
+    return json({
       error: "SERVER_ERROR",
       message: e?.message ?? String(e),
-    }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }, 500);
   }
 });

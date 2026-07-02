@@ -493,19 +493,22 @@ function SubmissionDetail({ submission, onBack, onUpdate, onDelete }: {
     setGenerating(true);
     onUpdate({ ...submission, prompt, status: "generating", error: undefined });
     try {
-      const { data, error } = await supabase.functions.invoke("generate-gamma-submission?action=create", {
-        body: { inputText: prompt },
+      const { data, error } = await supabase.functions.invoke("generate-gamma-submission", {
+        body: { action: "create", inputText: prompt },
       });
-      if (error) throw new Error(error.message);
+      // Log for debugging
+      console.log("[Gamma create]", { data, error });
+      if (error) throw new Error(error.message ?? "Erreur Edge Function");
       if (data?.error) throw new Error(data.message ?? data.error);
-      if (!data?.generationId) throw new Error("Réponse Gamma invalide");
+      if (!data?.generationId) throw new Error("Réponse Gamma sans generationId");
       const genId = data.generationId as string;
       onUpdate({ ...submission, prompt, status: "generating", gammaId: genId, error: undefined });
-      toast.success("Génération lancée sur Gamma — j'affiche le lien dès qu'elle est prête");
+      toast.success("Génération lancée — j'affiche le lien dès qu'elle est prête (30-60s)");
       pollStatus(genId);
     } catch (e: any) {
       setGenerating(false);
       const msg = e?.message ?? "Erreur inconnue";
+      console.error("[Gamma create failed]", e);
       onUpdate({ ...submission, prompt, status: "error", error: msg });
       toast.error(msg);
     }
@@ -514,8 +517,11 @@ function SubmissionDetail({ submission, onBack, onUpdate, onDelete }: {
   const pollStatus = (genId: string) => {
     const tick = async () => {
       try {
-        const { data, error } = await supabase.functions.invoke(`generate-gamma-submission?action=status&id=${genId}`, { method: "GET" as any });
-        if (error) throw new Error(error.message);
+        const { data, error } = await supabase.functions.invoke("generate-gamma-submission", {
+          body: { action: "status", id: genId },
+        });
+        console.log("[Gamma poll]", { data, error });
+        if (error) throw new Error(error.message ?? "Erreur polling");
         if (data?.error) throw new Error(data.message ?? data.error);
         if (data?.status === "completed" && data?.gammaUrl) {
           setGenerating(false);
@@ -534,6 +540,7 @@ function SubmissionDetail({ submission, onBack, onUpdate, onDelete }: {
       } catch (e: any) {
         setGenerating(false);
         const msg = e?.message ?? "Erreur de polling";
+        console.error("[Gamma poll failed]", e);
         onUpdate({ ...submission, prompt, gammaId: genId, status: "error", error: msg });
         toast.error(msg);
       }
