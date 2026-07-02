@@ -14,6 +14,21 @@ import { EchoTintedLogo } from "@/components/EchoTintedLogo";
 
 type OfferService = "ads" | "ai" | "videos" | "crm" | "setter" | "social" | "web" | "seo";
 
+type ResultKpi = "vues" | "leads" | "soumissions" | "clients" | "evaluations" | "rdv" | "ventes" | "revenu" | "engagement" | "followers";
+
+const RESULT_KPI_OPTIONS: { id: ResultKpi; label: string; emoji: string }[] = [
+  { id: "vues",        label: "Vues",             emoji: "👁️" },
+  { id: "leads",       label: "Leads",            emoji: "🎯" },
+  { id: "soumissions", label: "Soumissions",      emoji: "📄" },
+  { id: "clients",     label: "Nouveaux clients", emoji: "👤" },
+  { id: "evaluations", label: "Évaluations",      emoji: "⭐" },
+  { id: "rdv",         label: "RDV",              emoji: "📅" },
+  { id: "ventes",      label: "Ventes / Signatures", emoji: "💰" },
+  { id: "revenu",      label: "Revenu",           emoji: "💵" },
+  { id: "engagement",  label: "Engagement",       emoji: "❤️" },
+  { id: "followers",   label: "Followers",        emoji: "👥" },
+];
+
 interface Submission {
   id: string;
   clientId: string;
@@ -25,6 +40,7 @@ interface Submission {
   monthsTotal: string;
   services: OfferService[];
   mainGoal: string;
+  resultKpis: ResultKpi[];
   expectedResults: string;
   deliverables: string;
   timeline: string;
@@ -239,6 +255,7 @@ function NewSubmissionForm({ onCancel, onCreate }: {
   const [monthsTotal, setMonthsTotal]     = useState("");
   const [services, setServices]           = useState<OfferService[]>([]);
   const [mainGoal, setMainGoal]           = useState("");
+  const [resultKpis, setResultKpis]       = useState<ResultKpi[]>([]);
   const [expectedResults, setExpectedResults] = useState("");
   const [deliverables, setDeliverables]   = useState("");
   const [timeline, setTimeline]           = useState("");
@@ -267,6 +284,9 @@ function NewSubmissionForm({ onCancel, onCreate }: {
   const toggleService = (s: OfferService) => {
     setServices((prev) => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
   };
+  const toggleKpi = (k: ResultKpi) => {
+    setResultKpis((prev) => prev.includes(k) ? prev.filter(x => x !== k) : [...prev, k]);
+  };
 
   const totalContract = () => {
     const p = parseFloat(pricePerMonth) || 0;
@@ -293,7 +313,8 @@ ${pricePerMonth ? `Investissement mensuel : ${pricePerMonth} $ / mois` : ""}
 ${monthsTotal ? `Durée du contrat : ${monthsTotal} mois` : ""}
 ${total > 0 ? `Valeur totale du contrat : ${total.toLocaleString("fr-CA")} $` : ""}
 ${mainGoal ? `\nObjectif principal du prospect : ${mainGoal}` : ""}
-${expectedResults ? `\nRésultats prévus / promesse : ${expectedResults}` : ""}
+${resultKpis.length ? `\nKPIs à mettre en avant : ${resultKpis.map((k) => RESULT_KPI_OPTIONS.find(o => o.id === k)?.label).filter(Boolean).join(", ")}` : ""}
+${expectedResults ? `\nRésultats prévus / promesse chiffrée : ${expectedResults}` : ""}
 ${deliverables ? `\nLivrables clés : ${deliverables}` : ""}
 ${timeline ? `\nCalendrier / échéancier : ${timeline}` : ""}
 ${extraNotes ? `\nNotes additionnelles : ${extraNotes}` : ""}
@@ -333,6 +354,7 @@ Couleur d'accent : ${agency?.color ?? "#7c3aed"}`;
       monthsTotal: monthsTotal.trim(),
       services,
       mainGoal: mainGoal.trim(),
+      resultKpis,
       expectedResults: expectedResults.trim(),
       deliverables: deliverables.trim(),
       timeline: timeline.trim(),
@@ -468,6 +490,23 @@ Couleur d'accent : ${agency?.color ?? "#7c3aed"}`;
             <Label className="text-xs">Objectif principal du prospect</Label>
             <Input value={mainGoal} onChange={(e) => setMainGoal(e.target.value)}
               placeholder="Ex: Doubler les réservations d'ici 3 mois" className="text-sm" />
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-xs">KPIs à mettre en avant</Label>
+            <div className="flex flex-wrap gap-1.5">
+              {RESULT_KPI_OPTIONS.map((k) => {
+                const active = resultKpis.includes(k.id);
+                return (
+                  <button key={k.id} type="button" onClick={() => toggleKpi(k.id)}
+                    className={`text-xs px-2.5 py-1 rounded-full border transition-all ${active
+                      ? "bg-primary/15 border-primary/50 text-primary font-semibold"
+                      : "bg-muted/20 border-border/40 text-foreground/80 hover:border-border/70"}`}>
+                    {k.emoji} {k.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div className="space-y-1.5">
