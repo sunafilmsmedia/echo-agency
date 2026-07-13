@@ -110,6 +110,9 @@ export interface AgencySettings {
   script_gpt_url: string | null;
   brand_guide_url: string | null;
   gamma_api_key: string | null;
+  resend_api_key: string | null;
+  notification_email: string | null;
+  notifications_enabled: boolean;
   created_at: string;
   updated_at: string;
 }

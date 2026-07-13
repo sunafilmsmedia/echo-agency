@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Save, Lock, Palette, Copy, ExternalLink, Zap, Calendar, Check, Sun, Moon, Presentation, Eye, EyeOff } from "lucide-react";
+import { Save, Lock, Palette, Copy, ExternalLink, Zap, Calendar, Check, Sun, Moon, Presentation, Eye, EyeOff, Mail, Bell } from "lucide-react";
 import { useAgencySettings, useUpdateAgencySettings } from "@/hooks/usePortal";
 import { EchoTintedLogo } from "@/components/EchoTintedLogo";
 import { useTheme } from "@/hooks/useTheme";
@@ -36,6 +36,10 @@ export function SettingsTab() {
   const [brandGuide, setBrandGuide] = useState("");
   const [gammaKey, setGammaKey]   = useState("");
   const [showGammaKey, setShowGammaKey] = useState(false);
+  const [resendKey, setResendKey] = useState("");
+  const [showResendKey, setShowResendKey] = useState(false);
+  const [notifEmail, setNotifEmail] = useState("");
+  const [notifEnabled, setNotifEnabled] = useState(true);
 
   useEffect(() => {
     if (!agencyData) return;
@@ -45,6 +49,9 @@ export function SettingsTab() {
     setScriptGpt(agencyData.script_gpt_url ?? "");
     setBrandGuide(agencyData.brand_guide_url ?? "");
     setGammaKey(agencyData.gamma_api_key ?? "");
+    setResendKey(agencyData.resend_api_key ?? "");
+    setNotifEmail(agencyData.notification_email ?? "");
+    setNotifEnabled(agencyData.notifications_enabled ?? true);
   }, [agencyData]);
 
   // PIN state
@@ -67,6 +74,16 @@ export function SettingsTab() {
   const saveGammaKey = () => {
     updateAgency.mutate({ gamma_api_key: gammaKey.trim() || null }, {
       onSuccess: () => toast.success(gammaKey.trim() ? "Clé Gamma sauvegardée" : "Clé Gamma retirée"),
+    });
+  };
+
+  const saveNotifications = () => {
+    updateAgency.mutate({
+      resend_api_key: resendKey.trim() || null,
+      notification_email: notifEmail.trim() || null,
+      notifications_enabled: notifEnabled,
+    }, {
+      onSuccess: () => toast.success("Notifications sauvegardées"),
     });
   };
 
@@ -253,6 +270,82 @@ export function SettingsTab() {
           <p className="text-[10px] text-muted-foreground italic pt-1">
             Les intégrations Stripe et Calendar sont débloquées avec les plans <span className="text-primary font-semibold">Pro (27$/mo)</span> et <span className="text-primary font-semibold">Business (57$/mo)</span>.
             Gamma est disponible sur tous les plans (clé requise).
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* ─────────────── Notifications email ─────────────── */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Bell className="w-4 h-4 text-primary" /> Notifications email
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-xs text-muted-foreground">
+            Reçois un email chaque fois qu'un client ajoute un message dans son carnet d'idées. Utilise <a href="https://resend.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Resend</a> (3 000 emails gratuits/mois).
+          </p>
+
+          {/* Toggle */}
+          <div className="flex items-center justify-between p-3 rounded-lg border border-border/40 bg-muted/10">
+            <div className="flex items-start gap-2.5">
+              <Mail className="w-4 h-4 text-primary mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-foreground">Emails de notification</p>
+                <p className="text-[11px] text-muted-foreground">Nouveaux messages dans les carnets clients</p>
+              </div>
+            </div>
+            <button onClick={() => setNotifEnabled((v) => !v)}
+              className={`relative w-11 h-6 rounded-full transition-colors ${notifEnabled ? "bg-primary" : "bg-muted"}`}>
+              <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${notifEnabled ? "translate-x-5" : ""}`} />
+            </button>
+          </div>
+
+          {/* Notification email */}
+          <div className="space-y-1.5">
+            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+              Email de destination
+            </Label>
+            <Input type="email" value={notifEmail} onChange={(e) => setNotifEmail(e.target.value)}
+              placeholder="ton-email@exemple.com" className="text-sm" disabled={!notifEnabled} />
+            <p className="text-[10px] text-muted-foreground">L'email où arrivent les notifications.</p>
+          </div>
+
+          {/* Resend API key */}
+          <div className="space-y-1.5">
+            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-2">
+              Clé API Resend
+              <a href="https://resend.com/api-keys" target="_blank" rel="noopener noreferrer"
+                className="text-[10px] normal-case font-normal text-primary hover:underline flex items-center gap-0.5">
+                Obtenir ma clé <ExternalLink className="w-2.5 h-2.5" />
+              </a>
+            </Label>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Input type={showResendKey ? "text" : "password"} value={resendKey}
+                  onChange={(e) => setResendKey(e.target.value)}
+                  placeholder="re_..." className="text-xs font-mono pr-9" disabled={!notifEnabled} />
+                <button type="button" onClick={() => setShowResendKey((v) => !v)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                  {showResendKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <Button onClick={saveNotifications} disabled={updateAgency.isPending} className="w-full gap-2">
+            <Save className="w-4 h-4" /> Enregistrer les notifications
+          </Button>
+
+          {agencyData?.resend_api_key && agencyData?.notification_email && agencyData?.notifications_enabled !== false && (
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-emerald-500/8 border border-emerald-500/25">
+              <Check className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-foreground">Notifications actives — les nouveaux messages seront envoyés à <span className="font-semibold">{agencyData.notification_email}</span></p>
+            </div>
+          )}
+
+          <p className="text-[10px] text-muted-foreground italic">
+            Note : Resend requiert un domaine vérifié pour envoyer depuis ton adresse. En attendant, les emails partent depuis <code className="text-foreground">onboarding@resend.dev</code>.
           </p>
         </CardContent>
       </Card>

@@ -207,6 +207,17 @@ export function useAddJournalEntry() {
     mutationFn: async (payload: { client_id: string; content: string; author: "client" | "agency" }) => {
       const { error } = await supabase.from("client_journal_entries").insert(payload);
       if (error) throw error;
+      // Fire-and-forget email notification when the CLIENT posts.
+      // We don't await it — it shouldn't block the UI, and failures don't block the insert.
+      if (payload.author === "client") {
+        supabase.functions.invoke("notify-journal-entry", {
+          body: {
+            clientId: payload.client_id,
+            content: payload.content,
+            author: payload.author,
+          },
+        }).catch((err) => console.warn("[notify-journal-entry] failed:", err));
+      }
     },
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ["client-journal", vars.client_id] });
