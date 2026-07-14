@@ -48,6 +48,8 @@ interface Submission {
   extraNotes: string;
   // Generated brief for Gamma
   prompt: string;
+  // Follow-up email template (auto-generated, editable)
+  followupEmail?: string;
   status: "draft" | "generating" | "ready" | "error";
   gammaUrl?: string;
   gammaId?: string;
@@ -610,8 +612,75 @@ Couleur d'accent : ${agency?.color ?? "#7c3aed"}`;
 function SubmissionDetail({ submission, onBack, onUpdate, onDelete }: {
   submission: Submission; onBack: () => void; onUpdate: (s: Submission) => void; onDelete: () => void;
 }) {
+  const { data: agency } = useAgencySettings();
+  const agencyName = agency?.name ?? "Mon Agence";
+
   const [prompt, setPrompt] = useState(submission.prompt);
   const [gammaUrlInput, setGammaUrlInput] = useState(submission.gammaUrl ?? "");
+
+  // Auto-generated follow-up email — editable
+  const defaultEmail = (() => {
+    const firstName = (submission.prospectName || submission.clientName).split(" ")[0];
+    const serviceList = submission.services
+      .map((id) => SERVICE_OPTIONS.find((o) => o.id === id)?.label)
+      .filter(Boolean)
+      .join(" · ") || "Services à définir";
+    const p = parseFloat(submission.pricePerMonth) || 0;
+    const m = parseFloat(submission.monthsTotal) || 0;
+    const total = p * m;
+    const priceLine = p > 0
+      ? `Investissement : ${p.toLocaleString("fr-CA")} $ / mois${m > 0 ? ` × ${m} mois = ${total.toLocaleString("fr-CA")} $` : ""}`
+      : "";
+    const resultsLine = submission.expectedResults
+      ? `\nRésultats prévus :\n${submission.expectedResults}`
+      : "";
+    const linkLine = submission.gammaUrl
+      ? `\n\nTu peux consulter la proposition complète ici :\n${submission.gammaUrl}`
+      : "";
+    return `Bonjour ${firstName},
+
+Ça a été un vrai plaisir d'échanger avec toi.
+
+Comme promis, voici le résumé de notre proposition :
+
+• Services inclus : ${serviceList}${priceLine ? `\n• ${priceLine}` : ""}${resultsLine ? `\n${resultsLine}` : ""}${linkLine}
+
+N'hésite pas à me revenir avec tes questions — on peut planifier un suivi cette semaine si tu veux.
+
+À bientôt,
+${agencyName}`;
+  })();
+
+  const [emailBody, setEmailBody] = useState(submission.followupEmail ?? defaultEmail);
+
+  // Re-generate the email whenever key submission fields change
+  // (and the user hasn't manually edited it since last generation)
+  useEffect(() => {
+    if (!submission.followupEmail) setEmailBody(defaultEmail);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [submission.gammaUrl, submission.services.length, submission.pricePerMonth, submission.monthsTotal]);
+
+  const copyEmail = async () => {
+    await navigator.clipboard.writeText(emailBody);
+    toast.success("Email copié");
+  };
+
+  const saveEmail = () => {
+    onUpdate({ ...submission, followupEmail: emailBody });
+    toast.success("Email de suivi sauvegardé");
+  };
+
+  const resetEmail = () => {
+    setEmailBody(defaultEmail);
+    onUpdate({ ...submission, followupEmail: undefined });
+    toast.success("Email réinitialisé au template auto");
+  };
+
+  const openMailClient = () => {
+    const firstName = (submission.prospectName || submission.clientName).split(" ")[0];
+    const subject = `Notre proposition pour ${firstName}`;
+    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(emailBody)}`;
+  };
 
   // Persist prompt edits automatically on blur
   useEffect(() => {
@@ -807,6 +876,37 @@ function SubmissionDetail({ submission, onBack, onUpdate, onDelete }: {
             <Check className="w-4 h-4" /> Sauvegarder
           </Button>
         </div>
+      </div>
+
+      {/* ── Étape finale : Email de suivi ── */}
+      <div className="rounded-2xl border-2 border-primary/30 bg-primary/[0.03] p-6 space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-primary bg-primary/15 px-2 py-0.5 rounded-full">ÉTAPE FINALE</span>
+            <h3 className="text-sm font-bold text-foreground">Email de suivi à envoyer</h3>
+          </div>
+          <button onClick={resetEmail}
+            className="text-[11px] text-muted-foreground hover:text-primary transition-colors">
+            Réinitialiser
+          </button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Template pré-rempli avec le nom, le résumé de l'offre et le lien de la présentation. Modifie librement puis copie ou ouvre dans ton client mail.
+        </p>
+        <Textarea value={emailBody} onChange={(e) => setEmailBody(e.target.value)}
+          onBlur={saveEmail}
+          rows={14} className="text-sm leading-relaxed" />
+        <div className="flex flex-wrap items-center gap-2">
+          <Button onClick={copyEmail} className="gap-2 shadow-glow">
+            <Copy className="w-4 h-4" /> Copier l'email
+          </Button>
+          <Button onClick={openMailClient} variant="outline" className="gap-2">
+            <ExternalLink className="w-4 h-4" /> Ouvrir dans mon client mail
+          </Button>
+        </div>
+        <p className="text-[10px] text-muted-foreground italic">
+          Auto-sauvegardé quand tu quittes la textarea.
+        </p>
       </div>
     </div>
   );
