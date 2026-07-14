@@ -71,15 +71,23 @@ const DOMAIN_OPTIONS = [
   "Autre",
 ];
 
-const SERVICE_OPTIONS: { id: OfferService; label: string; emoji: string; desc: string }[] = [
-  { id: "videos", label: "Vidéos",      emoji: "🎬", desc: "Production vidéo, reels, YouTube" },
-  { id: "ads",    label: "Ads",         emoji: "🎯", desc: "Meta / Google / TikTok Ads" },
-  { id: "ai",     label: "IA",          emoji: "🤖", desc: "Automatisations, agents IA" },
-  { id: "crm",    label: "CRM",         emoji: "📇", desc: "Mise en place & optimisation" },
-  { id: "setter", label: "Setter",      emoji: "☎️", desc: "Prise de RDV / DM outbound" },
-  { id: "social", label: "Social Media", emoji: "📱", desc: "Gestion de contenu quotidien" },
-  { id: "web",    label: "Site Web",     emoji: "🌐", desc: "Landing page, funnel" },
-  { id: "seo",    label: "SEO",          emoji: "🔎", desc: "Référencement organique" },
+const SERVICE_OPTIONS: { id: OfferService; label: string; emoji: string; desc: string; longDesc: string }[] = [
+  { id: "videos", label: "Vidéos",         emoji: "🎬", desc: "Production vidéo, reels, YouTube",
+    longDesc: "Production vidéo professionnelle : Reels, TikTok, YouTube long format, publicités, contenu de marque. Tournage, montage, script, sous-titrage, distribution multiplateforme." },
+  { id: "ads",    label: "Ads",            emoji: "🎯", desc: "Meta / Google / TikTok Ads",
+    longDesc: "Campagnes publicitaires performantes sur Meta (Facebook/Instagram), Google, TikTok. Stratégie, créatifs, ciblage précis, A/B testing, optimisation continue basée sur les métriques de conversion." },
+  { id: "ai",     label: "Formulaire IA",  emoji: "🤖", desc: "Qualification de leads via formulaire intelligent",
+    longDesc: "Formulaire de qualification codé avec IA intégrée (PAS un chatbot). L'IA analyse les réponses en temps réel pour scorer et qualifier chaque prospect — questions dynamiques, adaptation à la réponse précédente, filtrage automatique des leads non-qualifiés. Les leads qualifiés sont envoyés directement à ton CRM avec leur score et un résumé." },
+  { id: "crm",    label: "CRM",            emoji: "📇", desc: "Mise en place & optimisation",
+    longDesc: "Configuration et automatisation de CRM (GoHighLevel, HubSpot, ou custom). Pipelines de vente, workflows, séquences email/SMS automatisées, dashboards de performance." },
+  { id: "setter", label: "Setter",         emoji: "☎️", desc: "Prise de RDV / DM outbound",
+    longDesc: "Équipe de setters dédiée qui contacte tes leads par DM ou téléphone pour prendre les RDV directement dans ton calendrier. Scripts optimisés, suivi rigoureux, taux de conversion mesuré." },
+  { id: "social", label: "Social Media",   emoji: "📱", desc: "Gestion de contenu quotidien",
+    longDesc: "Gestion complète de tes réseaux sociaux : calendrier de contenu, publication quotidienne, engagement communauté, veille concurrentielle, stratégie multi-plateformes." },
+  { id: "web",    label: "Site Web",       emoji: "🌐", desc: "Landing page, funnel",
+    longDesc: "Site web / landing page / funnel optimisés pour la conversion. Design sur mesure, chargement rapide, SEO on-page, tracking pixel, A/B tests, mobile-first." },
+  { id: "seo",    label: "SEO",            emoji: "🔎", desc: "Référencement organique",
+    longDesc: "Référencement organique pour dominer les résultats Google. Audit technique, stratégie de contenu, backlinks, optimisation locale, suivi de positions et de trafic." },
 ];
 
 const STORAGE_KEY = "echo_submissions";
@@ -305,7 +313,11 @@ function NewSubmissionForm({ onCancel, onCreate }: {
 
   const buildPrompt = () => {
     const total = totalContract();
-    const serviceLabels = services.map((s) => SERVICE_OPTIONS.find(o => o.id === s)?.label).filter(Boolean).join(", ") || "Services à définir";
+    const selectedOpts = services.map((s) => SERVICE_OPTIONS.find(o => o.id === s)).filter(Boolean) as typeof SERVICE_OPTIONS;
+    const serviceLabels = selectedOpts.map((o) => o.label).join(", ") || "Services à définir";
+    const serviceDetails = selectedOpts.length > 0
+      ? selectedOpts.map((o) => `  • ${o.label} — ${o.longDesc}`).join("\n")
+      : "";
     return `Crée une proposition commerciale professionnelle et visuellement percutante, présentée par l'agence "${agencyName}".
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -318,6 +330,9 @@ ${domain ? `Domaine / Industrie : ${domain}` : ""}
 OFFRE PROPOSÉE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Services inclus : ${serviceLabels}
+
+Description détaillée de chaque service :
+${serviceDetails}
 ${pricePerMonth ? `Investissement mensuel : ${pricePerMonth} $ / mois` : ""}
 ${monthsTotal ? `Durée du contrat : ${monthsTotal} mois` : ""}
 ${total > 0 ? `Valeur totale du contrat : ${total.toLocaleString("fr-CA")} $` : ""}
