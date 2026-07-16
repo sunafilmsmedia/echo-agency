@@ -45,6 +45,7 @@ interface Submission {
   expectedResults: string;
   deliverables: string;
   timeline: string;
+  nextMeeting: string;
   extraNotes: string;
   // Generated brief for Gamma
   prompt: string;
@@ -271,6 +272,7 @@ function NewSubmissionForm({ onCancel, onCreate }: {
   const [expectedResults, setExpectedResults] = useState("");
   const [deliverables, setDeliverables]   = useState("");
   const [timeline, setTimeline]           = useState("");
+  const [nextMeeting, setNextMeeting]     = useState("");
   const [extraNotes, setExtraNotes]       = useState("");
 
   const domain = domainChoice === "Autre" ? domainOther : domainChoice;
@@ -389,6 +391,7 @@ Couleur d'accent : ${agency?.color ?? "#7c3aed"}`;
       expectedResults: expectedResults.trim(),
       deliverables: deliverables.trim(),
       timeline: timeline.trim(),
+      nextMeeting: nextMeeting.trim(),
       extraNotes: extraNotes.trim(),
       prompt: buildPrompt(),
       status: "draft",
@@ -578,10 +581,17 @@ Couleur d'accent : ${agency?.color ?? "#7c3aed"}`;
               placeholder="- 8 Reels / mois&#10;- 2 vidéos long format&#10;- Campagne Meta Ads $500/mois" rows={3} className="text-sm" />
           </div>
 
-          <div className="space-y-1.5">
-            <Label className="text-xs">Calendrier / échéancier</Label>
-            <Input value={timeline} onChange={(e) => setTimeline(e.target.value)}
-              placeholder="Ex: Démarrage 15 juillet, premières livraisons 1er août" className="text-sm" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Calendrier / échéancier</Label>
+              <Input value={timeline} onChange={(e) => setTimeline(e.target.value)}
+                placeholder="Ex: Démarrage 15 juillet" className="text-sm" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Prochaine rencontre <span className="text-muted-foreground">(inclus dans l'email)</span></Label>
+              <Input value={nextMeeting} onChange={(e) => setNextMeeting(e.target.value)}
+                placeholder="Ex: mardi 15 juillet à 10h" className="text-sm" />
+            </div>
           </div>
 
           <div className="space-y-1.5">
@@ -618,47 +628,72 @@ function SubmissionDetail({ submission, onBack, onUpdate, onDelete }: {
   const [prompt, setPrompt] = useState(submission.prompt);
   const [gammaUrlInput, setGammaUrlInput] = useState(submission.gammaUrl ?? "");
 
-  // Auto-generated follow-up email — editable
-  const defaultEmail = (() => {
+  // Auto-generated follow-up email — 4 variations (tu/vous mix), short & casual
+  const [variantIdx, setVariantIdx] = useState(0);
+
+  const emailVariants = (() => {
     const firstName = (submission.prospectName || submission.clientName).split(" ")[0];
-    const serviceList = submission.services
-      .map((id) => SERVICE_OPTIONS.find((o) => o.id === id)?.label)
-      .filter(Boolean)
-      .join(" · ") || "Services à définir";
-    const p = parseFloat(submission.pricePerMonth) || 0;
-    const m = parseFloat(submission.monthsTotal) || 0;
-    const total = p * m;
-    const priceLine = p > 0
-      ? `Investissement : ${p.toLocaleString("fr-CA")} $ / mois${m > 0 ? ` × ${m} mois = ${total.toLocaleString("fr-CA")} $` : ""}`
-      : "";
-    const resultsLine = submission.expectedResults
-      ? `\nRésultats prévus :\n${submission.expectedResults}`
-      : "";
-    const linkLine = submission.gammaUrl
-      ? `\n\nTu peux consulter la proposition complète ici :\n${submission.gammaUrl}`
-      : "";
-    return `Bonjour ${firstName},
+    const url = submission.gammaUrl;
+    const meeting = submission.nextMeeting;
 
-Ça a été un vrai plaisir d'échanger avec toi.
+    // Variation 1 — tu, direct
+    const v1 = `Salut ${firstName},
 
-Comme promis, voici le résumé de notre proposition :
+Ça a été un plaisir d'échanger avec toi.${url ? `\n\nTu peux consulter la proposition complète ici :\n${url}` : ""}
 
-• Services inclus : ${serviceList}${priceLine ? `\n• ${priceLine}` : ""}${resultsLine ? `\n${resultsLine}` : ""}${linkLine}
-
-N'hésite pas à me revenir avec tes questions — on peut planifier un suivi cette semaine si tu veux.
+N'hésite pas à me revenir avec tes questions — ${meeting ? `on se voit ${meeting}` : "on se reparle bientôt"}.
 
 À bientôt,
 ${agencyName}`;
+
+    // Variation 2 — vous (pluriel, plusieurs interlocuteurs)
+    const v2 = `Bonjour ${firstName},
+
+C'était un plaisir d'échanger avec vous.${url ? `\n\nVoici la proposition complète :\n${url}` : ""}
+
+Prenez le temps de la regarder — ${meeting ? `on se revoit ${meeting}` : "je vous relance dans les prochains jours"}.
+
+Au plaisir,
+${agencyName}`;
+
+    // Variation 3 — vous formel mais chaleureux
+    const v3 = `Bonjour ${firstName},
+
+Merci pour votre temps aujourd'hui, ça a été très agréable.${url ? `\n\nComme convenu, voici la proposition :\n${url}` : ""}
+
+N'hésitez pas à me revenir avec vos questions${meeting ? ` — à ${meeting}` : ""}.
+
+À très vite,
+${agencyName}`;
+
+    // Variation 4 — tu, très court
+    const v4 = `Hey ${firstName},
+
+Vraiment content de notre échange.${url ? `\n\nLa proposition est ici :\n${url}` : ""}
+
+${meeting ? `On se voit ${meeting}` : "On se reparle bientôt"} — reviens-moi avec tes questions entre-temps.
+
+${agencyName}`;
+
+    return [v1, v2, v3, v4];
   })();
+
+  const defaultEmail = emailVariants[variantIdx];
 
   const [emailBody, setEmailBody] = useState(submission.followupEmail ?? defaultEmail);
 
-  // Re-generate the email whenever key submission fields change
+  // Re-generate the email whenever key submission fields change or variant switches
   // (and the user hasn't manually edited it since last generation)
   useEffect(() => {
     if (!submission.followupEmail) setEmailBody(defaultEmail);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [submission.gammaUrl, submission.services.length, submission.pricePerMonth, submission.monthsTotal]);
+  }, [submission.gammaUrl, submission.services.length, submission.pricePerMonth, submission.monthsTotal, submission.nextMeeting, variantIdx]);
+
+  const cycleVariant = () => {
+    setVariantIdx((i) => (i + 1) % emailVariants.length);
+    // Force regeneration even if the user had edited — this is an explicit "give me another"
+    onUpdate({ ...submission, followupEmail: undefined });
+  };
 
   const copyEmail = async () => {
     await navigator.clipboard.writeText(emailBody);
@@ -885,13 +920,19 @@ ${agencyName}`;
             <span className="text-[10px] font-bold uppercase tracking-wider text-primary bg-primary/15 px-2 py-0.5 rounded-full">ÉTAPE FINALE</span>
             <h3 className="text-sm font-bold text-foreground">Email de suivi à envoyer</h3>
           </div>
-          <button onClick={resetEmail}
-            className="text-[11px] text-muted-foreground hover:text-primary transition-colors">
-            Réinitialiser
-          </button>
+          <div className="flex items-center gap-3">
+            <button onClick={cycleVariant}
+              className="text-[11px] text-primary hover:underline transition-colors font-medium">
+              🔀 Autre variation ({variantIdx + 1}/{emailVariants.length})
+            </button>
+            <button onClick={resetEmail}
+              className="text-[11px] text-muted-foreground hover:text-primary transition-colors">
+              Réinitialiser
+            </button>
+          </div>
         </div>
         <p className="text-xs text-muted-foreground">
-          Template pré-rempli avec le nom, le résumé de l'offre et le lien de la présentation. Modifie librement puis copie ou ouvre dans ton client mail.
+          Template pré-rempli avec le nom, le lien de la proposition et la prochaine rencontre. 4 variations disponibles (tu / vous, court / chaleureux) — clique « Autre variation » pour changer. Modifie librement puis copie.
         </p>
         <Textarea value={emailBody} onChange={(e) => setEmailBody(e.target.value)}
           onBlur={saveEmail}

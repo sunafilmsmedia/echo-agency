@@ -23,6 +23,90 @@ const STATUS_CONFIG: Record<ClientStatus, { label: string; variant: any }> = {
   completed: { label: "Complété",  variant: "secondary" },
 };
 
+// ─── Industry + Services options ──────────────────────────────
+const INDUSTRY_PRESETS = [
+  "Courtier immobilier",
+  "Courtier hypothécaire",
+];
+
+const SERVICE_OPTIONS: { id: string; label: string; emoji: string }[] = [
+  { id: "videos",     label: "Vidéos",           emoji: "🎥" },
+  { id: "ai",         label: "Formulaire IA",    emoji: "🤖" },
+  { id: "ads",        label: "Publicités (Ads)", emoji: "📣" },
+  { id: "crm",        label: "CRM",              emoji: "🗂️" },
+  { id: "setter",     label: "Setter",           emoji: "📞" },
+  { id: "social",     label: "Social media",     emoji: "📱" },
+  { id: "web",        label: "Site web",         emoji: "🌐" },
+  { id: "seo",        label: "SEO",              emoji: "🔍" },
+];
+
+// Reusable pickers so add & edit dialogs share the same UI
+function IndustryPicker({
+  value, onChange,
+}: { value: string; onChange: (v: string) => void }) {
+  const isPreset = INDUSTRY_PRESETS.includes(value);
+  const [mode, setMode] = useState<"preset" | "autre">(!value || isPreset ? "preset" : "autre");
+
+  return (
+    <div className="space-y-2">
+      <Select
+        value={mode === "autre" ? "__autre__" : (value || "")}
+        onValueChange={(v) => {
+          if (v === "__autre__") {
+            setMode("autre");
+            onChange("");
+          } else {
+            setMode("preset");
+            onChange(v);
+          }
+        }}
+      >
+        <SelectTrigger><SelectValue placeholder="Choisir un domaine..." /></SelectTrigger>
+        <SelectContent>
+          {INDUSTRY_PRESETS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+          <SelectItem value="__autre__">Autre (préciser)</SelectItem>
+        </SelectContent>
+      </Select>
+      {mode === "autre" && (
+        <Input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="Ex: Restaurant, E-commerce, Coach..."
+        />
+      )}
+    </div>
+  );
+}
+
+function ServicesPicker({
+  value, onChange,
+}: { value: string[]; onChange: (v: string[]) => void }) {
+  const toggle = (id: string) => {
+    onChange(value.includes(id) ? value.filter((s) => s !== id) : [...value, id]);
+  };
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {SERVICE_OPTIONS.map((opt) => {
+        const active = value.includes(opt.id);
+        return (
+          <button
+            key={opt.id}
+            type="button"
+            onClick={() => toggle(opt.id)}
+            className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${
+              active
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-muted/30 text-muted-foreground border-border hover:border-primary/50"
+            }`}
+          >
+            {opt.emoji} {opt.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 // ─── ClientCard ───────────────────────────────────────────────
 function ClientCard({ client, onEdit, onDelete }: { client: Client; onEdit: () => void; onDelete: () => void }) {
   const updateStatus = useUpdateClientStatus();
@@ -81,15 +165,23 @@ function ClientCard({ client, onEdit, onDelete }: { client: Client; onEdit: () =
           </DropdownMenu>
         </div>
 
-        {/* Service row */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm">{serviceIcon}</span>
-          {client.notes?.split(",")[0] && (
-            <span className="text-xs text-muted-foreground">{client.notes.split(",")[0].trim()}</span>
+        {/* Services row */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {(client.services ?? []).map((sid) => {
+            const opt = SERVICE_OPTIONS.find((o) => o.id === sid);
+            if (!opt) return null;
+            return (
+              <span key={sid} className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                {opt.emoji} {opt.label}
+              </span>
+            );
+          })}
+          {(client.services ?? []).length === 0 && (
+            <span className="text-sm">{serviceIcon}</span>
           )}
-          {client.videos_per_month > 0 && (
-            <span className="text-xs text-primary flex items-center gap-1">
-              <Video className="w-3 h-3" /> {client.videos_per_month} vid/mois
+          {client.videos_per_month > 0 && (client.services ?? []).includes("videos") && (
+            <span className="text-[10px] text-primary flex items-center gap-1 ml-1">
+              <Video className="w-3 h-3" /> {client.videos_per_month}/mois
             </span>
           )}
           {client.monthly_recurring_revenue && (
@@ -144,6 +236,7 @@ function ClientAddDialog({ open, onClose }: { open: boolean; onClose: () => void
     name: "", industry: "", status: "pipeline" as ClientStatus,
     monthly_recurring_revenue: "", contract_length_months: "",
     videos_per_month: "", next_shoot_date: "", notes: "",
+    services: [] as string[],
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -158,6 +251,7 @@ function ClientAddDialog({ open, onClose }: { open: boolean; onClose: () => void
       videos_per_month: form.videos_per_month ? Number(form.videos_per_month) : 0,
       next_shoot_date: form.next_shoot_date || null,
       notes: form.notes || null,
+      services: form.services,
     });
     onClose();
   };
@@ -174,8 +268,13 @@ function ClientAddDialog({ open, onClose }: { open: boolean; onClose: () => void
             <Input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </div>
           <div className="space-y-1">
-            <Label>Industrie</Label>
-            <Input value={form.industry} onChange={(e) => setForm({ ...form, industry: e.target.value })} />
+            <Label>Domaine</Label>
+            <IndustryPicker value={form.industry} onChange={(v) => setForm({ ...form, industry: v })} />
+          </div>
+          <div className="space-y-1">
+            <Label>Services fournis</Label>
+            <ServicesPicker value={form.services} onChange={(v) => setForm({ ...form, services: v })} />
+            <p className="text-[10px] text-muted-foreground">Coche tous les services inclus dans le contrat.</p>
           </div>
           <div className="space-y-1">
             <Label>Statut *</Label>
@@ -199,19 +298,21 @@ function ClientAddDialog({ open, onClose }: { open: boolean; onClose: () => void
               <Input type="number" value={form.contract_length_months} onChange={(e) => setForm({ ...form, contract_length_months: e.target.value })} />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label>Vidéos/mois</Label>
-              <Input type="number" value={form.videos_per_month} onChange={(e) => setForm({ ...form, videos_per_month: e.target.value })} />
+          {form.services.includes("videos") && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Vidéos/mois</Label>
+                <Input type="number" value={form.videos_per_month} onChange={(e) => setForm({ ...form, videos_per_month: e.target.value })} />
+              </div>
+              <div className="space-y-1">
+                <Label>Prochain tournage</Label>
+                <Input type="date" value={form.next_shoot_date} onChange={(e) => setForm({ ...form, next_shoot_date: e.target.value })} />
+              </div>
             </div>
-            <div className="space-y-1">
-              <Label>Prochain tournage</Label>
-              <Input type="date" value={form.next_shoot_date} onChange={(e) => setForm({ ...form, next_shoot_date: e.target.value })} />
-            </div>
-          </div>
+          )}
           <div className="space-y-1">
             <Label>Notes</Label>
-            <Textarea rows={3} placeholder="Ex: Content + Ads, 50% progress" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+            <Textarea rows={3} placeholder="Contexte, objectifs, contraintes..." value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
           </div>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={onClose}>Annuler</Button>
@@ -239,6 +340,7 @@ function ClientEditDialog({ client, onClose }: { client: Client; onClose: () => 
     contract_start_date: client.contract_start_date || "",
     contract_end_date: client.contract_end_date || "",
     notes: client.notes || "",
+    services: client.services ?? [],
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -255,6 +357,7 @@ function ClientEditDialog({ client, onClose }: { client: Client; onClose: () => 
       contract_start_date: form.contract_start_date || null,
       contract_end_date: form.contract_end_date || null,
       notes: form.notes || null,
+      services: form.services,
     });
     onClose();
   };
@@ -271,8 +374,13 @@ function ClientEditDialog({ client, onClose }: { client: Client; onClose: () => 
             <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </div>
           <div className="space-y-1">
-            <Label>Industrie</Label>
-            <Input value={form.industry} onChange={(e) => setForm({ ...form, industry: e.target.value })} />
+            <Label>Domaine</Label>
+            <IndustryPicker value={form.industry} onChange={(v) => setForm({ ...form, industry: v })} />
+          </div>
+          <div className="space-y-1">
+            <Label>Services fournis</Label>
+            <ServicesPicker value={form.services} onChange={(v) => setForm({ ...form, services: v })} />
+            <p className="text-[10px] text-muted-foreground">Coche tous les services inclus dans le contrat.</p>
           </div>
           <div className="space-y-1">
             <Label>Statut</Label>
@@ -297,16 +405,18 @@ function ClientEditDialog({ client, onClose }: { client: Client; onClose: () => 
               <Input type="number" value={form.contract_value} onChange={(e) => setForm({ ...form, contract_value: e.target.value })} />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label>Vidéos/mois</Label>
-              <Input type="number" value={form.videos_per_month} onChange={(e) => setForm({ ...form, videos_per_month: e.target.value })} />
+          {form.services.includes("videos") && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Vidéos/mois</Label>
+                <Input type="number" value={form.videos_per_month} onChange={(e) => setForm({ ...form, videos_per_month: e.target.value })} />
+              </div>
+              <div className="space-y-1">
+                <Label>Prochain tournage</Label>
+                <Input type="date" value={form.next_shoot_date} onChange={(e) => setForm({ ...form, next_shoot_date: e.target.value })} />
+              </div>
             </div>
-            <div className="space-y-1">
-              <Label>Prochain tournage</Label>
-              <Input type="date" value={form.next_shoot_date} onChange={(e) => setForm({ ...form, next_shoot_date: e.target.value })} />
-            </div>
-          </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label>Début du contrat</Label>
