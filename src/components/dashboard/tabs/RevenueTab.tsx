@@ -12,6 +12,8 @@ import {
 } from "recharts";
 import { ChevronDown, Plus, Trash2, TrendingUp, DollarSign, AlertTriangle, Zap, RefreshCw, Pencil, Check, X, History } from "lucide-react";
 import { useStripeRevenue } from "@/hooks/useStripeRevenue";
+import { useClients } from "@/hooks/useClients";
+import { useCalendlyRdvCount } from "@/hooks/useCalendlyRdvCount";
 import { useQueryClient } from "@tanstack/react-query";
 
 const EXPENSE_CATEGORIES = [
@@ -37,16 +39,60 @@ export function RevenueTab() {
   const deleteExpense = useDeleteExpenseItem();
 
   const [extraRevenue, setExtraRevenue] = useState(0);
+  const [extraExpenses, setExtraExpenses] = useState(0);
   const [mrrGoal, setMrrGoal] = useState(0);
   const [yearlyGoal, setYearlyGoal] = useState(0);
   const [editingMetrics, setEditingMetrics] = useState(false);
   const [growthForm, setGrowthForm] = useState({ leads_per_week: 0, rdv_per_week: 0, closing_rate: 50, clients_per_week: 0 });
+
+  // ─── Auto-computed growth metrics ────────────────────────────
+  const { data: allClients = [] } = useClients();
+  const growthAuto = (() => {
+    const today = new Date();
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    const monthEnd   = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    const daysElapsed = (today.getDate());
+    const weeksElapsed = Math.max(1, daysElapsed / 7);
+
+    // New active clients created this month
+    const newThisMonth = allClients.filter((c) => {
+      if (!c.created_at) return false;
+      const d = new Date(c.created_at);
+      return d >= monthStart && d <= monthEnd && c.status === "active";
+    }).length;
+
+    // Churn this month: clients that MOVED to lost/completed since the 1st
+    // (updated_at falls in current month AND status is now lost/completed)
+    const churnedThisMonth = allClients.filter((c) => {
+      const isChurnedStatus = c.status === "lost" || c.status === "completed";
+      if (!isChurnedStatus || !c.updated_at) return false;
+      const d = new Date(c.updated_at);
+      return d >= monthStart && d <= monthEnd;
+    }).length;
+
+    // Denominator = active + churned this month (clients that were "on the books" this month)
+    const activeNow = allClients.filter((c) => c.status === "active").length;
+    const denomForChurn = activeNow + churnedThisMonth;
+    const churnRate = denomForChurn > 0 ? Math.round((churnedThisMonth / denomForChurn) * 100) : 0;
+
+    return {
+      clientsPerMonth: newThisMonth,
+      clientsPerWeek: +(newThisMonth / weeksElapsed).toFixed(1),
+      churnRate,
+      activeNow,
+      churnedThisMonth,
+    };
+  })();
+
+  // ─── Calendly RDV/week (live from API) ───────────────────────
+  const calendly = useCalendlyRdvCount();
   const [newExpense, setNewExpense] = useState<{ category: string; label: string; amount: string } | null>(null);
   const [openCategories, setOpenCategories] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (metrics) {
       setExtraRevenue(metrics.extra_revenue ?? 0);
+      setExtraExpenses(metrics.extra_expenses ?? 0);
       setMrrGoal(metrics.mrr_goal ?? 0);
       setYearlyGoal(metrics.yearly_goal ?? 0);
       setGrowthForm({
@@ -59,7 +105,8 @@ export function RevenueTab() {
   }, [metrics]);
 
   const mrr = metrics?.total_revenue ?? 0;
-  const totalExpenses = expenseItems.reduce((s, i) => s + i.amount, 0);
+  const recurringExpenses = expenseItems.reduce((s, i) => s + i.amount, 0);
+  const totalExpenses = recurringExpenses + extraExpenses;
   const totalRevenue = mrr + extraRevenue;
   const netProfit = totalRevenue - totalExpenses;
 
@@ -70,9 +117,9 @@ export function RevenueTab() {
     EXPENSE_CATEGORIES.forEach(({ key }) => {
       catTotals[key] = expenseItems.filter((i) => i.category === key).reduce((s, i) => s + i.amount, 0);
     });
-    const updates: any = { monthly_expenses: totalExpenses, extra_revenue: extraRevenue, ...catTotals };
+    const updates: any = { monthly_expenses: totalExpenses, extra_revenue: extraRevenue, extra_expenses: extraExpenses, ...catTotals };
     updateMetrics.mutate(updates);
-  }, [expenseItems, extraRevenue]);
+  }, [expenseItems, extraRevenue, extraExpenses]);
 
   // Chart data
   const chartData = history.slice(-12).map((m) => ({
@@ -204,29 +251,48 @@ export function RevenueTab() {
 
       {/* Top metric cards */}
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+        {/* MRR Récurrent — with highlighted extra overlay */}
+        <Card>
+          <CardContent className="pt-4 pb-4">
+            <p className="text-xs text-muted-foreground mb-1">MRR Récurrent</p>
+            {extraRevenue > 0 && (
+              <p className="text-xs font-bold text-emerald-400 mb-0.5">
+                = {formatCurrency(mrr + extraRevenue)} <span className="text-[10px] font-normal opacity-80">(+{formatCurrency(extraRevenue)} extra)</span>
+              </p>
+            )}
+            <p className="text-lg font-bold text-foreground">{formatCurrency(mrr)}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{metrics?.active_clients_count ?? 0} clients</p>
+          </CardContent>
+        </Card>
+
+        {/* Extra ce mois — editable input */}
+        <Card className={extraRevenue > 0 ? "border-emerald-500/40 bg-emerald-500/[0.03]" : ""}>
+          <CardContent className="pt-4 pb-4">
+            <p className="text-xs text-muted-foreground mb-1">Extra ce mois</p>
+            <Input
+              type="number"
+              value={extraRevenue}
+              onChange={(e) => setExtraRevenue(Number(e.target.value))}
+              className={`h-7 text-sm font-bold p-1 ${extraRevenue > 0 ? "text-emerald-400" : "text-foreground"}`}
+            />
+            {extraRevenue > 0 && (
+              <p className="text-[10px] text-emerald-400 mt-1 italic">✓ ajouté au MRR</p>
+            )}
+          </CardContent>
+        </Card>
+
         {[
-          { label: "MRR Récurrent", value: formatCurrency(mrr), sub: `${metrics?.active_clients_count ?? 0} clients` },
-          { label: "Extra ce mois", value: null, extra: true },
           { label: "Revenu Total", value: formatCurrency(totalRevenue), sub: null },
           { label: "Pipeline", value: formatCurrency(metrics?.pipeline_value ?? 0), sub: `${metrics?.pipeline_clients_count ?? 0} clients` },
           { label: "MRR Potentiel", value: formatCurrency(mrr + (metrics?.projected_pipeline_revenue ?? 0)), sub: null },
           { label: "Profit Net", value: formatCurrency(netProfit), sub: null, profit: true },
-        ].map(({ label, value, sub, extra, profit }) => (
+        ].map(({ label, value, sub, profit }) => (
           <Card key={label} className={profit ? (netProfit >= 0 ? "border-emerald-500/30" : "border-destructive/30") : ""}>
             <CardContent className="pt-4 pb-4">
               <p className="text-xs text-muted-foreground mb-1">{label}</p>
-              {extra ? (
-                <Input
-                  type="number"
-                  value={extraRevenue}
-                  onChange={(e) => setExtraRevenue(Number(e.target.value))}
-                  className="h-7 text-sm font-bold text-foreground p-1"
-                />
-              ) : (
-                <p className={`text-lg font-bold ${profit ? (netProfit >= 0 ? "text-emerald-400" : "text-destructive") : "text-foreground"}`}>
-                  {value}
-                </p>
-              )}
+              <p className={`text-lg font-bold ${profit ? (netProfit >= 0 ? "text-emerald-400" : "text-destructive") : "text-foreground"}`}>
+                {value}
+              </p>
               {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
             </CardContent>
           </Card>
@@ -300,31 +366,83 @@ export function RevenueTab() {
             </Button>
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[
-              { label: "Leads/semaine", key: "leads_per_week" },
-              { label: "RDV/semaine", key: "rdv_per_week" },
-              { label: "Closing (%)", key: "closing_rate" },
-              { label: "Clients/semaine", key: "clients_per_week" },
-            ].map(({ label, key }) => (
-              <div key={key}>
-                <p className="text-xs text-muted-foreground mb-1">{label}</p>
-                {editingMetrics ? (
-                  <Input
-                    type="number"
-                    value={growthForm[key as keyof typeof growthForm]}
-                    onChange={(e) => setGrowthForm({ ...growthForm, [key]: Number(e.target.value) })}
-                    className="h-8 text-sm"
-                  />
-                ) : (
-                  <p className="font-semibold text-sm">
-                    {growthForm[key as keyof typeof growthForm]}{key === "closing_rate" ? "%" : ""}
-                  </p>
-                )}
-              </div>
-            ))}
+            {/* Leads/semaine — manuel */}
+            <MetricCell label="Leads/semaine">
+              {editingMetrics ? (
+                <Input type="number" value={growthForm.leads_per_week}
+                  onChange={(e) => setGrowthForm({ ...growthForm, leads_per_week: Number(e.target.value) })}
+                  className="h-8 text-sm" />
+              ) : (
+                <p className="font-semibold text-sm">{growthForm.leads_per_week}</p>
+              )}
+            </MetricCell>
+
+            {/* RDV/semaine — Calendly auto */}
+            <MetricCell label="RDV/semaine" badge={
+              calendly.data ? "Calendly" :
+              calendly.isLoading ? "…" :
+              calendly.isError ? "Manuel" : "Manuel"
+            }>
+              {calendly.data ? (
+                <p className="font-semibold text-sm text-primary">{calendly.data.perWeek}</p>
+              ) : editingMetrics ? (
+                <Input type="number" value={growthForm.rdv_per_week}
+                  onChange={(e) => setGrowthForm({ ...growthForm, rdv_per_week: Number(e.target.value) })}
+                  className="h-8 text-sm" />
+              ) : (
+                <p className="font-semibold text-sm">{growthForm.rdv_per_week}</p>
+              )}
+            </MetricCell>
+
+            {/* Closing (%) — manuel */}
+            <MetricCell label="Closing (%)">
+              {editingMetrics ? (
+                <Input type="number" value={growthForm.closing_rate}
+                  onChange={(e) => setGrowthForm({ ...growthForm, closing_rate: Number(e.target.value) })}
+                  className="h-8 text-sm" />
+              ) : (
+                <p className="font-semibold text-sm">{growthForm.closing_rate}%</p>
+              )}
+            </MetricCell>
+
+            {/* Clients/semaine — auto */}
+            <MetricCell label="Clients/semaine" badge="Auto">
+              <p className="font-semibold text-sm text-primary">{growthAuto.clientsPerWeek}</p>
+            </MetricCell>
           </div>
+
+          {/* Second row: auto-computed monthly stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-3 border-t border-border/40">
+            <MetricCell label="Nouveaux clients / mois" badge="Auto">
+              <p className="font-semibold text-sm text-primary">{growthAuto.clientsPerMonth}</p>
+            </MetricCell>
+            <MetricCell label="Clients actifs" badge="Auto">
+              <p className="font-semibold text-sm">{growthAuto.activeNow}</p>
+            </MetricCell>
+            <MetricCell label="Churn / mois" badge="Auto">
+              <p className="font-semibold text-sm">{growthAuto.churnedThisMonth}</p>
+            </MetricCell>
+            <MetricCell label="Taux de churn" badge="Auto">
+              <p className={`font-semibold text-sm ${
+                growthAuto.churnRate >= 10 ? "text-destructive" :
+                growthAuto.churnRate >= 5  ? "text-amber-400" :
+                "text-emerald-400"
+              }`}>{growthAuto.churnRate}%</p>
+            </MetricCell>
+          </div>
+
+          {calendly.isError && (
+            <p className="text-[10px] text-amber-400">
+              ⚠ Calendly non connecté ou clé invalide. Va dans Réglages pour l'activer.
+            </p>
+          )}
+          {!calendly.data && !calendly.isLoading && !calendly.isError && (
+            <p className="text-[10px] text-muted-foreground italic">
+              💡 Connecte Calendly dans Réglages pour compter automatiquement tes RDV/semaine.
+            </p>
+          )}
         </CardContent>
       </Card>
 
@@ -402,9 +520,36 @@ export function RevenueTab() {
             );
           })}
 
-          <div className="flex items-center justify-between pt-3 border-t border-border/40 text-sm font-semibold">
-            <span>Total Dépenses</span>
-            <span className="text-destructive">{formatCurrency(totalExpenses)}</span>
+          {/* Dépenses extra du mois — one-off, mirrors Extra Revenue */}
+          <div className="flex items-center justify-between px-3 py-2.5 mt-2 rounded-lg border border-dashed border-amber-500/30 bg-amber-500/[0.03]">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-foreground">Dépenses extra ce mois</p>
+              <p className="text-[10px] text-muted-foreground">Coûts ponctuels non récurrents (achat matériel, sous-traitance, imprévu…)</p>
+            </div>
+            <Input
+              type="number"
+              value={extraExpenses}
+              onChange={(e) => setExtraExpenses(Number(e.target.value))}
+              placeholder="0"
+              className={`h-8 w-28 text-sm font-bold text-right ${extraExpenses > 0 ? "text-amber-400" : "text-foreground"}`}
+            />
+          </div>
+
+          <div className="pt-3 border-t border-border/40 space-y-1.5 text-sm">
+            <div className="flex items-center justify-between text-muted-foreground">
+              <span>Dépenses récurrentes</span>
+              <span>{formatCurrency(recurringExpenses)}</span>
+            </div>
+            {extraExpenses > 0 && (
+              <div className="flex items-center justify-between text-amber-400">
+                <span>+ Extra ce mois</span>
+                <span>{formatCurrency(extraExpenses)}</span>
+              </div>
+            )}
+            <div className="flex items-center justify-between font-semibold pt-1.5 border-t border-border/30">
+              <span>Total Dépenses</span>
+              <span className="text-destructive">{formatCurrency(totalExpenses)}</span>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -616,5 +761,22 @@ function MonthlyHistoryCard({
         </p>
       </CardContent>
     </Card>
+  );
+}
+
+
+function MetricCell({ label, badge, children }: { label: string; badge?: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="flex items-center gap-1.5 mb-1">
+        <p className="text-xs text-muted-foreground">{label}</p>
+        {badge && (
+          <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 uppercase tracking-wider">
+            {badge}
+          </span>
+        )}
+      </div>
+      {children}
+    </div>
   );
 }
