@@ -1,24 +1,19 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { supabase } from "@/integrations/supabase/client";
-
-const anthropic = new Anthropic({
-  apiKey: import.meta.env.VITE_ANTHROPIC_API_KEY,
-  dangerouslyAllowBrowser: true,
-});
+import { callClaude, type ClaudeMessage, type ClaudeTool, type ClaudeContentBlock } from "@/lib/claude-client";
 
 // ─── Tool definitions ─────────────────────────────────────────────────────────
 
-const TOOLS: Anthropic.Tool[] = [
+const TOOLS: ClaudeTool[] = [
   {
     name: "get_clients",
     description: "Get all clients from the CRM with their details",
-    input_schema: { type: "object" as const, properties: {}, required: [] },
+    input_schema: { type: "object", properties: {}, required: [] },
   },
   {
     name: "add_client",
     description: "Add a new client to the CRM",
     input_schema: {
-      type: "object" as const,
+      type: "object",
       properties: {
         name: { type: "string", description: "Client or company name" },
         industry: { type: "string", description: "Industry or niche" },
@@ -36,7 +31,7 @@ const TOOLS: Anthropic.Tool[] = [
     name: "update_client",
     description: "Update an existing client's details. First call get_clients to find the client ID.",
     input_schema: {
-      type: "object" as const,
+      type: "object",
       properties: {
         id: { type: "string", description: "Client UUID" },
         name: { type: "string" },
@@ -54,7 +49,7 @@ const TOOLS: Anthropic.Tool[] = [
     name: "delete_client",
     description: "Delete a client from the CRM. First call get_clients to find the client ID.",
     input_schema: {
-      type: "object" as const,
+      type: "object",
       properties: {
         id: { type: "string", description: "Client UUID to delete" },
       },
@@ -65,7 +60,7 @@ const TOOLS: Anthropic.Tool[] = [
     name: "add_calendar_event",
     description: "Add a new event to the calendar (shoot, meeting, deadline, call, review)",
     input_schema: {
-      type: "object" as const,
+      type: "object",
       properties: {
         title: { type: "string" },
         event_type: { type: "string", enum: ["shoot", "meeting", "review", "deadline", "call"] },
@@ -82,7 +77,7 @@ const TOOLS: Anthropic.Tool[] = [
     name: "get_calendar_events",
     description: "Get upcoming calendar events",
     input_schema: {
-      type: "object" as const,
+      type: "object",
       properties: {
         year: { type: "number", description: "Year (e.g. 2026)" },
         month: { type: "number", description: "Month 1-12" },
@@ -93,7 +88,7 @@ const TOOLS: Anthropic.Tool[] = [
   {
     name: "get_revenue_metrics",
     description: "Get current month revenue metrics (MRR, expenses, profit, pipeline)",
-    input_schema: { type: "object" as const, properties: {}, required: [] },
+    input_schema: { type: "object", properties: {}, required: [] },
   },
 ];
 
@@ -190,8 +185,8 @@ export async function sendMessage(
 ): Promise<string> {
   const today = new Date().toISOString().split("T")[0];
 
-  const messages: Anthropic.MessageParam[] = [
-    ...history.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
+  const messages: ClaudeMessage[] = [
+    ...history.map((m) => ({ role: m.role, content: m.content })),
     { role: "user", content: userMessage },
   ];
 
@@ -199,8 +194,7 @@ export async function sendMessage(
   let keepGoing = true;
 
   while (keepGoing) {
-    const response = await anthropic.messages.create({
-      model: "claude-opus-4-6",
+    const response = await callClaude({
       max_tokens: 1024,
       system: `You are Echo AI, an assistant embedded inside a video marketing agency dashboard. You can manage clients, calendar events, and check revenue. Always be concise. After performing an action, confirm what you did in 1-2 sentences. Today is ${today}.`,
       tools: TOOLS,
@@ -208,14 +202,14 @@ export async function sendMessage(
     });
 
     if (response.stop_reason === "tool_use") {
-      const toolResults: Anthropic.ToolResultBlockParam[] = [];
+      const toolResults: ClaudeContentBlock[] = [];
 
       for (const block of response.content) {
         if (block.type === "text" && block.text) {
           fullResponse += block.text;
           onUpdate(fullResponse);
         } else if (block.type === "tool_use") {
-          const result = await executeTool(block.name, block.input as Record<string, unknown>);
+          const result = await executeTool(block.name, block.input);
           toolResults.push({ type: "tool_result", tool_use_id: block.id, content: result });
         }
       }

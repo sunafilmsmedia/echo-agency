@@ -30,6 +30,7 @@ export interface Client {
   notes: string | null;
   contract_length_months: number | null;
   videos_per_month: number;
+  services: string[];
   created_at: string;
   updated_at: string;
 }
@@ -67,6 +68,7 @@ export interface RevenueMetrics {
   total_revenue: number;
   monthly_expenses: number;
   extra_revenue: number;
+  extra_expenses: number;
   mrr_goal: number | null;
   yearly_goal: number | null;
   average_ticket: number | null;
@@ -131,4 +133,18 @@ export interface ClientJournalEntry {
   author: "client" | "agency";
   entry_date: string;
   created_at: string;
+}
+
+// Public read-only view — never contains access/refresh tokens.
+export type IntegrationProvider = "calendly" | "gmail" | "google_calendar" | "stripe";
+
+export interface AgencyIntegrationPublic {
+  id: string;
+  agency_id: string;
+  provider: IntegrationProvider;
+  scope: string | null;
+  metadata: Record<string, unknown>;
+  expires_at: string | null;
+  created_at: string;
+  updated_at: string;
 }

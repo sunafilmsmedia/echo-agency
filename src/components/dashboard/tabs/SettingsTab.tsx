@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Save, Lock, Palette, Copy, ExternalLink, Zap, Calendar, Check, Sun, Moon, Presentation, Eye, EyeOff, Mail, Bell } from "lucide-react";
 import { useAgencySettings, useUpdateAgencySettings } from "@/hooks/usePortal";
+import { useIntegration, useConnectIntegration, useDisconnectIntegration } from "@/hooks/useIntegrations";
 import { EchoTintedLogo } from "@/components/EchoTintedLogo";
 import { useTheme } from "@/hooks/useTheme";
 
@@ -86,6 +87,27 @@ export function SettingsTab() {
       onSuccess: () => toast.success("Notifications sauvegardées"),
     });
   };
+
+  // Calendly (and future integrations) — OAuth 2.0
+  const calendlyIntegration = useIntegration("calendly");
+  const connectIntegration = useConnectIntegration();
+  const disconnectIntegration = useDisconnectIntegration();
+
+  // Show a toast when the user comes back from the OAuth callback
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const connected = url.searchParams.get("integration_connected");
+    const errorMsg  = url.searchParams.get("integration_error");
+    if (connected) {
+      toast.success(`✓ ${connected} connecté`);
+      url.searchParams.delete("integration_connected");
+      window.history.replaceState({}, "", url.toString());
+    } else if (errorMsg) {
+      toast.error(`Erreur OAuth : ${errorMsg}`);
+      url.searchParams.delete("integration_error");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, []);
 
   const savePin = () => {
     if (newPin.length < 4) { toast.error("Le PIN doit contenir au moins 4 chiffres"); return; }
@@ -196,19 +218,39 @@ export function SettingsTab() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
+          {/* OAuth integrations */}
           <IntegrationRow
-            icon={<Zap className="w-4 h-4 text-violet-400" />}
-            name="Stripe"
-            description="Connecte ton compte Stripe pour tracker ton revenu en temps réel."
-            status="connected"
-            badge="Plan Pro+"
+            icon={<Calendar className="w-4 h-4" />}
+            name="Calendly"
+            description="Compte automatiquement tes RDV/semaine."
+            provider="calendly"
+            connected={!!calendlyIntegration.data}
+            accountLabel={calendlyIntegration.data?.metadata?.user_email as string | undefined}
+            onConnect={() => connectIntegration.mutate("calendly")}
+            onDisconnect={() => disconnectIntegration.mutate("calendly")}
+            loading={connectIntegration.isPending || disconnectIntegration.isPending}
           />
           <IntegrationRow
-            icon={<Calendar className="w-4 h-4 text-blue-400" />}
+            icon={<Calendar className="w-4 h-4" />}
             name="Google Calendar"
-            description="Sync bidirectionnel avec ton agenda Google."
-            status="connected"
-            badge="Plan Pro+"
+            description="Synchronise tes tournages et meetings."
+            provider="google_calendar"
+            connected={false}
+            comingSoon
+            onConnect={() => {}}
+            onDisconnect={() => {}}
+            loading={false}
+          />
+          <IntegrationRow
+            icon={<Mail className="w-4 h-4" />}
+            name="Gmail"
+            description="Envoie les emails de suivi depuis ton adresse."
+            provider="gmail"
+            connected={false}
+            comingSoon
+            onConnect={() => {}}
+            onDisconnect={() => {}}
+            loading={false}
           />
 
           {/* Gamma — with API key input */}
@@ -350,6 +392,7 @@ export function SettingsTab() {
         </CardContent>
       </Card>
 
+
       {/* ─────────────── Apparence ─────────────── */}
       <Card>
         <CardHeader>
@@ -430,27 +473,54 @@ export function SettingsTab() {
   );
 }
 
-function IntegrationRow({ icon, name, description, status, badge }: {
-  icon: React.ReactNode; name: string; description: string; status: "connected" | "disconnected"; badge?: string;
+function IntegrationRow({
+  icon, name, description, connected, accountLabel, onConnect, onDisconnect, loading, comingSoon,
+}: {
+  icon: React.ReactNode;
+  name: string;
+  description: string;
+  provider: string;
+  connected: boolean;
+  accountLabel?: string;
+  onConnect: () => void;
+  onDisconnect: () => void;
+  loading: boolean;
+  comingSoon?: boolean;
 }) {
   return (
     <div className="flex items-center gap-3 p-3 rounded-lg border border-border/40 bg-card hover:bg-muted/10 transition-colors">
-      <div className="w-9 h-9 rounded-lg bg-muted/30 flex items-center justify-center flex-shrink-0">
+      <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${connected ? "bg-emerald-500/15 text-emerald-400" : "bg-muted/30"}`}>
         {icon}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <p className="text-sm font-semibold text-foreground">{name}</p>
-          {badge && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/15 text-primary font-bold uppercase tracking-wider">{badge}</span>}
+          {comingSoon && (
+            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-muted/50 text-muted-foreground font-bold uppercase tracking-wider">
+              Bientôt
+            </span>
+          )}
+          {connected && (
+            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 font-bold uppercase tracking-wider">
+              Connecté
+            </span>
+          )}
         </div>
-        <p className="text-[11px] text-muted-foreground truncate">{description}</p>
+        <p className="text-[11px] text-muted-foreground truncate">
+          {connected && accountLabel ? `Compte : ${accountLabel}` : description}
+        </p>
       </div>
-      {status === "connected" ? (
-        <span className="flex items-center gap-1 text-[10px] font-semibold text-emerald-400 px-2 py-0.5 rounded-full bg-emerald-500/10">
-          <Check className="w-3 h-3" /> Connecté
-        </span>
+      {comingSoon ? (
+        <Button size="sm" variant="outline" className="text-xs h-7" disabled>Bientôt</Button>
+      ) : connected ? (
+        <Button size="sm" variant="ghost" className="text-xs h-7 text-destructive hover:text-destructive"
+          onClick={onDisconnect} disabled={loading}>
+          Déconnecter
+        </Button>
       ) : (
-        <Button size="sm" variant="outline" className="text-xs h-7">Connecter</Button>
+        <Button size="sm" className="text-xs h-7 gap-1.5" onClick={onConnect} disabled={loading}>
+          {loading ? "…" : <><ExternalLink className="w-3 h-3" /> Connecter</>}
+        </Button>
       )}
     </div>
   );

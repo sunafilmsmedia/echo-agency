@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import type { Client } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import Anthropic from "@anthropic-ai/sdk";
+import { askClaudeText } from "@/lib/claude-client";
 
 function slugify(s: string): string {
   return s.toLowerCase()
@@ -321,21 +321,14 @@ function AIPersonalizeSection({ clients }: { clients: { id: string; name: string
   const [result, setResult] = useState("");
 
   const generate = async () => {
-    const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
-    if (!apiKey) { toast.error("Clé Anthropic manquante dans .env"); return; }
     const client = clients.find((c) => c.id === selectedClient);
     if (!client) { toast.error("Sélectionne un client"); return; }
 
     setLoading(true);
     setResult("");
     try {
-      const anthropic = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
-      const response = await anthropic.messages.create({
-        model: "claude-opus-4-6",
-        max_tokens: 1500,
-        messages: [{
-          role: "user",
-          content: `Tu es un expert en onboarding client pour agences de marketing vidéo.
+      const text = await askClaudeText(
+        `Tu es un expert en onboarding client pour agences de marketing vidéo.
 
 Génère un email de bienvenue personnalisé + 5 questions d'onboarding spécifiques pour ce client:
 
@@ -355,12 +348,11 @@ Format:
 5. ...
 
 Sois ultra-spécifique à leur industrie et situation. Pas de généralités.`,
-        }],
-      });
-      const text = response.content[0].type === "text" ? response.content[0].text : "";
+        { max_tokens: 1500 },
+      );
       setResult(text);
-    } catch {
-      toast.error("Erreur. Réessaie.");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erreur. Réessaie.");
     } finally {
       setLoading(false);
     }

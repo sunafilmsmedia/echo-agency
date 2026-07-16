@@ -11,19 +11,13 @@ import {
   Compass, Package, Crown, Zap, Clock, Filter, Sparkles,
   ChevronUp, Check,
 } from "lucide-react";
-import Anthropic from "@anthropic-ai/sdk";
+import { askClaudeText } from "@/lib/claude-client";
 
 // ── Claude helper ─────────────────────────────────────────────────────────────
+// Routes through the Supabase Edge Function so the API key never touches the browser.
 
-async function askClaude(prompt: string, onStream?: (t: string) => void): Promise<string> {
-  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error("Clé Anthropic manquante dans .env");
-  const anthropic = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
-  const response = await anthropic.messages.create({
-    model: "claude-opus-4-6", max_tokens: 2000,
-    messages: [{ role: "user", content: prompt }],
-  });
-  return response.content[0].type === "text" ? response.content[0].text : "";
+async function askClaude(prompt: string, _onStream?: (t: string) => void): Promise<string> {
+  return askClaudeText(prompt, { max_tokens: 2000 });
 }
 
 // ── Skill definitions ─────────────────────────────────────────────────────────
