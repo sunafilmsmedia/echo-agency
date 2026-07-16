@@ -74,6 +74,10 @@ Deno.serve(async (req) => {
     client_secret: clientSecret,
     redirect_uri: redirectUri,
   });
+  // Include PKCE verifier when it was generated in oauth-start
+  if (stateRow.code_verifier) {
+    body.set("code_verifier", stateRow.code_verifier);
+  }
 
   const tokenRes = await fetch(provider.tokenUrl, {
     method: "POST",

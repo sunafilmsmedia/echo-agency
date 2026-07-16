@@ -10,6 +10,8 @@ export interface OAuthProvider {
   scope: string;
   // Extra params for the authorize URL (provider-specific)
   extraAuthorizeParams?: Record<string, string>;
+  // If true, generate PKCE code_verifier/challenge and include them in the flow
+  usesPkce?: boolean;
   // Optional: called after successful token exchange to enrich `metadata` (email, user URI, etc.)
   fetchMetadata?: (accessToken: string) => Promise<Record<string, unknown>>;
 }
@@ -21,6 +23,7 @@ export const PROVIDERS: Record<string, OAuthProvider> = {
     clientIdEnv:     "CALENDLY_CLIENT_ID",
     clientSecretEnv: "CALENDLY_CLIENT_SECRET",
     scope: "",
+    usesPkce: true,
     fetchMetadata: async (token) => {
       const r = await fetch("https://api.calendly.com/users/me", {
         headers: { Authorization: `Bearer ${token}` },

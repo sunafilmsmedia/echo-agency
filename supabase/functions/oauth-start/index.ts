@@ -20,6 +20,25 @@ function json(body: unknown, status = 200) {
   });
 }
 
+// PKCE — RFC 7636. code_verifier is a high-entropy random string,
+// code_challenge is base64url(SHA-256(verifier)).
+function base64url(bytes: Uint8Array): string {
+  let b64 = btoa(String.fromCharCode(...bytes));
+  return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function genCodeVerifier(): string {
+  const bytes = new Uint8Array(32); // 256 bits → ~43 chars once encoded
+  crypto.getRandomValues(bytes);
+  return base64url(bytes);
+}
+
+async function genCodeChallenge(verifier: string): Promise<string> {
+  const data = new TextEncoder().encode(verifier);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return base64url(new Uint8Array(digest));
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -52,6 +71,14 @@ Deno.serve(async (req) => {
     // Generate CSRF state
     const state = crypto.randomUUID() + crypto.randomUUID();
 
+    // PKCE (only if the provider requires/supports it)
+    let codeVerifier: string | null = null;
+    let codeChallenge: string | null = null;
+    if (provider.usesPkce) {
+      codeVerifier = genCodeVerifier();
+      codeChallenge = await genCodeChallenge(codeVerifier);
+    }
+
     // Best-effort: garbage-collect states older than 15 min before inserting
     await supabase.from("oauth_states")
       .delete()
@@ -62,6 +89,7 @@ Deno.serve(async (req) => {
       agency_id: agency.id,
       provider: providerName,
       redirect_to: redirectTo ?? null,
+      code_verifier: codeVerifier,
     });
     if (stateErr) return json({ error: "STATE_STORE_FAILED", message: stateErr.message }, 500);
 
@@ -73,6 +101,10 @@ Deno.serve(async (req) => {
       state,
     });
     if (provider.scope) params.set("scope", provider.scope);
+    if (codeChallenge) {
+      params.set("code_challenge", codeChallenge);
+      params.set("code_challenge_method", "S256");
+    }
     for (const [k, v] of Object.entries(provider.extraAuthorizeParams ?? {})) {
       params.set(k, v);
     }
