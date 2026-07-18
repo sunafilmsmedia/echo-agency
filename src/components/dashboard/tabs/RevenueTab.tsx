@@ -15,6 +15,7 @@ import { useStripeRevenue } from "@/hooks/useStripeRevenue";
 import { useClients } from "@/hooks/useClients";
 import { useCalendlyRdvCount } from "@/hooks/useCalendlyRdvCount";
 import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 const EXPENSE_CATEGORIES = [
   { key: "salaires_employes",  label: "Salaires Employés" },
@@ -61,11 +62,11 @@ export function RevenueTab() {
       return d >= monthStart && d <= monthEnd && c.status === "active";
     }).length;
 
-    // Churn this month: clients that MOVED to lost/completed since the 1st
-    // (updated_at falls in current month AND status is now lost/completed)
+    // Churn this month: ONLY clients passed to "lost" this month.
+    // "on_hold" = pause temporaire → pas un churn.
+    // "completed" = contrat terminé naturellement → pas un churn non plus.
     const churnedThisMonth = allClients.filter((c) => {
-      const isChurnedStatus = c.status === "lost" || c.status === "completed";
-      if (!isChurnedStatus || !c.updated_at) return false;
+      if (c.status !== "lost" || !c.updated_at) return false;
       const d = new Date(c.updated_at);
       return d >= monthStart && d <= monthEnd;
     }).length;
@@ -110,16 +111,42 @@ export function RevenueTab() {
   const totalRevenue = mrr + extraRevenue;
   const netProfit = totalRevenue - totalExpenses;
 
-  // Auto-sync expenses to metrics
+  // Auto-sync when expense items change (create/delete) — extras stay untouched here,
+  // they have their own explicit save handlers.
   useEffect(() => {
     if (!metrics) return;
     const catTotals: Record<string, number> = {};
     EXPENSE_CATEGORIES.forEach(({ key }) => {
       catTotals[key] = expenseItems.filter((i) => i.category === key).reduce((s, i) => s + i.amount, 0);
     });
-    const updates: any = { monthly_expenses: totalExpenses, extra_revenue: extraRevenue, extra_expenses: extraExpenses, ...catTotals };
-    updateMetrics.mutate(updates);
-  }, [expenseItems, extraRevenue, extraExpenses]);
+    updateMetrics.mutate({ monthly_expenses: recurringExpenses + extraExpenses, ...catTotals });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expenseItems]);
+
+  // Explicit save on blur / Enter — persists into the current month row,
+  // stays there forever (rolls into monthly history + YTD totals).
+  const saveExtraRevenue = () => {
+    updateMetrics.mutate({ extra_revenue: extraRevenue }, {
+      onSuccess: () => toast.success(
+        extraRevenue > 0
+          ? `+ ${formatCurrency(extraRevenue)} sauvegardés au revenu du mois`
+          : "Extra retiré du revenu du mois"
+      ),
+    });
+  };
+
+  const saveExtraExpenses = () => {
+    updateMetrics.mutate({
+      extra_expenses: extraExpenses,
+      monthly_expenses: recurringExpenses + extraExpenses,
+    }, {
+      onSuccess: () => toast.success(
+        extraExpenses > 0
+          ? `+ ${formatCurrency(extraExpenses)} sauvegardés aux dépenses du mois`
+          : "Extra retiré des dépenses du mois"
+      ),
+    });
+  };
 
   // Chart data
   const chartData = history.slice(-12).map((m) => ({
@@ -265,7 +292,7 @@ export function RevenueTab() {
           </CardContent>
         </Card>
 
-        {/* Extra ce mois — editable input */}
+        {/* Extra ce mois — editable input, saves on blur + Enter */}
         <Card className={extraRevenue > 0 ? "border-emerald-500/40 bg-emerald-500/[0.03]" : ""}>
           <CardContent className="pt-4 pb-4">
             <p className="text-xs text-muted-foreground mb-1">Extra ce mois</p>
@@ -273,11 +300,13 @@ export function RevenueTab() {
               type="number"
               value={extraRevenue}
               onChange={(e) => setExtraRevenue(Number(e.target.value))}
+              onBlur={saveExtraRevenue}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.currentTarget.blur(); } }}
               className={`h-7 text-sm font-bold p-1 ${extraRevenue > 0 ? "text-emerald-400" : "text-foreground"}`}
             />
-            {extraRevenue > 0 && (
-              <p className="text-[10px] text-emerald-400 mt-1 italic">✓ ajouté au MRR</p>
-            )}
+            <p className="text-[10px] mt-1 italic text-muted-foreground">
+              {extraRevenue > 0 ? <span className="text-emerald-400">✓ sauvegardé pour ce mois</span> : "Entrée / Tab pour sauvegarder"}
+            </p>
           </CardContent>
         </Card>
 
@@ -520,16 +549,20 @@ export function RevenueTab() {
             );
           })}
 
-          {/* Dépenses extra du mois — one-off, mirrors Extra Revenue */}
+          {/* Dépenses extra du mois — saves on blur + Enter */}
           <div className="flex items-center justify-between px-3 py-2.5 mt-2 rounded-lg border border-dashed border-amber-500/30 bg-amber-500/[0.03]">
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-foreground">Dépenses extra ce mois</p>
-              <p className="text-[10px] text-muted-foreground">Coûts ponctuels non récurrents (achat matériel, sous-traitance, imprévu…)</p>
+              <p className="text-[10px] text-muted-foreground">
+                Coûts ponctuels non récurrents. {extraExpenses > 0 ? <span className="text-amber-400">✓ sauvegardé pour ce mois</span> : "Entrée / Tab pour sauvegarder."}
+              </p>
             </div>
             <Input
               type="number"
               value={extraExpenses}
               onChange={(e) => setExtraExpenses(Number(e.target.value))}
+              onBlur={saveExtraExpenses}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.currentTarget.blur(); } }}
               placeholder="0"
               className={`h-8 w-28 text-sm font-bold text-right ${extraExpenses > 0 ? "text-amber-400" : "text-foreground"}`}
             />
