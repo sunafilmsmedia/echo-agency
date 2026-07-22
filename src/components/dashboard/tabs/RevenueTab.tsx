@@ -355,24 +355,61 @@ export function RevenueTab() {
               <Area type="monotone" dataKey="revenue" stroke="hsl(158 100% 72%)" fill="url(#revGrad)" strokeWidth={2} />
             </AreaChart>
           </ResponsiveContainer>
-          {/* YTD summary */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 pt-4 border-t border-border/40">
-            <div>
-              <p className="text-xs text-muted-foreground">YTD Revenus</p>
-              <p className="font-semibold text-sm">{formatCurrency(ytdRevenue)}</p>
+          {/* ── Projections annuelles — grosses cartes très visibles ── */}
+          <div className="mt-5 pt-5 border-t border-border/40">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                🎯 Projections fin d'année {new Date().getFullYear()}
+              </h4>
+              <span className="text-[10px] text-muted-foreground italic">
+                basé sur {monthsElapsed} mois écoulés
+              </span>
             </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Projection annuelle</p>
-              <p className="font-semibold text-sm text-primary">{formatCurrency(yearlyProjection)}</p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">YTD Dépenses</p>
-              <p className="font-semibold text-sm text-destructive">{formatCurrency(ytdExpenses)}</p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Dépenses annuelles</p>
-              <p className="font-semibold text-sm text-destructive">{formatCurrency(annualExpenses)}</p>
-              <p className="text-[10px] text-muted-foreground">YTD + run-rate × {12 - monthsElapsed}m</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {/* Revenu projeté */}
+              <div className="rounded-xl border-2 border-emerald-500/30 bg-emerald-500/[0.04] p-4">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-400/80 mb-1">
+                  Revenu annuel projeté
+                </p>
+                <p className="text-2xl font-bold text-emerald-400 tracking-tight">
+                  {formatCurrency(yearlyProjection)}
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  YTD {formatCurrency(ytdRevenue)} extrapolé × 12
+                </p>
+              </div>
+
+              {/* Dépenses projetées */}
+              <div className="rounded-xl border-2 border-destructive/30 bg-destructive/[0.04] p-4">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-destructive/80 mb-1">
+                  Dépenses annuelles projetées
+                </p>
+                <p className="text-2xl font-bold text-destructive tracking-tight">
+                  {formatCurrency(annualExpenses)}
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  YTD {formatCurrency(ytdExpenses)} + {formatCurrency(totalExpenses)}/mois × {12 - monthsElapsed}
+                </p>
+              </div>
+
+              {/* Profit projeté */}
+              {(() => {
+                const yearlyProfit = yearlyProjection - annualExpenses;
+                const isPositive = yearlyProfit >= 0;
+                return (
+                  <div className={`rounded-xl border-2 p-4 ${isPositive ? "border-primary/40 bg-primary/[0.04]" : "border-destructive/50 bg-destructive/[0.06]"}`}>
+                    <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${isPositive ? "text-primary/80" : "text-destructive/80"}`}>
+                      Profit annuel projeté
+                    </p>
+                    <p className={`text-2xl font-bold tracking-tight ${isPositive ? "text-primary" : "text-destructive"}`}>
+                      {isPositive ? "" : "−"}{formatCurrency(Math.abs(yearlyProfit))}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      Marge : {yearlyProjection > 0 ? Math.round((yearlyProfit / yearlyProjection) * 100) : 0}%
+                    </p>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </CardContent>
