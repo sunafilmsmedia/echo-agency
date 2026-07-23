@@ -72,6 +72,47 @@ function saveMonth(year: number, month: number, data: MonthData) {
   localStorage.setItem(storageKey(year,month), JSON.stringify(data));
 }
 
+// ── Dynamic baseline: previous quarter's average ─────────────────────────────
+// Each new quarter, the baseline used to compute bonuses = average of the
+// previous quarter's actuals for that client. Q4 2025 → Q1 2026, Q1 → Q2, etc.
+// Falls back to the manually-configured baseline when no previous data exists.
+
+function previousQuarter(year: number, q: number): { year: number; quarter: number } {
+  if (q === 0) return { year: year - 1, quarter: 3 };
+  return { year, quarter: q - 1 };
+}
+
+function averageForClientInQuarter(
+  clientId: string,
+  year: number,
+  q: number,
+  field: "views" | "videos",
+): number | null {
+  const months = QUARTERS[q];
+  const values = months
+    .map((m) => loadMonth(year, m)[clientId]?.[field])
+    .filter((v): v is number => typeof v === "number" && !isNaN(v));
+  if (values.length === 0) return null;
+  return Math.round(values.reduce((s, v) => s + v, 0) / values.length);
+}
+
+interface DynamicBaseline { value: number; source: string; isManual: boolean; }
+
+function dynamicBaseline(
+  clientId: string,
+  year: number,
+  currentQ: number,
+  field: "views" | "videos",
+  manualBaseline: number,
+): DynamicBaseline {
+  const { year: py, quarter: pq } = previousQuarter(year, currentQ);
+  const avg = averageForClientInQuarter(clientId, py, pq, field);
+  if (avg !== null) {
+    return { value: avg, source: `moy. Q${pq + 1} ${py}`, isManual: false };
+  }
+  return { value: manualBaseline, source: "manuel", isManual: true };
+}
+
 // ── Tier badges ───────────────────────────────────────────────────────────────
 
 function ViewsBadge({ actual, baseline }: { actual: number | null; baseline: number }) {
@@ -167,12 +208,22 @@ function EmployeeKpiDetail({ employee, onBack }: { employee: Employee; onBack: (
     setKpiConfig(rest); saveKpiConfig(rest);
   };
 
+  // Dynamic baselines per client — computed from previous quarter's average.
+  const baselinesByClient: Record<string, { views: DynamicBaseline; videos: DynamicBaseline }> = {};
+  configuredClients.forEach((c) => {
+    baselinesByClient[c.id] = {
+      views:  dynamicBaseline(c.id, year, quarter, "views",  kpiConfig[c.id].baselineViews),
+      videos: dynamicBaseline(c.id, year, quarter, "videos", kpiConfig[c.id].baselineVideos),
+    };
+  });
+
   // Totals
   const monthTotals = [0,1,2].map(mi =>
     configuredClients.reduce((sum, c) => {
       const row: ClientRow = monthData[mi][c.id] ?? {};
-      const vb  = calcViewsBonus(row.views ?? null, kpiConfig[c.id].baselineViews);
-      const vid = calcVideosBonus(row.videos ?? null, kpiConfig[c.id].baselineVideos);
+      const bl = baselinesByClient[c.id];
+      const vb  = calcViewsBonus(row.views ?? null, bl.views.value);
+      const vid = calcVideosBonus(row.videos ?? null, bl.videos.value);
       return sum + clientMonthTotal(vb, vid);
     }, 0)
   );
@@ -251,13 +302,13 @@ function EmployeeKpiDetail({ employee, onBack }: { employee: Employee; onBack: (
           </div>
 
           {configuredClients.map((client) => {
-            const cfg = kpiConfig[client.id];
+            const bl = baselinesByClient[client.id];
             const months = [0,1,2].map(mi => {
               const row: ClientRow = monthData[mi][client.id] ?? {};
               const views  = row.views  ?? null;
               const videos = row.videos ?? null;
-              const vb  = calcViewsBonus(views,  cfg.baselineViews);
-              const vid = calcVideosBonus(videos, cfg.baselineVideos);
+              const vb  = calcViewsBonus(views,  bl.views.value);
+              const vid = calcVideosBonus(videos, bl.videos.value);
               const tot = clientMonthTotal(vb, vid);
               return { views, videos, vb, vid, tot, capped: (vb+vid) > PER_CLIENT_CAP };
             });
@@ -266,11 +317,23 @@ function EmployeeKpiDetail({ employee, onBack }: { employee: Employee; onBack: (
             return (
               <div key={client.id} className="rounded-xl border border-border/40 bg-card overflow-hidden hover:border-border/70 transition-colors">
                 <div className="grid grid-cols-[180px_1fr_1fr_1fr_80px_28px] gap-3 p-3 items-start">
-                  {/* Name */}
+                  {/* Name + dynamic baseline */}
                   <div className="pt-1">
                     <p className="text-sm font-semibold text-foreground leading-tight">{client.name}</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">{fmt(cfg.baselineViews)} vues base</p>
-                    <p className="text-[10px] text-muted-foreground">{cfg.baselineVideos} vidéos 20k+ base</p>
+                    <div className="mt-1 space-y-0.5">
+                      <p className="text-[10px] text-muted-foreground flex items-center gap-1 flex-wrap">
+                        <span>{fmt(bl.views.value)} vues base</span>
+                        <span className={`text-[9px] px-1 rounded ${bl.views.isManual ? "bg-muted/40 text-muted-foreground" : "bg-primary/15 text-primary"}`}>
+                          {bl.views.source}
+                        </span>
+                      </p>
+                      <p className="text-[10px] text-muted-foreground flex items-center gap-1 flex-wrap">
+                        <span>{bl.videos.value} vidéos 20k+ base</span>
+                        <span className={`text-[9px] px-1 rounded ${bl.videos.isManual ? "bg-muted/40 text-muted-foreground" : "bg-primary/15 text-primary"}`}>
+                          {bl.videos.source}
+                        </span>
+                      </p>
+                    </div>
                   </div>
 
                   {/* Month columns */}
@@ -280,19 +343,19 @@ function EmployeeKpiDetail({ employee, onBack }: { employee: Employee; onBack: (
                         <label className="text-[10px] text-muted-foreground flex items-center gap-1">
                           <Eye className="w-3 h-3"/> Vues
                         </label>
-                        <Input type="number" placeholder={fmt(cfg.baselineViews)} value={m.views ?? ""}
+                        <Input type="number" placeholder={fmt(bl.views.value)} value={m.views ?? ""}
                           onChange={e => updateField(mi as 0|1|2, client.id, "views", e.target.value)}
                           className="h-7 text-xs" />
-                        <ViewsBadge actual={m.views} baseline={cfg.baselineViews} />
+                        <ViewsBadge actual={m.views} baseline={bl.views.value} />
                       </div>
                       <div className="space-y-1">
                         <label className="text-[10px] text-muted-foreground flex items-center gap-1">
                           <Video className="w-3 h-3"/> Vidéos 20k+
                         </label>
-                        <Input type="number" placeholder={String(cfg.baselineVideos)} value={m.videos ?? ""}
+                        <Input type="number" placeholder={String(bl.videos.value)} value={m.videos ?? ""}
                           onChange={e => updateField(mi as 0|1|2, client.id, "videos", e.target.value)}
                           className="h-7 text-xs" />
-                        <VideosBadge actual={m.videos} baseline={cfg.baselineVideos} />
+                        <VideosBadge actual={m.videos} baseline={bl.videos.value} />
                       </div>
                       <div className={`text-center rounded-lg py-1.5 ${m.tot > 0 ? "bg-primary/8 border border-primary/20" : "bg-muted/30"}`}>
                         <p className={`text-sm font-bold ${m.tot > 0 ? "text-primary" : "text-muted-foreground"}`}>${m.tot}</p>
@@ -418,6 +481,12 @@ function EmployeeKpiDetail({ employee, onBack }: { employee: Employee; onBack: (
           <p className="font-semibold text-foreground flex items-center gap-1.5"><Video className="w-3.5 h-3.5"/> Bonus Vidéos 20k+</p>
           <p className="text-muted-foreground"><span className="text-primary font-medium">+1</span> = $15 &nbsp;·&nbsp; <span className="text-amber-400 font-medium">+2</span> = $25 &nbsp;·&nbsp; <span className="text-emerald-400 font-medium">+3</span> = $40</p>
         </div>
+      </div>
+
+      {/* Baseline mechanic explainer */}
+      <div className="rounded-xl border border-primary/20 bg-primary/[0.03] p-3 text-xs text-muted-foreground">
+        <span className="font-semibold text-primary">📊 Baseline dynamique :</span> chaque trimestre, la baseline utilisée pour calculer les bonus = moyenne du trimestre précédent.
+        Ex : Q2 = moyenne de Q1 (Jan-Mars). Q3 = moyenne de Q2. Si aucune donnée précédente, on utilise la baseline manuelle initiale.
       </div>
 
       <p className="text-[10px] text-muted-foreground text-center">
