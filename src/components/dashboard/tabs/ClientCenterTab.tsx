@@ -11,11 +11,12 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import {
   ExternalLink, FolderOpen, Link, Check, X, Copy, ChevronDown, ChevronUp,
   Users, ClipboardList, Mail, Phone, FileText, Loader2, Sparkles, Lock, RefreshCw,
-  BookOpen, Send, User as UserIcon, Calendar as CalendarIcon,
+  BookOpen, Send, User as UserIcon, Calendar as CalendarIcon, Megaphone,
 } from "lucide-react";
 import type { Client } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { askClaudeText } from "@/lib/claude-client";
+import { clientAdsTotals, clientAvgCpl } from "@/lib/kpi-ads";
 
 function slugify(s: string): string {
   return s.toLowerCase()
@@ -687,6 +688,25 @@ export function ClientCenterTab() {
                         {client.monthly_recurring_revenue && <span>{formatCurrency(client.monthly_recurring_revenue)}/mois</span>}
                         {client.contract_start_date && <span>Depuis {formatDate(client.contract_start_date)}</span>}
                       </div>
+                      {(() => {
+                        const totals = clientAdsTotals(client.id, 3);
+                        const avgCpl = clientAvgCpl(client.id, 3);
+                        if (totals.months === 0) return null;
+                        return (
+                          <div className="flex items-center gap-2 mt-1.5 text-[11px]">
+                            <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                              <Megaphone className="w-3 h-3" />
+                              {totals.leads} leads
+                            </span>
+                            {avgCpl !== null && (
+                              <span className="text-muted-foreground">
+                                CPL moyen : <span className="font-semibold text-foreground">${avgCpl.toFixed(2)}</span>
+                              </span>
+                            )}
+                            <span className="text-[10px] text-muted-foreground italic">(sur {totals.months}m)</span>
+                          </div>
+                        );
+                      })()}
                     </div>
                     <div className="flex items-center gap-1.5 flex-shrink-0">
                       {client.google_drive_url && (
