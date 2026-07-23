@@ -46,20 +46,11 @@ function clientMonthTotal(vb: number, vid: number) {
   return Math.min(vb + vid, PER_CLIENT_CAP);
 }
 
-// ── Ads / CPL logic ───────────────────────────────────────────────────────────
-// CPL = budget ($) / leads (count). LOWER is better.
-// Bonus tiers: beat the baseline (target CPL) by X% → tier reward.
+// ── Ads / CPL ─────────────────────────────────────────────────────────────────
+// René: pure results tracking, no bonus tiers. CPL = budget ($) / leads.
 function calcCpl(budget: number | null, leads: number | null): number | null {
   if (budget === null || leads === null || leads <= 0) return null;
   return budget / leads;
-}
-function calcCplBonus(actualCpl: number | null, baselineCpl: number): number {
-  if (actualCpl === null || baselineCpl <= 0) return 0;
-  // Lower is better → bonus if we're BELOW baseline
-  if (actualCpl <= baselineCpl * 0.7)  return 40; // 30%+ cheaper
-  if (actualCpl <= baselineCpl * 0.85) return 25; // 15%+ cheaper
-  if (actualCpl <= baselineCpl)        return 15; // met or beat baseline
-  return 0;
 }
 
 // ── localStorage: KPI client config (baselines) ───────────────────────────────
@@ -68,7 +59,9 @@ interface KpiClientConfig {
   [supabaseClientId: string]: {
     baselineViews: number;
     baselineVideos: number;
-    // Ads baseline — target cost per lead ($). Optional so existing clients don't break.
+    // Presence in René's Ads KPI list (no baseline needed — pure results tracking)
+    trackedByAds?: boolean;
+    // Deprecated: previous CPL-target field. Read for backwards-compat, no longer written.
     baselineCpl?: number;
   };
 }
@@ -126,25 +119,6 @@ function averageForClientInQuarter(
   return Math.round(values.reduce((s, v) => s + v, 0) / values.length);
 }
 
-// CPL average over a quarter — computed from total budget ÷ total leads
-// (weighted average, not simple mean of monthly CPLs, which would be misleading).
-function averageCplForClientInQuarter(
-  clientId: string,
-  year: number,
-  q: number,
-): number | null {
-  const months = QUARTERS[q];
-  let totalBudget = 0, totalLeads = 0;
-  for (const m of months) {
-    const row = loadMonth(year, m)[clientId];
-    if (!row) continue;
-    if (typeof row.budget === "number") totalBudget += row.budget;
-    if (typeof row.leads  === "number") totalLeads  += row.leads;
-  }
-  if (totalLeads === 0) return null;
-  return Math.round((totalBudget / totalLeads) * 100) / 100; // 2 decimals
-}
-
 interface DynamicBaseline { value: number; source: string; isManual: boolean; }
 
 function dynamicBaseline(
@@ -156,20 +130,6 @@ function dynamicBaseline(
 ): DynamicBaseline {
   const { year: py, quarter: pq } = previousQuarter(year, currentQ);
   const avg = averageForClientInQuarter(clientId, py, pq, field);
-  if (avg !== null) {
-    return { value: avg, source: `moy. Q${pq + 1} ${py}`, isManual: false };
-  }
-  return { value: manualBaseline, source: "manuel", isManual: true };
-}
-
-function dynamicCplBaseline(
-  clientId: string,
-  year: number,
-  currentQ: number,
-  manualBaseline: number,
-): DynamicBaseline {
-  const { year: py, quarter: pq } = previousQuarter(year, currentQ);
-  const avg = averageCplForClientInQuarter(clientId, py, pq);
   if (avg !== null) {
     return { value: avg, source: `moy. Q${pq + 1} ${py}`, isManual: false };
   }
@@ -564,17 +524,7 @@ function ContentKpiDetail({ employee, onBack }: { employee: Employee; onBack: ()
   );
 }
 
-// ── Ads KPI detail (René: budget + leads → CPL) ──────────────────────────────
-
-function CplBadge({ actualCpl, baselineCpl }: { actualCpl: number | null; baselineCpl: number }) {
-  if (actualCpl === null) return <span className="text-[10px] text-muted-foreground/40">—</span>;
-  if (baselineCpl <= 0)    return <span className="text-[10px] text-muted-foreground">—</span>;
-  const diffPct = Math.round((1 - actualCpl / baselineCpl) * 100);
-  if (actualCpl <= baselineCpl * 0.7)  return <span className="text-[10px] font-semibold text-emerald-400">−{diffPct}% · $40</span>;
-  if (actualCpl <= baselineCpl * 0.85) return <span className="text-[10px] font-semibold text-primary">−{diffPct}% · $25</span>;
-  if (actualCpl <= baselineCpl)        return <span className="text-[10px] font-semibold text-amber-400">−{diffPct}% · $15</span>;
-  return <span className="text-[10px] text-destructive">+{Math.abs(diffPct)}% baseline</span>;
-}
+// ── Ads KPI detail (René: budget + leads → CPL — pure results, no bonus) ─────
 
 function AdsKpiDetail({ employee, onBack }: { employee: Employee; onBack: () => void }) {
   const now = new Date();
@@ -590,17 +540,18 @@ function AdsKpiDetail({ employee, onBack }: { employee: Employee; onBack: () => 
   ]);
 
   const [kpiConfig, setKpiConfig] = useState<KpiClientConfig>(loadKpiConfig);
-  const [addingId, setAddingId]         = useState<string | null>(null);
-  const [addBaselineCpl, setAddBaselineCpl] = useState("");
   const [showAvailable, setShowAvailable] = useState(false);
 
   const { data: supabaseClients = [], isLoading } = useClients();
 
-  // Only clients with a CPL baseline configured — separate from Sandra's list
-  const configuredClients = supabaseClients.filter((c) => kpiConfig[c.id]?.baselineCpl !== undefined && kpiConfig[c.id]?.baselineCpl! > 0);
+  const isTracked = (c: any) =>
+    kpiConfig[c.id]?.trackedByAds === true
+    // Backwards-compat: clients previously added with a CPL target are still tracked
+    || (kpiConfig[c.id]?.baselineCpl !== undefined && (kpiConfig[c.id]?.baselineCpl ?? 0) > 0);
+
+  const configuredClients = supabaseClients.filter(isTracked);
   const availableClients  = supabaseClients.filter((c) =>
-    (kpiConfig[c.id]?.baselineCpl === undefined || (kpiConfig[c.id]?.baselineCpl ?? 0) <= 0)
-    && c.status !== "lost" && c.status !== "completed"
+    !isTracked(c) && c.status !== "lost" && c.status !== "completed"
   );
 
   const navigateQuarter = (delta: number) => {
@@ -622,20 +573,16 @@ function AdsKpiDetail({ employee, onBack }: { employee: Employee; onBack: () => 
     saveMonth(year, qMonths[mIdx], next);
   };
 
-  const confirmAdd = (clientId: string) => {
-    const bcpl = parseFloat(addBaselineCpl.replace(/\s/g,"")) || 0;
-    if (bcpl <= 0) return;
+  const addToKpi = (clientId: string) => {
     const existing = kpiConfig[clientId] ?? { baselineViews: 0, baselineVideos: 0 };
-    const newCfg = { ...kpiConfig, [clientId]: { ...existing, baselineCpl: bcpl } };
+    const newCfg = { ...kpiConfig, [clientId]: { ...existing, trackedByAds: true } };
     setKpiConfig(newCfg); saveKpiConfig(newCfg);
-    setAddingId(null); setAddBaselineCpl("");
   };
 
   const removeFromKpi = (clientId: string) => {
     const cfg = kpiConfig[clientId];
     if (!cfg) return;
-    const { baselineCpl: _, ...rest } = cfg;
-    // Keep the client in config if it still has views/videos baselines, else drop it
+    const { trackedByAds: _t, baselineCpl: _b, ...rest } = cfg as any;
     const stillNeeded = rest.baselineViews > 0 || rest.baselineVideos > 0;
     const next = { ...kpiConfig };
     if (stillNeeded) next[clientId] = rest as typeof cfg;
@@ -643,23 +590,24 @@ function AdsKpiDetail({ employee, onBack }: { employee: Employee; onBack: () => 
     setKpiConfig(next); saveKpiConfig(next);
   };
 
-  // Dynamic CPL baselines per client
-  const baselinesByClient: Record<string, DynamicBaseline> = {};
-  configuredClients.forEach((c) => {
-    baselinesByClient[c.id] = dynamicCplBaseline(c.id, year, quarter, kpiConfig[c.id].baselineCpl!);
-  });
-
-  // Totals
-  const monthTotals = [0,1,2].map((mi) =>
-    configuredClients.reduce((sum, c) => {
+  // Monthly aggregates across all tracked clients
+  const monthAggregate = (mi: 0|1|2) => {
+    let budget = 0, leads = 0;
+    configuredClients.forEach((c) => {
       const row = monthData[mi][c.id] ?? {};
-      const cpl = calcCpl(row.budget ?? null, row.leads ?? null);
-      const bonus = calcCplBonus(cpl, baselinesByClient[c.id].value);
-      return sum + Math.min(bonus, PER_CLIENT_CAP);
-    }, 0)
-  );
-  const quarterTotal = monthTotals.reduce((a,b) => a+b, 0);
-  const fmt$ = (n: number | null) => n === null ? "—" : `$${n.toFixed(2)}`;
+      if (typeof row.budget === "number") budget += row.budget;
+      if (typeof row.leads  === "number") leads  += row.leads;
+    });
+    const cpl = leads > 0 ? budget / leads : null;
+    return { budget, leads, cpl };
+  };
+  const monthly = [0,1,2].map((i) => monthAggregate(i as 0|1|2));
+  const qBudget = monthly.reduce((s,m) => s+m.budget, 0);
+  const qLeads  = monthly.reduce((s,m) => s+m.leads,  0);
+  const qCpl    = qLeads > 0 ? qBudget / qLeads : null;
+
+  const fmt$ = (n: number | null) => n === null ? "—" : `$${n.toLocaleString("fr-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const fmtInt = (n: number) => n.toLocaleString("fr-CA");
 
   return (
     <div className="p-6 space-y-5 max-w-6xl mx-auto">
@@ -671,9 +619,9 @@ function AdsKpiDetail({ employee, onBack }: { employee: Employee; onBack: () => 
           </button>
           <div>
             <h2 className="text-xl font-semibold text-foreground flex items-center gap-2">
-              <Trophy className="w-5 h-5 text-amber-400" /> KPI Ads — {employee.name}
+              <Trophy className="w-5 h-5 text-amber-400" /> Résultats Ads — {employee.name}
             </h2>
-            <p className="text-sm text-muted-foreground mt-0.5">Bonus calculés sur le CPL (coût par lead) · payables au trimestre</p>
+            <p className="text-sm text-muted-foreground mt-0.5">Suivi du budget, leads et CPL par client · aucun bonus lié</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -692,18 +640,20 @@ function AdsKpiDetail({ employee, onBack }: { employee: Employee; onBack: () => 
         </div>
       </div>
 
-      {/* Summary bar */}
-      <div className="grid grid-cols-4 gap-3">
-        {[0,1,2].map(mi => (
-          <div key={mi} className="rounded-xl border border-border/40 bg-muted/20 p-4 space-y-0.5">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{MONTHS_FR[qMonths[mi]-1]}</p>
-            <p className="text-2xl font-bold text-foreground">${monthTotals[mi]}</p>
-          </div>
-        ))}
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-0.5">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-400">Total payable</p>
-          <p className="text-2xl font-bold text-amber-400">${quarterTotal}</p>
-          <p className="text-[10px] text-muted-foreground">Q{quarter+1} {year}</p>
+      {/* Quarter totals — budget spent, leads generated, avg CPL */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="rounded-xl border border-border/40 bg-muted/20 p-4">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Budget total Q</p>
+          <p className="text-2xl font-bold text-foreground">{fmt$(qBudget)}</p>
+        </div>
+        <div className="rounded-xl border border-border/40 bg-muted/20 p-4">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Leads totaux Q</p>
+          <p className="text-2xl font-bold text-foreground">{fmtInt(qLeads)}</p>
+        </div>
+        <div className="rounded-xl border border-primary/30 bg-primary/5 p-4">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-primary mb-1">CPL moyen Q</p>
+          <p className="text-2xl font-bold text-primary">{fmt$(qCpl)}</p>
+          <p className="text-[10px] text-muted-foreground mt-0.5">Budget total ÷ leads total</p>
         </div>
       </div>
 
@@ -715,13 +665,13 @@ function AdsKpiDetail({ employee, onBack }: { employee: Employee; onBack: () => 
 
       {!isLoading && configuredClients.length === 0 && (
         <div className="text-center py-10 text-muted-foreground text-sm border border-dashed border-border/50 rounded-xl">
-          Aucun client configuré pour Rene. Ajoute des clients ci-dessous avec un CPL cible.
+          Aucun client suivi pour Rene. Ajoute-en un ci-dessous.
         </div>
       )}
 
       {configuredClients.length > 0 && (
         <div className="space-y-3">
-          <div className="grid grid-cols-[180px_1fr_1fr_1fr_80px_28px] gap-3 px-4 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <div className="grid grid-cols-[180px_1fr_1fr_1fr_100px_28px] gap-3 px-4 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             <span>Client</span>
             {[0,1,2].map(mi => <span key={mi} className="text-center">{MONTHS_FR[qMonths[mi]-1]}</span>)}
             <span className="text-center">Total Q</span>
@@ -729,32 +679,27 @@ function AdsKpiDetail({ employee, onBack }: { employee: Employee; onBack: () => 
           </div>
 
           {configuredClients.map((client) => {
-            const bl = baselinesByClient[client.id];
             const months = [0,1,2].map(mi => {
               const row = monthData[mi][client.id] ?? {};
               const budget = row.budget ?? null;
               const leads  = row.leads  ?? null;
               const cpl    = calcCpl(budget, leads);
-              const bonus  = calcCplBonus(cpl, bl.value);
-              return { budget, leads, cpl, bonus: Math.min(bonus, PER_CLIENT_CAP) };
+              return { budget, leads, cpl };
             });
-            const clientQTotal = months.reduce((s,m) => s+m.bonus, 0);
+            const clientBudget = months.reduce((s,m) => s + (m.budget ?? 0), 0);
+            const clientLeads  = months.reduce((s,m) => s + (m.leads  ?? 0), 0);
+            const clientCpl    = clientLeads > 0 ? clientBudget / clientLeads : null;
 
             return (
               <div key={client.id} className="rounded-xl border border-border/40 bg-card overflow-hidden hover:border-border/70 transition-colors">
-                <div className="grid grid-cols-[180px_1fr_1fr_1fr_80px_28px] gap-3 p-3 items-start">
+                <div className="grid grid-cols-[180px_1fr_1fr_1fr_100px_28px] gap-3 p-3 items-start">
                   <div className="pt-1">
                     <p className="text-sm font-semibold text-foreground leading-tight">{client.name}</p>
-                    <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1 flex-wrap">
-                      <span>CPL cible : {fmt$(bl.value)}</span>
-                      <span className={`text-[9px] px-1 rounded ${bl.isManual ? "bg-muted/40 text-muted-foreground" : "bg-primary/15 text-primary"}`}>
-                        {bl.source}
-                      </span>
-                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5 capitalize">{client.status?.replace("_", " ")}</p>
                   </div>
 
                   {months.map((m, mi) => (
-                    <div key={mi} className="space-y-2">
+                    <div key={mi} className="space-y-1.5">
                       <div className="space-y-1">
                         <label className="text-[10px] text-muted-foreground">Budget ($)</label>
                         <Input type="number" placeholder="0" value={m.budget ?? ""}
@@ -767,29 +712,25 @@ function AdsKpiDetail({ employee, onBack }: { employee: Employee; onBack: () => 
                           onChange={e => updateField(mi as 0|1|2, client.id, "leads", e.target.value)}
                           className="h-7 text-xs" />
                       </div>
-                      <div className="text-[10px] text-center text-muted-foreground">
-                        CPL : <span className="font-semibold text-foreground">{fmt$(m.cpl)}</span>
-                      </div>
-                      <div className="text-center">
-                        <CplBadge actualCpl={m.cpl} baselineCpl={bl.value} />
-                      </div>
-                      <div className={`text-center rounded-lg py-1.5 ${m.bonus > 0 ? "bg-primary/8 border border-primary/20" : "bg-muted/30"}`}>
-                        <p className={`text-sm font-bold ${m.bonus > 0 ? "text-primary" : "text-muted-foreground"}`}>${m.bonus}</p>
+                      <div className={`text-center rounded-lg py-1.5 ${m.cpl !== null ? "bg-primary/8 border border-primary/20" : "bg-muted/30"}`}>
+                        <p className="text-[9px] text-muted-foreground uppercase">CPL</p>
+                        <p className={`text-sm font-bold ${m.cpl !== null ? "text-primary" : "text-muted-foreground"}`}>{fmt$(m.cpl)}</p>
                       </div>
                     </div>
                   ))}
 
                   <div className="flex items-center justify-center">
-                    <div className={`rounded-xl px-3 py-2 text-center ${clientQTotal > 0 ? "bg-amber-500/10 border border-amber-500/20" : "bg-muted/20"}`}>
-                      <p className="text-[10px] text-muted-foreground mb-0.5">3 mois</p>
-                      <p className={`text-lg font-bold ${clientQTotal > 0 ? "text-amber-400" : "text-muted-foreground"}`}>${clientQTotal}</p>
+                    <div className={`rounded-xl px-3 py-2 text-center min-w-[90px] ${clientCpl !== null ? "bg-emerald-500/10 border border-emerald-500/20" : "bg-muted/20"}`}>
+                      <p className="text-[9px] text-muted-foreground uppercase mb-0.5">3 mois</p>
+                      <p className="text-[10px] text-muted-foreground">{fmtInt(clientLeads)} leads</p>
+                      <p className={`text-sm font-bold ${clientCpl !== null ? "text-emerald-400" : "text-muted-foreground"}`}>{fmt$(clientCpl)}</p>
                     </div>
                   </div>
 
                   <div className="flex items-start justify-center pt-1">
                     <button onClick={() => removeFromKpi(client.id)}
                       className="p-1 rounded hover:bg-destructive/10 text-muted-foreground/40 hover:text-destructive transition-colors"
-                      title="Retirer du KPI Ads">
+                      title="Retirer du suivi Ads">
                       <X className="w-3.5 h-3.5" />
                     </button>
                   </div>
@@ -808,7 +749,7 @@ function AdsKpiDetail({ employee, onBack }: { employee: Employee; onBack: () => 
             <div className="flex items-center gap-2">
               <Plus className="w-4 h-4 text-primary" />
               <span className="text-sm font-medium text-foreground">
-                Clients disponibles à ajouter au KPI Ads
+                Clients disponibles à suivre
               </span>
               <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/15 text-primary font-semibold">
                 {availableClients.length}
@@ -819,38 +760,15 @@ function AdsKpiDetail({ employee, onBack }: { employee: Employee; onBack: () => 
           {showAvailable && (
             <div className="divide-y divide-border/30">
               {availableClients.map(client => (
-                <div key={client.id} className="px-4 py-3">
-                  {addingId === client.id ? (
-                    <div className="space-y-3">
-                      <p className="text-sm font-semibold text-foreground">{client.name}</p>
-                      <div className="space-y-1">
-                        <label className="text-[10px] text-muted-foreground">
-                          CPL cible ($ par lead) — baseline initiale, se recalcule ensuite chaque trimestre
-                        </label>
-                        <Input type="number" step="0.01" placeholder="ex: 12.50" value={addBaselineCpl}
-                          onChange={e => setAddBaselineCpl(e.target.value)} className="h-8 text-sm" autoFocus />
-                      </div>
-                      <div className="flex gap-2">
-                        <Button size="sm" onClick={() => confirmAdd(client.id)} className="gap-1.5">
-                          <Check className="w-3.5 h-3.5"/> Confirmer
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={() => { setAddingId(null); setAddBaselineCpl(""); }}>
-                          Annuler
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-foreground">{client.name}</p>
-                        <p className="text-[10px] text-muted-foreground capitalize">{client.status?.replace("_"," ")}</p>
-                      </div>
-                      <Button size="sm" variant="outline" className="gap-1.5 text-xs h-7 border-primary/30 text-primary hover:bg-primary/10"
-                        onClick={() => { setAddingId(client.id); setAddBaselineCpl(""); setShowAvailable(true); }}>
-                        <Plus className="w-3 h-3"/> Ajouter au KPI Ads
-                      </Button>
-                    </div>
-                  )}
+                <div key={client.id} className="px-4 py-3 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{client.name}</p>
+                    <p className="text-[10px] text-muted-foreground capitalize">{client.status?.replace("_"," ")}</p>
+                  </div>
+                  <Button size="sm" variant="outline" className="gap-1.5 text-xs h-7 border-primary/30 text-primary hover:bg-primary/10"
+                    onClick={() => addToKpi(client.id)}>
+                    <Plus className="w-3 h-3"/> Suivre
+                  </Button>
                 </div>
               ))}
             </div>
@@ -858,23 +776,9 @@ function AdsKpiDetail({ employee, onBack }: { employee: Employee; onBack: () => 
         </div>
       )}
 
-      {/* Legend */}
-      <div className="rounded-xl border border-border/40 bg-muted/20 p-3 space-y-1.5 text-xs">
-        <p className="font-semibold text-foreground">💰 Bonus CPL (Cost Per Lead — plus bas = mieux)</p>
-        <p className="text-muted-foreground">
-          <span className="text-amber-400 font-medium">≤ baseline</span> = $15 &nbsp;·&nbsp;
-          <span className="text-primary font-medium">−15%</span> = $25 &nbsp;·&nbsp;
-          <span className="text-emerald-400 font-medium">−30%</span> = $40
-        </p>
-      </div>
-
       <div className="rounded-xl border border-primary/20 bg-primary/[0.03] p-3 text-xs text-muted-foreground">
-        <span className="font-semibold text-primary">📊 Baseline dynamique :</span> chaque trimestre, le CPL cible = moyenne pondérée (budget total ÷ leads total) du trimestre précédent. Le CPL moyen sert aussi dans le <span className="font-semibold text-foreground">Centre Clients</span> pour montrer l'efficacité des pubs par client.
+        <span className="font-semibold text-primary">💡 Info :</span> le CPL (coût par lead) = budget ÷ leads. Le CPL du trimestre est pondéré (budget total ÷ leads total), plus juste qu'une moyenne des CPL mensuels. Ces chiffres alimentent aussi le <span className="font-semibold text-foreground">Centre Clients</span> pour montrer l'efficacité par client.
       </div>
-
-      <p className="text-[10px] text-muted-foreground text-center">
-        Max par client : $80 / mois · Suna Films Media Inc.
-      </p>
     </div>
   );
 }
