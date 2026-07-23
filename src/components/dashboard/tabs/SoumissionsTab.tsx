@@ -107,7 +107,7 @@ function saveSubmissions(list: Submission[]) {
 
 export function SoumissionsTab() {
   const [submissions, setSubmissions] = useState<Submission[]>(() => loadSubmissions());
-  const [view, setView] = useState<"list" | "new" | "detail" | "calculator">("list");
+  const [view, setView] = useState<"list" | "new" | "detail" | "forfaits">("list");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   useEffect(() => saveSubmissions(submissions), [submissions]);
@@ -127,8 +127,8 @@ export function SoumissionsTab() {
     setView("list");
   };
 
-  if (view === "calculator") {
-    return <CalculatorWizard onCancel={() => setView("list")} />;
+  if (view === "forfaits") {
+    return <ForfaitsView onBack={() => setView("list")} />;
   }
 
   if (view === "new") {
@@ -150,7 +150,7 @@ export function SoumissionsTab() {
   return <SubmissionsList
     submissions={submissions}
     onNew={() => setView("new")}
-    onCalculator={() => setView("calculator")}
+    onForfaits={() => setView("forfaits")}
     onOpen={(id) => { setSelectedId(id); setView("detail"); }}
     onDelete={remove}
   />;
@@ -158,8 +158,8 @@ export function SoumissionsTab() {
 
 // ─── List view ──────────────────────────────────────────────────────────────
 
-function SubmissionsList({ submissions, onNew, onCalculator, onOpen, onDelete }: {
-  submissions: Submission[]; onNew: () => void; onCalculator: () => void; onOpen: (id: string) => void; onDelete: (id: string) => void;
+function SubmissionsList({ submissions, onNew, onForfaits, onOpen, onDelete }: {
+  submissions: Submission[]; onNew: () => void; onForfaits: () => void; onOpen: (id: string) => void; onDelete: (id: string) => void;
 }) {
   return (
     <div className="p-8 space-y-6 max-w-5xl mx-auto">
@@ -171,8 +171,8 @@ function SubmissionsList({ submissions, onNew, onCalculator, onOpen, onDelete }:
           <p className="text-sm text-muted-foreground mt-0.5">Génère des propositions commerciales avec Gamma AI</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button onClick={onCalculator} variant="outline" className="gap-2">
-            <Sparkles className="w-4 h-4" /> Calculateur découverte
+          <Button onClick={onForfaits} variant="outline" className="gap-2">
+            <FileText className="w-4 h-4" /> Nos forfaits
           </Button>
           <Button onClick={onNew} className="gap-2 shadow-glow">
             <Plus className="w-4 h-4" /> Nouvelle soumission
@@ -972,530 +972,275 @@ function MetaCell({ label, value }: { label: string; value: string }) {
   );
 }
 
-// ─── Calculateur de forfait — post-appel découverte ─────────────────────────
-// Prospect answers ~6 questions → recommend package + payment format + generate
-// a strategy prompt to paste into Claude/ChatGPT/Gamma.
+
+// ─── Nos forfaits — vue de référence pour l'équipe de vente ─────────────────
 
 interface PackageDef {
   id: "systeme" | "croissance" | "domination";
   name: string;
-  tagline: string;
-  monthly: number;         // Standard 6-month price
-  flexMonthly: number;     // Mois-à-mois (+15%)
+  monthly: number;
+  installQuarter: number;   // Option B — 4 mois payés d'avance, prix unique
+  installMonthly: number;   // Option B — équivalent mensuel avec le −10%
+  flexMonthly: number;      // Option C — mois à mois (+15%)
+  promise: string;
   includes: string[];
-  fitFor: string;
+  featured?: boolean;
+  note?: string;
 }
 
-const PACKAGES: PackageDef[] = [
+const PACKAGES_LIST: PackageDef[] = [
   {
     id: "systeme",
     name: "Système",
-    tagline: "Le socle content + ads pour générer des résultats.",
-    monthly: 2800, flexMonthly: 3200,
+    monthly: 2800,
+    installQuarter: 10080, installMonthly: 2520,
+    flexMonthly: 3200,
+    promise: "Des rendez-vous qualifiés, sans t'impliquer.",
     includes: [
-      "1 tournage aux 2 mois — banque de 10 à 16 vidéos",
-      "5 à 8 vidéos publiées/mois",
-      "Gestion Meta Ads complète (création, tests, opti hebdo)",
-      "Logiciel AI de qualification + dashboard client",
+      "1 tournage aux 2 mois (demi-journée) — banque de 10 à 16 vidéos",
+      "5 à 8 vidéos publiées par mois",
+      "Gestion Meta Ads complète — création, tests, opti hebdo",
+      "Logiciel AI de qualification personnalisé + dashboard client",
       "Suivi structuré des leads jusqu'au RDV",
     ],
-    fitFor: "Le pro occupé qui veut des résultats sans une 2e job.",
+    note: "Implication client : une demi-journée aux 2 mois.",
   },
   {
     id: "croissance",
     name: "Croissance",
-    tagline: "Notoriété + leads. Ta marque travaille pour toi.",
-    monthly: 3400, flexMonthly: 3900,
+    monthly: 3400,
+    installQuarter: 12240, installMonthly: 3060,
+    flexMonthly: 3900,
+    promise: "Notoriété + leads. Ta marque travaille pour toi.",
     includes: [
-      "Tout le forfait Système",
-      "1 tournage/mois · 10 à 15 vidéos publiées",
-      "1 campagne Meta Ads (création + gestion continue)",
+      "Tout le forfait Système (incluant le logiciel AI)",
+      "1 tournage par mois — 10 à 15 vidéos publiées",
+      "1 campagne Meta Ads — création, lancement, gestion continue",
       "Stratégie de contenu + idées sur mesure",
-      "Coaching caméra pour être percutant",
+      "Coaching caméra pour être percutant à l'écran",
     ],
-    fitFor: "Devenir LA référence de son marché tout en générant des leads chaque semaine.",
+    featured: true,
   },
   {
     id: "domination",
     name: "Domination",
-    tagline: "On devient ton département marketing.",
-    monthly: 4000, flexMonthly: 4600,
+    monthly: 4000,
+    installQuarter: 14400, installMonthly: 3600,
+    flexMonthly: 4600,
+    promise: "On devient ton département marketing.",
     includes: [
       "Tout le forfait Croissance",
-      "15 à 20 vidéos/mois · 1 tournage mensuel",
+      "15 à 20 vidéos par mois — 1 tournage mensuel",
       "2 à 3 campagnes Meta Ads simultanées",
-      "CRM personnalisé adapté à ton processus",
-      "Logiciel AI version avancée + accès prioritaire nouveautés",
+      "CRM personnalisé et adapté à ton processus",
+      "Logiciel AI version avancée + accès prioritaire nouveautés SFM",
     ],
-    fitFor: "Dominer son marché avec une machine complète (contenu, pub, CRM, suivi).",
+    note: "Interne : envisager frais de setup unique (1 500-2 500 $) pour couvrir le build du CRM, prix mensuel inchangé.",
   },
 ];
 
-type PaymentId = "standard" | "flexible";
-interface PaymentDef {
-  id: PaymentId;
-  name: string;
-  summary: string;
-  detail: string;
-  multiplier: number; // Applied on the monthly rate
-}
-const PAYMENTS: PaymentDef[] = [
-  {
-    id: "standard",
-    name: "Standard — Engagement 6 mois",
-    summary: "Le prix affiché. Le temps réaliste pour installer, tester et rentabiliser.",
-    detail: "Facturation mensuelle simple · Renouvellement au choix après 6 mois",
-    multiplier: 1.0,
-  },
-  {
-    id: "flexible",
-    name: "Flexible — Mois à mois",
-    summary: "Aucun engagement long terme. La flexibilité a un prix (+15 %).",
-    detail: "Premier et dernier mois payés à la signature · Annulation avec préavis 30 jours",
-    multiplier: 1.15,
-  },
-];
+const CLOSING_SCRIPT = `T'as trois façons de travailler avec nous. La plupart partent sur 6 mois — c'est le temps réaliste pour que le système donne son plein rendement. Si tu veux le meilleur deal pis régler ça d'un coup, l'installation 4 mois te donne 10 % de rabais. Pis si tu veux juste tester, le mois-à-mois existe, mais il coûte 15 % de plus.`;
 
-interface CalcAnswers {
-  prospectName: string;
-  budget: "" | "lt3k" | "3to4k" | "4to5k" | "gt5k";
-  domain: "" | "immobilier" | "hypothecaire" | "autre";
-  domainOther: string;
-  objectives: string[];           // multi
-  urgency: "" | "immediate" | "1to3m" | "6mplus";
-  hasCrm: boolean;
-  hasSetter: boolean;
-  hasContent: boolean;
-  runsAdsAlready: boolean;
-  commitPreference: "" | "engage6" | "flexible" | "unsure";
-  currentLeadsPerWeek: string;
-  notes: string;
-}
+function ForfaitsView({ onBack }: { onBack: () => void }) {
+  const fmt = (n: number) => n.toLocaleString("fr-CA");
 
-const OBJECTIVE_OPTIONS = [
-  { id: "leads",       label: "Plus de leads qualifiés" },
-  { id: "notoriete",   label: "Notoriété / autorité" },
-  { id: "conversion",  label: "Convertir mieux (closing)" },
-  { id: "domination",  label: "Dominer mon marché" },
-  { id: "systeme",     label: "Bâtir un système marketing" },
-];
-
-function recommendPackage(a: CalcAnswers): { pkg: PackageDef; reasons: string[] } {
-  const reasons: string[] = [];
-  let score = { systeme: 0, croissance: 0, domination: 0 };
-
-  // Budget = strongest signal
-  switch (a.budget) {
-    case "lt3k":  score.systeme += 5; reasons.push("Budget < 3 000 $ → Système est la porte d'entrée réaliste."); break;
-    case "3to4k": score.croissance += 4; score.systeme += 2; reasons.push("Budget 3-4k $ → Croissance offre le meilleur rapport."); break;
-    case "4to5k": score.croissance += 3; score.domination += 3; reasons.push("Budget 4-5k $ → Croissance ou Domination selon les objectifs."); break;
-    case "gt5k":  score.domination += 5; reasons.push("Budget > 5k $ → Domination pleinement financé."); break;
-  }
-
-  // Objectives
-  if (a.objectives.includes("domination")) { score.domination += 3; reasons.push("Objectif « dominer le marché » → Domination."); }
-  if (a.objectives.includes("notoriete"))  { score.croissance += 2; reasons.push("Notoriété → Croissance apporte stratégie contenu + coaching caméra."); }
-  if (a.objectives.includes("systeme"))    { score.systeme += 1; score.croissance += 1; }
-  if (a.objectives.length >= 3)            { score.domination += 1; reasons.push("Plusieurs objectifs → l'écosystème complet est plus efficace."); }
-
-  // Infrastructure signals
-  if (!a.hasCrm && a.objectives.includes("conversion")) {
-    score.domination += 2;
-    reasons.push("Pas de CRM + focus conversion → CRM personnalisé de Domination est un accélérateur.");
-  }
-  if (a.hasCrm && score.domination > 0) {
-    score.domination -= 1;
-    reasons.push("CRM déjà en place → pas besoin de Domination juste pour le CRM.");
-  }
-  if (!a.hasContent) { score.croissance += 1; reasons.push("Aucun contenu régulier → la banque de vidéos change tout."); }
-  if (a.runsAdsAlready) { reasons.push("Ads déjà en cours → on optimise ce qui existe."); }
-  if (a.hasSetter && score.domination > 0) { score.domination -= 0.5; reasons.push("Setter déjà en place → réduit le gap avec Domination."); }
-
-  // Urgency: immédiat + budget ok → push slightly higher
-  if (a.urgency === "immediate" && (a.budget === "4to5k" || a.budget === "gt5k")) {
-    score.domination += 1;
-    reasons.push("Démarrage immédiat + budget solide → maximiser la vitesse d'exécution.");
-  }
-  if (a.urgency === "6mplus" && a.budget === "lt3k") {
-    score.systeme += 1;
-  }
-
-  const winner = (Object.keys(score) as Array<keyof typeof score>).reduce((a, b) => score[a] >= score[b] ? a : b);
-  const pkg = PACKAGES.find((p) => p.id === winner)!;
-  return { pkg, reasons };
-}
-
-function recommendPayment(a: CalcAnswers, pkg: PackageDef): { fmt: PaymentDef; reason: string } {
-  if (a.commitPreference === "engage6") {
-    return { fmt: PAYMENTS[0], reason: "Le prospect est prêt à s'engager 6 mois → Standard (prix optimal)." };
-  }
-  if (a.commitPreference === "flexible") {
-    return { fmt: PAYMENTS[1], reason: "Le prospect veut de la flexibilité → Mois à mois (+15 %)." };
-  }
-  // Unsure or empty → heuristic
-  if (a.urgency === "immediate" && (a.budget === "3to4k" || a.budget === "4to5k" || a.budget === "gt5k")) {
-    return { fmt: PAYMENTS[0], reason: "Démarrage immédiat + budget confortable → propose Standard, plus rentable." };
-  }
-  if (pkg.id === "systeme" && a.budget === "lt3k") {
-    return { fmt: PAYMENTS[1], reason: "Budget serré et hésitations → Flexible pour lever la friction (quitte à repasser en Standard après 2-3 mois)." };
-  }
-  return { fmt: PAYMENTS[0], reason: "Par défaut, Standard est plus économique et aligné sur le temps réel d'obtention des résultats." };
-}
-
-function buildStrategyPrompt(a: CalcAnswers, pkg: PackageDef, fmt: PaymentDef, agencyName: string): string {
-  const domainLabel =
-    a.domain === "immobilier"   ? "Courtier immobilier" :
-    a.domain === "hypothecaire" ? "Courtier hypothécaire" :
-    a.domain === "autre"        ? (a.domainOther || "Autre secteur") : "Non spécifié";
-  const objectivesLabel = a.objectives.length
-    ? a.objectives.map((o) => OBJECTIVE_OPTIONS.find((opt) => opt.id === o)?.label).filter(Boolean).join(", ")
-    : "Non précisés";
-  const infra: string[] = [];
-  if (a.hasCrm) infra.push("CRM en place");
-  if (a.hasSetter) infra.push("Setter en place");
-  if (a.hasContent) infra.push("Contenu vidéo régulier");
-  if (a.runsAdsAlready) infra.push("Ads déjà en cours");
-  const infraStr = infra.length ? infra.join(" · ") : "Aucune infrastructure marketing en place";
-
-  const monthlyPrice = pkg.monthly * fmt.multiplier;
-
-  return `Tu es un stratège marketing senior chez ${agencyName}. Prépare une stratégie ultra-personnalisée pour ce prospect qu'on vient de qualifier.
-
-═══ CONTEXTE PROSPECT ═══
-Nom : ${a.prospectName || "Prospect"}
-Secteur : ${domainLabel}
-Objectifs déclarés : ${objectivesLabel}
-Urgence : ${a.urgency === "immediate" ? "Démarrer ASAP" : a.urgency === "1to3m" ? "1 à 3 mois" : a.urgency === "6mplus" ? "6 mois +" : "Non précisée"}
-Budget mensuel : ${a.budget === "lt3k" ? "< 3 000 $" : a.budget === "3to4k" ? "3 000 - 4 000 $" : a.budget === "4to5k" ? "4 000 - 5 000 $" : a.budget === "gt5k" ? "> 5 000 $" : "Non précisé"}
-Leads actuels : ${a.currentLeadsPerWeek ? `${a.currentLeadsPerWeek}/semaine` : "Non précisé"}
-Infrastructure existante : ${infraStr}
-${a.notes ? `\nNotes de l'appel :\n${a.notes}` : ""}
-
-═══ RECOMMANDATION SYSTÈME ═══
-Forfait recommandé : ${pkg.name} — ${pkg.monthly.toLocaleString("fr-CA")} $/mois (base 6 mois)
-Ce qui est inclus :
-${pkg.includes.map((s) => `  • ${s}`).join("\n")}
-Cible du forfait : ${pkg.fitFor}
-
-Format de paiement recommandé : ${fmt.name}
-${fmt.summary}
-Prix appliqué : ${monthlyPrice.toLocaleString("fr-CA")} $/mois (${fmt.detail})
-
-═══ CE QUE JE VEUX DE TOI ═══
-1. **Diagnostic 30 secondes** — reformule où en est le prospect en 3 phrases percutantes qui montrent qu'on l'a compris.
-
-2. **Stratégie 6 mois** — mois par mois, ce qu'on livre et pourquoi. Sois spécifique aux objectifs "${objectivesLabel}" et au secteur ${domainLabel}. Pas de généralités.
-
-3. **Angles de contenu (5 idées)** — 5 concepts vidéo précis adaptés à ${domainLabel} qui devraient bien performer sur Meta Ads. Format : Hook → Structure → CTA pour chaque.
-
-4. **Ciblage Meta Ads** — audiences précises à tester (démographie, intérêts, comportements) pour ${domainLabel} au Québec. Priorise 3 audiences chaudes + 2 froides.
-
-5. **KPI trimestriels réalistes** — vu son point de départ (${a.currentLeadsPerWeek ? `${a.currentLeadsPerWeek} leads/sem actuellement` : "leads actuels non précisés"}) et le forfait ${pkg.name}, quels résultats viser à 3 mois et 6 mois ? Sois honnête, pas de promesses irréalistes.
-
-6. **Objections probables + réponses** — 4 objections qu'il va soulever face à ${monthlyPrice.toLocaleString("fr-CA")} $/mois sur 6 mois, avec la réponse à chaque.
-
-Ton : direct, terrain, chiffres concrets. Zéro corporate. Sois un stratège qui a déjà closé 100 prospects dans ce secteur.`;
-}
-
-function CalculatorWizard({ onCancel }: { onCancel: () => void }) {
-  const { data: agency } = useAgencySettings();
-  const agencyName = agency?.name ?? "Mon Agence";
-
-  const [a, setA] = useState<CalcAnswers>({
-    prospectName: "",
-    budget: "",
-    domain: "",
-    domainOther: "",
-    objectives: [],
-    urgency: "",
-    hasCrm: false,
-    hasSetter: false,
-    hasContent: false,
-    runsAdsAlready: false,
-    commitPreference: "",
-    currentLeadsPerWeek: "",
-    notes: "",
-  });
-  const [computed, setComputed] = useState<null | {
-    pkg: PackageDef; reasons: string[]; fmt: PaymentDef; fmtReason: string; prompt: string;
-  }>(null);
-
-  const canCompute = a.budget !== "" && a.domain !== "" && a.objectives.length > 0;
-
-  const compute = () => {
-    const { pkg, reasons } = recommendPackage(a);
-    const { fmt, reason: fmtReason } = recommendPayment(a, pkg);
-    const prompt = buildStrategyPrompt(a, pkg, fmt, agencyName);
-    setComputed({ pkg, reasons, fmt, fmtReason, prompt });
-    setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" }), 100);
-  };
-
-  const toggleObj = (id: string) => {
-    setA((s) => ({ ...s, objectives: s.objectives.includes(id) ? s.objectives.filter((x) => x !== id) : [...s.objectives, id] }));
-  };
-
-  const copyPrompt = async () => {
-    if (!computed) return;
-    await navigator.clipboard.writeText(computed.prompt);
-    toast.success("Prompt copié — colle-le dans Claude, ChatGPT ou Gamma");
-  };
-
-  const openTool = (url: string) => {
-    if (computed) navigator.clipboard.writeText(computed.prompt).catch(() => {});
-    window.open(url, "_blank");
+  const copyScript = async () => {
+    await navigator.clipboard.writeText(CLOSING_SCRIPT);
+    toast.success("Script de closing copié");
   };
 
   return (
-    <div className="p-8 space-y-6 max-w-4xl mx-auto">
+    <div className="p-8 space-y-8 max-w-6xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <button onClick={onCancel} className="p-1.5 rounded-lg border border-border/50 hover:bg-accent transition-colors">
+          <button onClick={onBack} className="p-1.5 rounded-lg border border-border/50 hover:bg-accent transition-colors">
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
             <h2 className="text-xl font-semibold text-foreground flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-primary" /> Calculateur découverte
+              <FileText className="w-5 h-5 text-primary" /> Nos forfaits
             </h2>
-            <p className="text-sm text-muted-foreground mt-0.5">Réponds pour lui après l'appel — on te recommande forfait, paiement et un prompt stratégie prêt à coller.</p>
+            <p className="text-sm text-muted-foreground mt-0.5">Structure Suna Films — référence rapide pour ton équipe de vente</p>
           </div>
         </div>
       </div>
 
-      {/* Questionnaire */}
-      <div className="rounded-2xl border border-border/40 bg-card p-6 space-y-5">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-1.5">
-            <Label className="text-xs">Nom du prospect</Label>
-            <Input value={a.prospectName} onChange={(e) => setA({ ...a, prospectName: e.target.value })}
-              placeholder="Ex: Randy Bergeron" className="text-sm" />
+      {/* 3 package cards */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {PACKAGES_LIST.map((p) => (
+          <div key={p.id}
+            className={`relative rounded-2xl border-2 p-6 space-y-4 flex flex-col ${
+              p.featured
+                ? "border-primary/60 bg-primary/[0.06] shadow-glow"
+                : "border-border/40 bg-card"
+            }`}>
+            {p.featured && (
+              <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold uppercase tracking-wider">
+                ★ Le plus populaire
+              </span>
+            )}
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                {p.id === "systeme" ? "Palier 1" : p.id === "croissance" ? "Palier 2" : "Palier 3"}
+              </p>
+              <h3 className="text-2xl font-bold text-foreground mt-1">{p.name}</h3>
+              <p className="text-sm text-muted-foreground mt-1 italic">« {p.promise} »</p>
+            </div>
+            <div className="pt-1">
+              <p className={`text-4xl font-bold tracking-tight ${p.featured ? "text-primary" : "text-foreground"}`}>
+                {fmt(p.monthly)} $<span className="text-sm font-normal text-muted-foreground">/mois</span>
+              </p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Engagement 6 mois — prix affiché</p>
+            </div>
+            <ul className="space-y-2 flex-1">
+              {p.includes.map((inc, i) => (
+                <li key={i} className="text-xs text-foreground flex items-start gap-2">
+                  <Check className={`w-3.5 h-3.5 flex-shrink-0 mt-0.5 ${p.featured ? "text-primary" : "text-emerald-400"}`} />
+                  <span>{inc}</span>
+                </li>
+              ))}
+            </ul>
+            {p.note && (
+              <p className="text-[10px] text-muted-foreground italic pt-3 border-t border-border/30">{p.note}</p>
+            )}
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Leads actuels / semaine</Label>
-            <Input value={a.currentLeadsPerWeek} onChange={(e) => setA({ ...a, currentLeadsPerWeek: e.target.value })}
-              placeholder="Ex: 3" className="text-sm" />
-          </div>
+        ))}
+      </div>
+
+      {/* AI blurb */}
+      <div className="rounded-xl border border-primary/20 bg-primary/[0.03] p-4 flex items-start gap-3">
+        <div className="text-2xl">🤖</div>
+        <div>
+          <p className="text-sm font-semibold text-foreground">Inclus dans tous les forfaits</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Notre logiciel AI de qualification des leads avec ton propre dashboard — le client voit en temps réel ce que son investissement génère.</p>
+        </div>
+      </div>
+
+      {/* Payment options */}
+      <div className="space-y-4">
+        <div>
+          <h3 className="text-lg font-semibold text-foreground">Trois façons de travailler ensemble</h3>
+          <p className="text-sm text-muted-foreground mt-0.5">Un système contenu + publicité donne son plein rendement en 3 à 6 mois. Le pricing est bâti autour de ça.</p>
         </div>
 
-        {/* Domain */}
-        <div className="space-y-1.5">
-          <Label className="text-xs">Domaine <span className="text-destructive">*</span></Label>
-          <div className="flex flex-wrap gap-2">
-            {[
-              { id: "immobilier",   label: "🏠 Courtier immobilier" },
-              { id: "hypothecaire", label: "🏦 Courtier hypothécaire" },
-              { id: "autre",        label: "✳️ Autre" },
-            ].map((opt) => (
-              <button key={opt.id} type="button"
-                onClick={() => setA({ ...a, domain: opt.id as any })}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${
-                  a.domain === opt.id ? "bg-primary text-primary-foreground border-primary" : "bg-muted/20 text-muted-foreground border-border hover:border-primary/50"
-                }`}>
-                {opt.label}
-              </button>
-            ))}
+        {/* Option A */}
+        <div className="rounded-2xl border border-border/40 bg-card p-5 space-y-3">
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-primary mb-0.5">Option A · STANDARD</p>
+              <h4 className="text-base font-bold text-foreground">Engagement 6 mois</h4>
+              <p className="text-xs text-muted-foreground">Le prix affiché. Facturation mensuelle simple. Renouvellement au choix après 6 mois.</p>
+            </div>
           </div>
-          {a.domain === "autre" && (
-            <Input value={a.domainOther} onChange={(e) => setA({ ...a, domainOther: e.target.value })}
-              placeholder="Précise le secteur" className="text-sm mt-2" />
-          )}
-        </div>
-
-        {/* Budget */}
-        <div className="space-y-1.5">
-          <Label className="text-xs">Budget mensuel disponible <span className="text-destructive">*</span></Label>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            {[
-              { id: "lt3k",  label: "< 3 000 $" },
-              { id: "3to4k", label: "3 000 - 4 000 $" },
-              { id: "4to5k", label: "4 000 - 5 000 $" },
-              { id: "gt5k",  label: "> 5 000 $" },
-            ].map((b) => (
-              <button key={b.id} type="button"
-                onClick={() => setA({ ...a, budget: b.id as any })}
-                className={`px-3 py-2 rounded-lg text-xs font-medium border transition ${
-                  a.budget === b.id ? "bg-primary text-primary-foreground border-primary" : "bg-muted/20 text-muted-foreground border-border hover:border-primary/50"
-                }`}>
-                {b.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Objectives */}
-        <div className="space-y-1.5">
-          <Label className="text-xs">Objectifs principaux <span className="text-destructive">*</span> <span className="text-muted-foreground">(plusieurs possibles)</span></Label>
-          <div className="flex flex-wrap gap-2">
-            {OBJECTIVE_OPTIONS.map((o) => {
-              const active = a.objectives.includes(o.id);
-              return (
-                <button key={o.id} type="button" onClick={() => toggleObj(o.id)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${
-                    active ? "bg-primary text-primary-foreground border-primary" : "bg-muted/20 text-muted-foreground border-border hover:border-primary/50"
-                  }`}>
-                  {o.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Urgency */}
-        <div className="space-y-1.5">
-          <Label className="text-xs">Urgence de démarrage</Label>
-          <div className="flex flex-wrap gap-2">
-            {[
-              { id: "immediate", label: "🔥 Immédiat / ASAP" },
-              { id: "1to3m",     label: "🗓️ 1 à 3 mois" },
-              { id: "6mplus",    label: "🐢 6 mois +" },
-            ].map((u) => (
-              <button key={u.id} type="button"
-                onClick={() => setA({ ...a, urgency: u.id as any })}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${
-                  a.urgency === u.id ? "bg-primary text-primary-foreground border-primary" : "bg-muted/20 text-muted-foreground border-border hover:border-primary/50"
-                }`}>
-                {u.label}
-              </button>
-            ))}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border/40">
+                  <th className="text-left py-2 font-semibold">Forfait</th>
+                  <th className="text-right py-2 font-semibold">Prix mensuel</th>
+                </tr>
+              </thead>
+              <tbody>
+                {PACKAGES_LIST.map((p) => (
+                  <tr key={p.id} className="border-b border-border/20 last:border-0">
+                    <td className="py-2 text-foreground">{p.name}</td>
+                    <td className="py-2 text-right font-semibold text-foreground">{fmt(p.monthly)} $/mois</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
 
-        {/* Infrastructure */}
-        <div className="space-y-1.5">
-          <Label className="text-xs">Infrastructure déjà en place</Label>
-          <div className="flex flex-wrap gap-2">
-            {[
-              { key: "hasCrm",         label: "📇 CRM structuré" },
-              { key: "hasSetter",      label: "📞 Setter / téléphoniste" },
-              { key: "hasContent",     label: "🎥 Contenu vidéo régulier" },
-              { key: "runsAdsAlready", label: "📣 Meta Ads en cours" },
-            ].map((c) => {
-              const active = (a as any)[c.key] as boolean;
-              return (
-                <button key={c.key} type="button"
-                  onClick={() => setA({ ...a, [c.key]: !active } as CalcAnswers)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${
-                    active ? "bg-primary text-primary-foreground border-primary" : "bg-muted/20 text-muted-foreground border-border hover:border-primary/50"
-                  }`}>
-                  {c.label}
-                </button>
-              );
-            })}
+        {/* Option B */}
+        <div className="rounded-2xl border-2 border-emerald-500/40 bg-emerald-500/[0.04] p-5 space-y-3">
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 mb-0.5">Option B · MEILLEUR DEAL</p>
+              <h4 className="text-base font-bold text-foreground">Installation — 4 mois payés d'avance (−10 %)</h4>
+              <p className="text-xs text-muted-foreground">Un paiement au départ · Ensuite mois à mois au prix régulier (pas +15 %) · Annulation avec préavis 30 jours.</p>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border/40">
+                  <th className="text-left py-2 font-semibold">Forfait</th>
+                  <th className="text-right py-2 font-semibold">Paiement unique</th>
+                  <th className="text-right py-2 font-semibold">Équivalent mensuel</th>
+                  <th className="text-right py-2 font-semibold">Ensuite</th>
+                </tr>
+              </thead>
+              <tbody>
+                {PACKAGES_LIST.map((p) => (
+                  <tr key={p.id} className="border-b border-border/20 last:border-0">
+                    <td className="py-2 text-foreground">{p.name}</td>
+                    <td className="py-2 text-right font-bold text-emerald-400">{fmt(p.installQuarter)} $</td>
+                    <td className="py-2 text-right text-muted-foreground">{fmt(p.installMonthly)} $/mois</td>
+                    <td className="py-2 text-right text-muted-foreground">{fmt(p.monthly)} $/mois</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-[10px] text-emerald-400/80 italic border-t border-border/30 pt-2">
+            ⚠ Fenêtre de churn au mois 5 — prévoir bilan de résultats au mois 3 + offre de conversion vers engagement 6 mois.
+          </p>
+        </div>
+
+        {/* Option C */}
+        <div className="rounded-2xl border border-border/40 bg-card p-5 space-y-3">
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-amber-400 mb-0.5">Option C · FLEXIBLE</p>
+              <h4 className="text-base font-bold text-foreground">Mois à mois (+15 %)</h4>
+              <p className="text-xs text-muted-foreground">Aucun engagement long terme. Premier + dernier mois à la signature. Annulation en tout temps, préavis 30 jours.</p>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border/40">
+                  <th className="text-left py-2 font-semibold">Forfait</th>
+                  <th className="text-right py-2 font-semibold">Prix mensuel</th>
+                </tr>
+              </thead>
+              <tbody>
+                {PACKAGES_LIST.map((p) => (
+                  <tr key={p.id} className="border-b border-border/20 last:border-0">
+                    <td className="py-2 text-foreground">{p.name}</td>
+                    <td className="py-2 text-right font-semibold text-amber-400">{fmt(p.flexMonthly)} $/mois</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
+      </div>
 
-        {/* Commitment preference */}
-        <div className="space-y-1.5">
-          <Label className="text-xs">Préférence d'engagement</Label>
-          <div className="flex flex-wrap gap-2">
-            {[
-              { id: "engage6",  label: "✅ Prêt à s'engager 6 mois" },
-              { id: "flexible", label: "🔓 Veut rester flexible" },
-              { id: "unsure",   label: "🤷 Pas sûr — à discuter" },
-            ].map((c) => (
-              <button key={c.id} type="button"
-                onClick={() => setA({ ...a, commitPreference: c.id as any })}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${
-                  a.commitPreference === c.id ? "bg-primary text-primary-foreground border-primary" : "bg-muted/20 text-muted-foreground border-border hover:border-primary/50"
-                }`}>
-                {c.label}
-              </button>
-            ))}
+      {/* Closing script */}
+      <div className="rounded-2xl border-2 border-fuchsia-500/30 bg-fuchsia-500/[0.03] p-5 space-y-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-fuchsia-400 mb-1">🎯 Angle de closing</p>
+            <p className="text-xs text-muted-foreground">Ce que tu dis quand tu présentes les 3 options au prospect.</p>
           </div>
-        </div>
-
-        {/* Notes */}
-        <div className="space-y-1.5">
-          <Label className="text-xs">Notes de l'appel (contexte, objections, tone)</Label>
-          <Textarea value={a.notes} onChange={(e) => setA({ ...a, notes: e.target.value })}
-            rows={3} placeholder="Ex: A un associé qui décide. Sceptique face aux ads. A déjà été brûlé par une agence." className="text-sm" />
-        </div>
-
-        <div className="flex items-center justify-end pt-2 border-t border-border/30">
-          <Button onClick={compute} disabled={!canCompute} className="gap-2 shadow-glow">
-            <Sparkles className="w-4 h-4" /> Calculer la recommandation
+          <Button size="sm" variant="outline" onClick={copyScript} className="gap-1.5 flex-shrink-0">
+            <Copy className="w-3.5 h-3.5" /> Copier
           </Button>
         </div>
+        <blockquote className="text-sm text-foreground italic leading-relaxed border-l-2 border-fuchsia-500/40 pl-4">
+          « {CLOSING_SCRIPT} »
+        </blockquote>
       </div>
 
-      {/* Recommendation */}
-      {computed && (
-        <div className="space-y-4">
-          {/* Package */}
-          <div className="rounded-2xl border-2 border-primary/40 bg-primary/[0.04] p-6 space-y-4">
-            <div className="flex items-start justify-between gap-3 flex-wrap">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-primary mb-1">Forfait recommandé</p>
-                <h3 className="text-2xl font-bold text-foreground">{computed.pkg.name}</h3>
-                <p className="text-sm text-muted-foreground mt-0.5">{computed.pkg.tagline}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-3xl font-bold text-primary">{(computed.pkg.monthly * computed.fmt.multiplier).toLocaleString("fr-CA")} $</p>
-                <p className="text-[11px] text-muted-foreground">/mois · {computed.fmt.name}</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Inclus</p>
-                <ul className="space-y-1">
-                  {computed.pkg.includes.map((inc, i) => (
-                    <li key={i} className="text-xs text-foreground flex items-start gap-1.5">
-                      <Check className="w-3 h-3 text-primary flex-shrink-0 mt-0.5" /> {inc}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Pourquoi ce forfait</p>
-                <ul className="space-y-1">
-                  {computed.reasons.map((r, i) => (
-                    <li key={i} className="text-xs text-muted-foreground">→ {r}</li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          </div>
-
-          {/* Payment */}
-          <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/[0.04] p-5 space-y-2">
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 mb-1">Format de paiement recommandé</p>
-                <h3 className="text-lg font-bold text-foreground">{computed.fmt.name}</h3>
-                <p className="text-xs text-muted-foreground">{computed.fmt.summary}</p>
-              </div>
-              <p className="text-xs text-muted-foreground text-right max-w-xs">{computed.fmt.detail}</p>
-            </div>
-            <p className="text-xs text-muted-foreground italic pt-2 border-t border-border/30">→ {computed.fmtReason}</p>
-          </div>
-
-          {/* Strategy prompt */}
-          <div className="rounded-2xl border-2 border-fuchsia-500/30 bg-fuchsia-500/[0.03] p-6 space-y-3">
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-fuchsia-400 mb-0.5">Prompt stratégie prêt à coller</p>
-                <p className="text-xs text-muted-foreground">Copie-le et colle-le dans Claude, ChatGPT ou Gamma pour générer la stratégie personnalisée.</p>
-              </div>
-              <Button onClick={copyPrompt} className="gap-2 shadow-glow flex-shrink-0">
-                <Copy className="w-4 h-4" /> Copier
-              </Button>
-            </div>
-            <Textarea value={computed.prompt} readOnly rows={16}
-              className="text-xs font-mono leading-relaxed bg-background/50" />
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" size="sm" onClick={() => openTool("https://claude.ai/new")} className="gap-1.5 text-xs">
-                <ExternalLink className="w-3 h-3" /> Claude
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => openTool("https://chat.openai.com/")} className="gap-1.5 text-xs">
-                <ExternalLink className="w-3 h-3" /> ChatGPT
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => openTool("https://gamma.app/create")} className="gap-1.5 text-xs">
-                <ExternalLink className="w-3 h-3" /> Gamma
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Internal note */}
+      <div className="rounded-xl border border-border/40 bg-muted/20 p-4 text-xs text-muted-foreground space-y-1.5">
+        <p className="font-semibold text-foreground">📌 Rappel interne · pricing décidé</p>
+        <p>Plafond à 4 000 $/mois. Rétention long terme &gt; ticket max. Un client à 3 400-4 000 $ qui reste 2-3 ans vaut plus qu'un client à 6 800 $ qui part à 8 mois.</p>
+        <p>Le vrai KPI : <span className="text-foreground font-medium">revenu par tournage</span>. Système = 5 600 $ par tournage (65 % plus payant que Croissance). Système est le moteur économique de l'agence ; Croissance et Domination sont des upsells de relation.</p>
+      </div>
     </div>
   );
 }
