@@ -1203,19 +1203,24 @@ function ForfaitsView({ onBack }: { onBack: () => void }) {
               <thead>
                 <tr className="text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border/40">
                   <th className="text-left py-2 font-semibold">Forfait</th>
-                  <th className="text-right py-2 font-semibold">Prix mensuel</th>
+                  <th className="text-right py-2 font-semibold">Signature (1er + dernier)</th>
+                  <th className="text-right py-2 font-semibold">Ensuite</th>
                 </tr>
               </thead>
               <tbody>
                 {PACKAGES_LIST.map((p) => (
                   <tr key={p.id} className="border-b border-border/20 last:border-0">
                     <td className="py-2 text-foreground">{p.name}</td>
-                    <td className="py-2 text-right font-semibold text-amber-400">{fmt(p.flexMonthly)} $/mois</td>
+                    <td className="py-2 text-right font-bold text-amber-400">{fmt(p.flexMonthly * 2)} $</td>
+                    <td className="py-2 text-right text-muted-foreground">{fmt(p.flexMonthly)} $/mois</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+          <p className="text-[10px] text-muted-foreground italic border-t border-border/30 pt-2">
+            Le dernier mois est déjà couvert par le paiement de signature (dépôt) — le client ne le paie pas à nouveau à la fin.
+          </p>
         </div>
       </div>
 
