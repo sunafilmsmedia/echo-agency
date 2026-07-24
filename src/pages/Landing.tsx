@@ -4,17 +4,25 @@ import { supabase } from "@/integrations/supabase/client";
 import { LandingChat } from "@/components/landing/LandingChat";
 
 /**
- * Echo landing page — dark theme with green accents.
- * Design system:
- *   Fonts    : Space Grotesk (headings), Plus Jakarta Sans (body)
- *   Base bg  : #030705
- *   Green    : #34d378 primary / #6ef0a0 accent
- *   Text     : #eef4f0 (main) · #9db0a4 (secondary) · #7c9086 (weak)
+ * Echo landing — v2 (editorial premium).
+ * Palette (ONLY): #0A0A0A · #F5F5F0 · #00C853.
+ * Typography: Space Grotesk (sans grotesque) + Georgia serif italic (single-word accents).
+ * Rule: text is the design. No stock illustrations, no rainbow gradients.
+ * The video (was the hero background) is now a looped section at the bottom of the page.
  */
+const BLACK = "#0A0A0A";
+const OFFWHITE = "#F5F5F0";
+const GREEN = "#00C853";
+const MUTED = "#8a8a85";
+const RULE = "rgba(245,245,240,0.10)";
+
+const SERIF = "Georgia, 'Times New Roman', serif";
+const SANS  = "'Space Grotesk', -apple-system, system-ui, sans-serif";
+const BODY  = "'Plus Jakarta Sans', -apple-system, system-ui, sans-serif";
+
 export default function Landing() {
   const navigate = useNavigate();
   const [checkingAuth, setCheckingAuth] = useState(true);
-  const [businessName, setBusinessName] = useState("");
   const [chatOpen, setChatOpen] = useState(false);
 
   useEffect(() => {
@@ -24,321 +32,394 @@ export default function Landing() {
     });
   }, [navigate]);
 
-  const startFlow = () => {
-    if (businessName.trim()) sessionStorage.setItem("echo_signup_business_name", businessName.trim());
-    setChatOpen(true);
-  };
-
   if (checkingAuth) {
     return (
-      <div style={{ minHeight: "100vh", background: "#030705", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ width: 24, height: 24, border: "2px solid #34d378", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 1s linear infinite" }} />
+      <div style={{ minHeight: "100vh", background: BLACK, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ width: 24, height: 24, border: `2px solid ${GREEN}`, borderTopColor: "transparent", borderRadius: "50%", animation: "spin 1s linear infinite" }} />
       </div>
     );
   }
 
   return (
-    <div style={{ width: "100%", background: "#030705", color: "#eef4f0", overflowX: "hidden", fontFamily: "'Plus Jakarta Sans', -apple-system, system-ui, sans-serif" }}>
+    <div style={{ background: BLACK, color: OFFWHITE, fontFamily: BODY, overflowX: "hidden" }}>
       <style>{`
-        @keyframes beam { 0%,100% { opacity: 0.35; } 50% { opacity: 0.6; } }
         @keyframes spin { to { transform: rotate(360deg); } }
-        .echo-btn-primary:hover { filter: brightness(1.06); }
-        .echo-nav-link:hover { color: #fff !important; }
-        .echo-outline-btn:hover { background: rgba(255,255,255,0.1) !important; color: #fff !important; }
-        ::selection { background: rgba(52,211,120,0.3); }
+        @keyframes pulseDot { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+        ::selection { background: ${GREEN}; color: ${BLACK}; }
+        .echo-cta:hover { background: ${GREEN}; color: ${BLACK}; border-color: ${GREEN}; }
+        .echo-nav-link:hover { color: ${OFFWHITE} !important; }
+        .serif-italic { font-family: ${SERIF}; font-style: italic; font-weight: 400; }
 
-        /* ═══ Mobile only — desktop stays untouched ═══ */
         @media (max-width: 900px) {
-          .echo-nav-wrap { padding: 18px 20px !important; }
-          .echo-nav-links { display: none !important; }
-          .echo-hero-section { min-height: auto !important; padding-bottom: 40px !important; }
-          .echo-hero-content { padding: 20px 20px 40px !important; min-height: auto !important; }
-          .echo-hero-inner { max-width: 100% !important; }
-          .echo-hero-h1 { font-size: 40px !important; }
-          .echo-hero-p { font-size: 15.5px !important; }
-          .echo-widget { padding: 16px !important; max-width: 100% !important; }
-          .echo-widget-row { flex-direction: column !important; }
-          .echo-widget-input, .echo-widget-btn { width: 100% !important; }
-          .echo-widget-btn { justify-content: center !important; }
-          .echo-hero-veil-1 { background: linear-gradient(180deg, rgba(3,7,5,0.72) 0%, rgba(3,7,5,0.55) 45%, rgba(3,7,5,0.8) 100%) !important; }
-          .echo-hero-veil-2 { display: none !important; }
-          .echo-pillars-section { padding: 60px 20px 20px !important; }
-          .echo-pillar-row { gap: 32px !important; margin-bottom: 60px !important; }
-          .echo-pillar-h3 { font-size: 24px !important; }
-          .echo-pillar-p { font-size: 15px !important; }
-          .echo-section-h2 { font-size: 28px !important; }
-          .echo-pricing-section { padding: 70px 20px !important; }
-          .echo-pricing-grid { grid-template-columns: 1fr !important; gap: 16px !important; }
+          .echo-hide-mobile { display: none !important; }
+          .echo-hero-h1 { font-size: 48px !important; line-height: 1.02 !important; }
+          .echo-section-h2 { font-size: 34px !important; }
+          .echo-pillar-row { flex-direction: column !important; gap: 32px !important; margin-bottom: 72px !important; }
+          .echo-pillar-row.reversed { flex-direction: column !important; }
+          .echo-pricing-grid { grid-template-columns: 1fr !important; }
           .echo-pricing-pro { transform: none !important; }
-          .echo-trust-row { gap: 14px !important; flex-direction: column !important; }
-          .echo-footer { padding: 36px 20px !important; }
-          .echo-footer-inner { flex-direction: column !important; text-align: center; gap: 16px !important; }
+          .echo-stats-grid { grid-template-columns: 1fr 1fr !important; }
+          .echo-nav-wrap { padding: 20px !important; }
+          .echo-section { padding-left: 20px !important; padding-right: 20px !important; }
+          .echo-video-copy h2 { font-size: 40px !important; }
         }
       `}</style>
 
-      {/* ═════════════ HERO ═════════════ */}
-      <section className="echo-hero-section" style={{
-        position: "relative", width: "100%", minHeight: "100vh", overflow: "hidden",
-        background: "radial-gradient(1100px 800px at 74% 42%, rgba(43,180,100,0.20), transparent 60%), linear-gradient(180deg, #071410 0%, #050d09 46%, #020604 100%)",
-      }}>
-        {/* Background video */}
-        <video autoPlay loop muted playsInline style={{
-          position: "absolute", inset: 0, width: "100%", height: "100%",
-          objectFit: "cover", objectPosition: "72% center", zIndex: 0,
-          filter: "saturate(1.1) brightness(1.0)",
-        }}>
-          <source src="/echo-working.mp4" type="video/mp4" />
-        </video>
-        {/* Readability veils — softer so the video is clearly visible on the right */}
-        <div className="echo-hero-veil-1" style={{ position: "absolute", inset: 0, zIndex: 1, background: "linear-gradient(90deg, rgba(3,7,5,0.9) 0%, rgba(3,7,5,0.72) 28%, rgba(3,7,5,0.45) 50%, rgba(3,7,5,0.22) 75%, rgba(3,7,5,0.15) 100%)", pointerEvents: "none" }} />
-        <div className="echo-hero-veil-2" style={{ position: "absolute", inset: 0, zIndex: 1, background: "linear-gradient(180deg, rgba(3,7,5,0.35) 0%, rgba(3,7,5,0.1) 26%, rgba(3,7,5,0.1) 66%, rgba(2,6,4,0.8) 100%)", pointerEvents: "none" }} />
-        {/* Beams */}
-        <div style={{ position: "absolute", top: "-10%", right: "8%", width: 340, height: "130%", transform: "rotate(20deg)", background: "linear-gradient(180deg, rgba(180,255,210,0.10), transparent 70%)", filter: "blur(28px)", animation: "beam 7s ease-in-out infinite", pointerEvents: "none", zIndex: 1 }} />
-        <div style={{ position: "absolute", top: "-10%", right: "26%", width: 180, height: "130%", transform: "rotate(20deg)", background: "linear-gradient(180deg, rgba(120,240,170,0.08), transparent 65%)", filter: "blur(22px)", animation: "beam 9s ease-in-out infinite", pointerEvents: "none" }} />
-        {/* Grid */}
-        <div style={{
-          position: "absolute", inset: 0,
-          backgroundImage: "linear-gradient(rgba(255,255,255,0.022) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.022) 1px, transparent 1px)",
-          backgroundSize: "70px 70px",
-          maskImage: "radial-gradient(75% 70% at 60% 40%, #000, transparent 92%)",
-          WebkitMaskImage: "radial-gradient(75% 70% at 60% 40%, #000, transparent 92%)",
-          pointerEvents: "none",
-        }} />
-        <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: "34%", background: "linear-gradient(180deg, transparent, rgba(0,0,0,0.55))", pointerEvents: "none" }} />
-        <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 3, background: "linear-gradient(90deg, transparent, rgba(52,211,120,0.35), transparent)", pointerEvents: "none" }} />
+      {/* ═════════════ URGENCY BAR ═════════════ */}
+      <div style={{ borderBottom: `1px solid ${RULE}`, background: BLACK }}>
+        <div style={{ maxWidth: 1240, margin: "0 auto", padding: "10px 44px", display: "flex", alignItems: "center", justifyContent: "center", gap: 12, fontSize: 12.5, fontFamily: BODY, letterSpacing: "0.02em" }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 600, color: GREEN, letterSpacing: "0.12em", textTransform: "uppercase", fontSize: 11 }}>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: GREEN, animation: "pulseDot 1.6s ease-in-out infinite" }} />
+            NOW
+          </span>
+          <span style={{ color: MUTED }}>Founder's cohort — 12 places restantes</span>
+        </div>
+      </div>
 
-        {/* NAV */}
-        <nav className="echo-nav-wrap" style={{ position: "relative", zIndex: 5, display: "flex", alignItems: "center", justifyContent: "space-between", maxWidth: 1320, margin: "0 auto", padding: "26px 44px" }}>
+      {/* ═════════════ NAV ═════════════ */}
+      <nav className="echo-nav-wrap" style={{ position: "sticky", top: 0, zIndex: 20, background: `${BLACK}f2`, backdropFilter: "blur(12px)", borderBottom: `1px solid ${RULE}`, padding: "18px 44px" }}>
+        <div style={{ maxWidth: 1240, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 44 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
-              <div style={{
-                width: 38, height: 38, borderRadius: 11, overflow: "hidden",
-                border: "1px solid rgba(52,211,120,0.35)",
-                boxShadow: "0 0 20px rgba(52,211,120,0.28)",
-                background: "radial-gradient(circle at 50% 40%, #123a24, #071109)",
-                display: "flex", alignItems: "flex-end", justifyContent: "center",
-              }}>
-                <img src="/echo-mascot.png" alt="Echo" style={{ width: "150%", height: "auto", marginBottom: -5 }} />
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ width: 30, height: 30, borderRadius: 7, overflow: "hidden", background: BLACK, border: `1px solid ${RULE}`, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+                <img src="/echo-mascot.png" alt="Echo" style={{ width: "150%", marginBottom: -3 }} />
               </div>
-              <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em", color: "#fafefb" }}>Echo</span>
+              <span style={{ fontFamily: SANS, fontSize: 20, fontWeight: 600, letterSpacing: "-0.02em", color: OFFWHITE }}>Echo</span>
             </div>
-            <div className="echo-nav-links" style={{ display: "flex", alignItems: "center", gap: 28 }}>
-              <a href="#piliers" className="echo-nav-link" style={{ textDecoration: "none", fontSize: 14.5, fontWeight: 500, color: "#b7c9be" }}>Fonctionnalités</a>
-              <a href="#tarifs" className="echo-nav-link" style={{ textDecoration: "none", fontSize: 14.5, fontWeight: 500, color: "#b7c9be" }}>Tarifs</a>
-              <a href="#" onClick={(e) => { e.preventDefault(); navigate("/preview"); }} className="echo-nav-link" style={{ textDecoration: "none", fontSize: 14.5, fontWeight: 500, color: "#b7c9be" }}>Démo</a>
+            <div className="echo-hide-mobile" style={{ display: "flex", alignItems: "center", gap: 30 }}>
+              {[
+                { label: "Fonctionnalités", href: "#pillars" },
+                { label: "Preuve", href: "#proof" },
+                { label: "Tarifs", href: "#pricing" },
+                { label: "FAQ", href: "#faq" },
+              ].map((l) => (
+                <a key={l.href} href={l.href} className="echo-nav-link" style={{ textDecoration: "none", fontSize: 13.5, fontWeight: 500, color: MUTED, letterSpacing: "0.01em" }}>
+                  {l.label}
+                </a>
+              ))}
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <a href="#" onClick={(e) => { e.preventDefault(); navigate("/login"); }} className="echo-nav-link" style={{ textDecoration: "none", fontSize: 14.5, fontWeight: 600, color: "#dcece3" }}>Se connecter</a>
-            <a href="#" onClick={(e) => { e.preventDefault(); navigate("/login?intent=create"); }} className="echo-btn-primary"
-              style={{ textDecoration: "none", padding: "11px 22px", borderRadius: 999, fontSize: 14.5, fontWeight: 700, color: "#052012",
-                background: "linear-gradient(145deg,#6ef0a0,#34d378)", boxShadow: "0 8px 22px -8px rgba(52,211,120,0.55), inset 0 1px 0 rgba(255,255,255,0.4)" }}>
-              Démarrer gratuitement
+            <a href="#" onClick={(e) => { e.preventDefault(); navigate("/login"); }} className="echo-nav-link"
+              style={{ textDecoration: "none", fontSize: 13.5, fontWeight: 500, color: MUTED, letterSpacing: "0.01em" }}>
+              Login
+            </a>
+            <a href="#" onClick={(e) => { e.preventDefault(); navigate("/login?intent=create"); }} className="echo-cta"
+              style={{ textDecoration: "none", padding: "9px 18px", fontSize: 13.5, fontWeight: 600, color: BLACK, background: GREEN, borderRadius: 999, transition: "all 0.15s ease", border: `1px solid ${GREEN}`, display: "inline-flex", alignItems: "center", gap: 6 }}>
+              Book a Call
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
             </a>
           </div>
-        </nav>
+        </div>
+      </nav>
 
-        {/* HERO COPY */}
-        <div className="echo-hero-content" style={{ position: "relative", zIndex: 4, maxWidth: 1320, margin: "0 auto", padding: "40px 44px 90px", minHeight: "calc(100vh - 90px)", display: "flex", alignItems: "center" }}>
-          <div className="echo-hero-inner" style={{ maxWidth: 640 }}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 9, padding: "7px 14px", borderRadius: 999, background: "rgba(52,211,120,0.10)", border: "1px solid rgba(52,211,120,0.28)", marginBottom: 26, boxShadow: "0 0 20px rgba(52,211,120,0.12)" }}>
-              <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#4ade80", boxShadow: "0 0 10px #4ade80" }} />
-              <span style={{ fontSize: 13, fontWeight: 600, color: "#8ff2b3" }}>Salut ! Je suis Echo, ton centre de contrôle business</span>
+      {/* ═════════════ HERO ═════════════ */}
+      <section className="echo-section" style={{ maxWidth: 1080, margin: "0 auto", padding: "140px 44px 120px", textAlign: "center" }}>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 9, padding: "6px 14px", borderRadius: 999, border: `1px solid ${RULE}`, marginBottom: 40, fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: MUTED }}>
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: GREEN, boxShadow: `0 0 10px ${GREEN}` }} />
+          348 fondateurs actifs
+        </div>
+
+        <h1 className="echo-hero-h1" style={{ margin: 0, fontFamily: SANS, fontSize: "clamp(52px, 6.5vw, 92px)", lineHeight: 0.98, fontWeight: 500, letterSpacing: "-0.035em", color: OFFWHITE }}>
+          Ton <span className="serif-italic" style={{ color: OFFWHITE }}>business</span> centralisé.
+          <br />
+          Ton copilote IA <span className="serif-italic" style={{ color: OFFWHITE }}>opérationnel</span>.
+        </h1>
+
+        <p style={{ margin: "40px auto 0", maxWidth: 640, fontSize: 18.5, lineHeight: 1.55, color: MUTED }}>
+          Une seule app. Tes chiffres, tes clients, ton équipe, tes opérations. L'IA analyse, décide, exécute — <span style={{ color: OFFWHITE }}>52 500 $ MRR moyen</span> chez nos utilisateurs après 6 mois.
+        </p>
+
+        <div style={{ marginTop: 48, display: "flex", alignItems: "center", justifyContent: "center", gap: 16, flexWrap: "wrap" }}>
+          <a href="#" onClick={(e) => { e.preventDefault(); navigate("/login?intent=create"); }} className="echo-cta"
+            style={{ textDecoration: "none", padding: "16px 28px", fontSize: 15, fontWeight: 600, color: BLACK, background: GREEN, borderRadius: 999, transition: "all 0.15s ease", border: `1px solid ${GREEN}`, display: "inline-flex", alignItems: "center", gap: 8 }}>
+            Book a Call
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+          </a>
+          <button onClick={() => setChatOpen(true)}
+            style={{ cursor: "pointer", padding: "16px 28px", fontSize: 15, fontWeight: 500, color: OFFWHITE, background: "transparent", borderRadius: 999, border: `1px solid ${RULE}`, fontFamily: "inherit" }}>
+            Voir en action →
+          </button>
+        </div>
+      </section>
+
+      {/* ═════════════ PROBLEM vs SOLUTION ═════════════ */}
+      <section className="echo-section" style={{ maxWidth: 1080, margin: "0 auto", padding: "60px 44px 120px" }}>
+        <div style={{ borderTop: `1px solid ${RULE}`, borderBottom: `1px solid ${RULE}` }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr" }}>
+            <div style={{ padding: "50px 40px 50px 0", borderRight: `1px solid ${RULE}` }}>
+              <p style={{ margin: 0, fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: MUTED }}>Avant</p>
+              <h3 style={{ margin: "16px 0 20px", fontFamily: SANS, fontSize: 26, fontWeight: 500, letterSpacing: "-0.02em", color: OFFWHITE }}>
+                8 outils. <span className="serif-italic">Zéro</span> vue d'ensemble.
+              </h3>
+              <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 12 }}>
+                {[
+                  "Notion pour la doc, Airtable pour le CRM, Slack pour l'équipe",
+                  "Des chiffres qui vivent dans Excel, pas de consolidation",
+                  "3 heures par semaine à recopier de la data",
+                  "Aucune IA qui sait où regarder pour te conseiller",
+                ].map((t) => (
+                  <li key={t} style={{ display: "flex", gap: 12, fontSize: 14.5, lineHeight: 1.5, color: MUTED }}>
+                    <span style={{ color: OFFWHITE, opacity: 0.35, flex: "0 0 auto" }}>—</span>
+                    <span>{t}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
-
-            <h1 className="echo-hero-h1" style={{ margin: 0, fontFamily: "'Space Grotesk', sans-serif", fontSize: "clamp(42px, 5.2vw, 78px)", lineHeight: 0.99, fontWeight: 700, letterSpacing: "-0.035em", color: "#fafefb" }}>
-              Ton centre de contrôle business.<br />
-              <span style={{ color: "#4ee288" }}>Propulsé par l'IA.</span>
-            </h1>
-
-            <p className="echo-hero-p" style={{ margin: "26px 0 0", maxWidth: 510, fontSize: 18, lineHeight: 1.6, color: "#9db0a4" }}>
-              Une app personnalisée qui centralise chiffres, clients et opérations. L'IA analyse tout et te dit <strong style={{ color: "#eef4f0", fontWeight: 700 }}>quoi faire ensuite.</strong>
-            </p>
-
-            {/* Quick-start widget */}
-            <div className="echo-widget" style={{ marginTop: 34, maxWidth: 520, padding: 20, borderRadius: 18,
-              background: "linear-gradient(160deg, rgba(14,28,20,0.9), rgba(6,14,10,0.9))",
-              border: "1px solid rgba(52,211,120,0.22)",
-              boxShadow: "0 24px 50px -24px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.05)",
-              backdropFilter: "blur(8px)",
-            }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6z" /></svg>
-                <span style={{ fontSize: 14, fontWeight: 600, color: "#cfe9d8" }}>Construis ton tracker en 60 secondes</span>
-              </div>
-              <div className="echo-widget-row" style={{ display: "flex", gap: 10 }}>
-                <input type="text" placeholder="Comment s'appelle ta business ?"
-                  value={businessName}
-                  onChange={(e) => setBusinessName(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") startFlow(); }}
-                  className="echo-widget-input"
-                  style={{ flex: 1, minWidth: 0, padding: "14px 16px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.35)", color: "#eef4f0", fontFamily: "inherit", fontSize: 15, outline: "none" }}
-                />
-                <button onClick={startFlow} className="echo-btn-primary echo-widget-btn"
-                  style={{ flex: "0 0 auto", cursor: "pointer", border: 0, display: "inline-flex", alignItems: "center", gap: 8, padding: "14px 22px", borderRadius: 12, fontSize: 15, fontWeight: 700, color: "#052012", background: "linear-gradient(145deg,#6ef0a0,#34d378)", boxShadow: "0 10px 24px -8px rgba(52,211,120,0.5), inset 0 1px 0 rgba(255,255,255,0.4)", fontFamily: "inherit" }}>
-                  Démarrer
-                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
-                </button>
-              </div>
-              <div style={{ marginTop: 12, fontSize: 12.5, color: "#7c9086" }}>
-                Gratuit · 2 membres max &nbsp;·&nbsp; Déjà un compte ? <a href="#" onClick={(e) => { e.preventDefault(); navigate("/login"); }} style={{ color: "#8ff2b3", textDecoration: "none", fontWeight: 600 }}>Se connecter</a>
-              </div>
+            <div style={{ padding: "50px 0 50px 40px" }}>
+              <p style={{ margin: 0, fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: GREEN }}>Avec Echo</p>
+              <h3 style={{ margin: "16px 0 20px", fontFamily: SANS, fontSize: 26, fontWeight: 500, letterSpacing: "-0.02em", color: OFFWHITE }}>
+                Une app. <span className="serif-italic">Toute</span> ton opération.
+              </h3>
+              <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 12 }}>
+                {[
+                  "Dashboard, CRM, KPI, tâches, portail client au même endroit",
+                  "L'IA connaît tes chiffres et te dit quoi prioriser aujourd'hui",
+                  "Ton équipe voit ses tâches sans réunion de statut",
+                  "Tes clients voient leurs résultats en temps réel — zéro question",
+                ].map((t) => (
+                  <li key={t} style={{ display: "flex", gap: 12, fontSize: 14.5, lineHeight: 1.5, color: OFFWHITE }}>
+                    <span style={{ color: GREEN, flex: "0 0 auto" }}>▲</span>
+                    <span>{t}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ═════════════ 4 PILIERS ═════════════ */}
-      <section id="piliers" className="echo-pillars-section" style={{ position: "relative", padding: "110px 44px 40px", maxWidth: 1240, margin: "0 auto" }}>
-        <div style={{ textAlign: "center", marginBottom: 72 }}>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 14px", borderRadius: 999, background: "rgba(52,211,120,0.09)", border: "1px solid rgba(52,211,120,0.24)", marginBottom: 20 }}>
-            <span style={{ fontSize: 12.5, fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase", color: "#7ff0a8" }}>Tout ce qu'Echo fait pour toi</span>
-          </div>
-          <h2 className="echo-section-h2" style={{ margin: 0, fontFamily: "'Space Grotesk', sans-serif", fontSize: "clamp(34px,4vw,54px)", lineHeight: 1.04, fontWeight: 700, letterSpacing: "-0.03em", color: "#fafefb" }}>
-            4 piliers pour centraliser<br />ton business
+      {/* ═════════════ DYNAMIC PROOF — 4 clients ═════════════ */}
+      <section id="proof" className="echo-section" style={{ maxWidth: 1080, margin: "0 auto", padding: "40px 44px 120px" }}>
+        <div style={{ marginBottom: 44 }}>
+          <p style={{ margin: 0, fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: MUTED }}>Preuve dynamique</p>
+          <h2 className="echo-section-h2" style={{ margin: "12px 0 0", fontFamily: SANS, fontSize: 44, fontWeight: 500, letterSpacing: "-0.03em", color: OFFWHITE, lineHeight: 1.05 }}>
+            Ce que nos utilisateurs <span className="serif-italic">génèrent</span> ce mois-ci.
           </h2>
         </div>
 
-        {/* 01 — IA */}
-        <PillarRow num="01" reversed={false}
-          title="IA intégrée à ton entreprise"
-          desc="Pose des questions directement à ton assistant IA. Il analyse tes revenus, tes clients, tes données et tes opérations pour t'aider à prendre de meilleures décisions."
-          leftExtra={
-            <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 440 }}>
-              {[
-                "Quels clients rapportent le plus ?",
-                "Quels revenus ont augmenté ce mois-ci ?",
-                "Quelles tâches devraient être prioritaires cette semaine ?",
-              ].map((q) => (
-                <div key={q} style={{ display: "flex", alignItems: "center", gap: 11, padding: "12px 16px", borderRadius: 12, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", fontSize: 14.5, color: "#cfe9d8" }}>
-                  <span style={{ color: "#34d378" }}>"</span>{q}<span style={{ color: "#34d378" }}>"</span>
-                </div>
-              ))}
+        <div style={{ border: `1px solid ${RULE}`, borderRadius: 12, overflow: "hidden" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", padding: "16px 24px", borderBottom: `1px solid ${RULE}`, fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED }}>
+            <span>Fondateur / niche</span>
+            <span style={{ textAlign: "right" }}>MRR</span>
+            <span style={{ textAlign: "right" }}>Croissance</span>
+            <span style={{ textAlign: "right" }}>Depuis</span>
+          </div>
+          {[
+            { name: "Suna Films Media", niche: "Agence marketing vidéo", mrr: "52 500 $", growth: "+41 %", since: "6 mois" },
+            { name: "Emmanuel Bouchard",  niche: "Courtier immobilier",   mrr: "18 200 $", growth: "+44 %", since: "4 mois" },
+            { name: "Philippe Laroche",  niche: "Coach ventes B2B",       mrr: "24 800 $", growth: "+28 %", since: "5 mois" },
+            { name: "Roux & Bachand",    niche: "Consultants stratégie",  mrr: "31 400 $", growth: "+35 %", since: "3 mois" },
+          ].map((row, i, arr) => (
+            <div key={row.name}
+              style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", padding: "22px 24px", fontSize: 14.5,
+                borderBottom: i === arr.length - 1 ? "none" : `1px solid ${RULE}` }}>
+              <div>
+                <div style={{ color: OFFWHITE, fontWeight: 500 }}>{row.name}</div>
+                <div style={{ color: MUTED, fontSize: 12.5, marginTop: 2 }}>{row.niche}</div>
+              </div>
+              <div style={{ textAlign: "right", color: OFFWHITE, fontFamily: SANS, fontWeight: 500 }}>{row.mrr}</div>
+              <div style={{ textAlign: "right", color: GREEN, fontFamily: SANS, fontWeight: 600 }}>
+                <span style={{ marginRight: 4 }}>▲</span>{row.growth}
+              </div>
+              <div style={{ textAlign: "right", color: MUTED }}>{row.since}</div>
             </div>
-          }
-          rightVisual={<AiChatMock />}
-        />
+          ))}
+        </div>
+      </section>
 
-        {/* 02 — Client */}
-        <PillarRow num="02" reversed
-          title="Centre client personnalisé"
-          desc="Chaque client peut avoir son propre accès à un portail clair et professionnel. Il voit ses chiffres, ses documents, ses suivis, ses résultats et ses prochaines étapes selon ton type de business."
-          leftExtra={
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 10, padding: "12px 16px", borderRadius: 12, background: "rgba(52,211,120,0.08)", border: "1px solid rgba(52,211,120,0.22)", fontSize: 14.5, color: "#cfe9d8", maxWidth: 460 }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
-              Moins de messages inutiles, plus de transparence.
-            </div>
-          }
-          rightVisual={<ClientPortalMock />}
-        />
+      {/* ═════════════ 4 PILLARS — restyled ═════════════ */}
+      <section id="pillars" className="echo-section" style={{ maxWidth: 1080, margin: "0 auto", padding: "60px 44px 120px" }}>
+        <div style={{ marginBottom: 72 }}>
+          <p style={{ margin: 0, fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: MUTED }}>Fonctionnalités</p>
+          <h2 className="echo-section-h2" style={{ margin: "12px 0 0", fontFamily: SANS, fontSize: 44, fontWeight: 500, letterSpacing: "-0.03em", color: OFFWHITE, lineHeight: 1.05 }}>
+            4 piliers pour centraliser <span className="serif-italic">ton business</span>.
+          </h2>
+        </div>
 
-        {/* 03 — Équipe */}
-        <PillarRow num="03" reversed={false}
-          title="Espace équipe intégré"
-          desc="Ton équipe discute, reçoit des tâches, suit les priorités et voit ce qui doit être fait. Assigne des tâches à tes employés, suis l'avancement et garde toute l'information au même endroit."
-          rightVisual={<TeamMock />}
+        <PillarRow
+          num="01"
+          eyebrow="IA · analyse en continu"
+          title="Ton copilote qui connaît tes chiffres"
+          desc="Pose des questions directement. Il analyse ton MRR, tes clients, tes tâches, tes marges — et te dit quoi prioriser aujourd'hui."
         />
-
-        {/* 04 — Dashboard */}
-        <PillarRow num="04" reversed
-          title="Dashboard à ton image"
-          desc={<>Ton logo. Tes couleurs. Ton nom. Ton expérience client. Ton système interne. Echo devient <strong style={{ color: "#eef4f0", fontWeight: 700 }}>ton logiciel</strong>, pas juste un outil avec un logo collé dessus.</>}
-          leftExtra={
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              {["Ton logo", "Tes couleurs", "Ton nom"].map((tag) => (
-                <span key={tag} style={{ fontSize: 13, color: "#cfe9d8", padding: "8px 14px", borderRadius: 999, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>{tag}</span>
-              ))}
-            </div>
-          }
-          rightVisual={<DashboardMock />}
+        <PillarRow
+          num="02"
+          eyebrow="Portail client · white-label"
+          title="Chaque client voit ses résultats en direct"
+          desc="Portail personnalisé pour chaque client. Ils voient leurs chiffres, documents et prochaines étapes — tu réponds à zéro question de statut."
+        />
+        <PillarRow
+          num="03"
+          eyebrow="Équipe · workflows intégrés"
+          title="Ton équipe sait quoi faire, sans réunion"
+          desc="Tâches assignables, priorités visibles, listes par personne. Sandra et René savent ce qu'il faut livrer sans check-in."
+        />
+        <PillarRow
+          num="04"
+          eyebrow="Dashboard · ton identité"
+          title="Ton logo, tes couleurs, ton nom"
+          desc="Echo devient ton logiciel interne. Aucun client ne devine que c'est un outil tiers."
+          last
         />
       </section>
 
-      {/* ═════════════ TARIFS ═════════════ */}
-      <section id="tarifs" className="echo-pricing-section" style={{ position: "relative", padding: "110px 44px", background: "linear-gradient(180deg, #030705, #05100b 40%, #030705)", overflow: "hidden" }}>
-        <div style={{ position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)", width: 900, height: 500, background: "radial-gradient(circle, rgba(52,211,120,0.12), transparent 65%)", filter: "blur(30px)", pointerEvents: "none" }} />
-        <div style={{ position: "relative", maxWidth: 1160, margin: "0 auto" }}>
-          <div style={{ textAlign: "center", marginBottom: 60 }}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 14px", borderRadius: 999, background: "rgba(52,211,120,0.09)", border: "1px solid rgba(52,211,120,0.24)", marginBottom: 20 }}>
-              <span style={{ fontSize: 12.5, fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase", color: "#7ff0a8" }}>Tarifs simples</span>
+      {/* ═════════════ STATS BAR ═════════════ */}
+      <section className="echo-section" style={{ maxWidth: 1080, margin: "0 auto", padding: "40px 44px 120px" }}>
+        <div className="echo-stats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 0, borderTop: `1px solid ${RULE}`, borderBottom: `1px solid ${RULE}` }}>
+          {[
+            { value: "348", label: "Fondateurs actifs" },
+            { value: "12.1 M $", label: "Revenu généré sur Echo" },
+            { value: "52 500 $", label: "MRR moyen après 6 mois" },
+            { value: "3 min", label: "Setup complet" },
+          ].map((s, i, arr) => (
+            <div key={s.label} style={{ padding: "40px 24px", borderRight: i === arr.length - 1 ? "none" : `1px solid ${RULE}` }}>
+              <div style={{ fontFamily: SANS, fontSize: 36, fontWeight: 500, letterSpacing: "-0.02em", color: OFFWHITE }}>{s.value}</div>
+              <div style={{ marginTop: 6, fontSize: 12, fontWeight: 500, letterSpacing: "0.06em", textTransform: "uppercase", color: MUTED }}>{s.label}</div>
             </div>
-            <h2 className="echo-section-h2" style={{ margin: 0, fontFamily: "'Space Grotesk', sans-serif", fontSize: "clamp(34px,4vw,54px)", lineHeight: 1.04, fontWeight: 700, letterSpacing: "-0.03em", color: "#fafefb" }}>Choisis ton plan</h2>
-          </div>
+          ))}
+        </div>
+      </section>
 
-          <div className="echo-pricing-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 20, alignItems: "stretch" }}>
-            <PricingCard
-              name="Gratuit" tagline="Tracker de base, sans frais" price="0 $" priceColor="#fafefb"
-              onSelect={() => navigate("/login?intent=create&plan=free")} ctaLabel="Démarrer gratuitement" primary={false}
-              features={[
-                { label: "Création de ton tracker — sans frais", included: true },
-                { label: "Jusqu'à 2 membres", included: true },
-                { label: "Dashboard, KPI, tâches, gestion clients", included: true },
-                { label: "Tous les conseillers IA Claude", included: true },
-                { label: "Sans Stripe ni intégrations", included: false },
-              ]}
-            />
-            <PricingCard
-              name="Pro" tagline="Tout débloqué pour une petite équipe" price="27 $" priceColor="#4ee288"
-              onSelect={() => navigate("/login?intent=create&plan=pro")} ctaLabel="Choisir Pro" primary
-              features={[
-                { label: "Tout ce qui est inclus dans Gratuit", included: true, bold: true },
-                { label: "Jusqu'à 5 membres", included: true },
-                { label: "Personnalisation complète (logo, couleurs, nom)", included: true },
-                { label: "Connexion Stripe — track ton revenu réel", included: true },
-                { label: "Toutes les intégrations (Google Calendar, etc.)", included: true },
-              ]}
-            />
-            <PricingCard
-              name="Business" tagline="Pour les équipes grandissantes" price="57 $" priceColor="#fafefb"
-              onSelect={() => navigate("/login?intent=create&plan=business")} ctaLabel="Choisir Business" primary={false}
-              features={[
-                { label: "Tout ce qui est inclus dans Pro", included: true, bold: true },
-                { label: "Jusqu'à 10 membres", included: true },
-                { label: "KPI multi-employés avancé", included: true },
-                { label: "Support prioritaire", included: true },
-              ]}
-            />
-          </div>
+      {/* ═════════════ PRICING ═════════════ */}
+      <section id="pricing" className="echo-section" style={{ maxWidth: 1080, margin: "0 auto", padding: "40px 44px 120px" }}>
+        <div style={{ marginBottom: 60 }}>
+          <p style={{ margin: 0, fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: MUTED }}>Tarifs</p>
+          <h2 className="echo-section-h2" style={{ margin: "12px 0 0", fontFamily: SANS, fontSize: 44, fontWeight: 500, letterSpacing: "-0.03em", color: OFFWHITE, lineHeight: 1.05 }}>
+            Choisis ton <span className="serif-italic">plan</span>.
+          </h2>
+        </div>
 
-          <div className="echo-trust-row" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 26, marginTop: 38, flexWrap: "wrap" }}>
-            {[
-              { label: "Paiement sécurisé Stripe", icon: <path d="M4 10h16v11H4z M8 10V7a4 4 0 018 0v3" /> },
-              { label: "Annulation à tout moment", icon: <path d="M3 12a9 9 0 109-9M3 12l3-3M3 12l3 3" /> },
-              { label: "Accès immédiat après paiement", icon: <path d="M13 2L3 14h7l-1 8 10-12h-7z" /> },
-            ].map((t) => (
-              <div key={t.label} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, color: "#8ba396" }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34d378" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{t.icon}</svg>
-                {t.label}
-              </div>
-            ))}
-          </div>
+        <div className="echo-pricing-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>
+          <PricingCard
+            name="Gratuit"
+            tagline="Tracker de base, sans frais"
+            price="0 $"
+            ctaLabel="Démarrer gratuitement"
+            onSelect={() => navigate("/login?intent=create&plan=free")}
+            features={[
+              "Création de ton tracker — sans frais",
+              "Jusqu'à 2 membres",
+              "Dashboard, KPI, tâches, gestion clients",
+              "Tous les conseillers IA Claude",
+            ]}
+          />
+          <PricingCard
+            name="Pro"
+            tagline="Tout débloqué pour une petite équipe"
+            price="27 $"
+            featured
+            ctaLabel="Choisir Pro"
+            onSelect={() => navigate("/login?intent=create&plan=pro")}
+            features={[
+              "Tout ce qui est inclus dans Gratuit",
+              "Jusqu'à 5 membres",
+              "Personnalisation complète (logo, couleurs, nom)",
+              "Connexion Stripe — track ton revenu réel",
+              "Toutes les intégrations (Google Calendar, etc.)",
+            ]}
+          />
+          <PricingCard
+            name="Business"
+            tagline="Pour les équipes grandissantes"
+            price="57 $"
+            ctaLabel="Choisir Business"
+            onSelect={() => navigate("/login?intent=create&plan=business")}
+            features={[
+              "Tout ce qui est inclus dans Pro",
+              "Jusqu'à 10 membres",
+              "KPI multi-employés avancé",
+              "Support prioritaire",
+            ]}
+          />
+        </div>
+      </section>
+
+      {/* ═════════════ FAQ ═════════════ */}
+      <section id="faq" className="echo-section" style={{ maxWidth: 820, margin: "0 auto", padding: "40px 44px 120px" }}>
+        <div style={{ marginBottom: 48 }}>
+          <p style={{ margin: 0, fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: MUTED }}>FAQ</p>
+          <h2 className="echo-section-h2" style={{ margin: "12px 0 0", fontFamily: SANS, fontSize: 44, fontWeight: 500, letterSpacing: "-0.03em", color: OFFWHITE, lineHeight: 1.05 }}>
+            Les <span className="serif-italic">vraies</span> questions.
+          </h2>
+        </div>
+        <div>
+          {[
+            { q: "Ça remplace quoi exactement ?", a: "Notion + Airtable + Slack + un CRM léger + un dashboard analytics + un portail client. Une seule facture, un seul login, une seule source de vérité." },
+            { q: "L'IA lit-elle vraiment mes données ?", a: "Oui. Elle a accès à ton dashboard, ton CRM, tes KPI et tes tâches. Elle répond avec des chiffres à toi — jamais des généralités." },
+            { q: "Combien de temps pour être opérationnel ?", a: "3 minutes pour créer l'espace. 1 heure pour importer tes clients. Les fondateurs actifs ont fait leur premier RDV client via Echo dans la semaine qui suit." },
+            { q: "Puis-je annuler ?", a: "Oui, à tout moment. Aucun engagement. Le plan gratuit reste utilisable indéfiniment." },
+            { q: "Mes clients savent-ils que c'est Echo ?", a: "Non. Ton logo, tes couleurs, ton nom de domaine (Business+). Zéro branding Echo visible côté client." },
+          ].map((item, i) => (
+            <FaqItem key={i} q={item.q} a={item.a} />
+          ))}
+        </div>
+        <div style={{ marginTop: 60, textAlign: "center" }}>
+          <p style={{ margin: "0 0 20px", fontSize: 15, color: MUTED }}>Une autre question ?</p>
+          <a href="#" onClick={(e) => { e.preventDefault(); navigate("/login?intent=create"); }} className="echo-cta"
+            style={{ textDecoration: "none", padding: "16px 28px", fontSize: 15, fontWeight: 600, color: BLACK, background: GREEN, borderRadius: 999, transition: "all 0.15s ease", border: `1px solid ${GREEN}`, display: "inline-flex", alignItems: "center", gap: 8 }}>
+            Book a Call
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+          </a>
+        </div>
+      </section>
+
+      {/* ═════════════ VIDEO SECTION — bottom, looping, black gradient bottom-to-top ═════════════ */}
+      <section style={{ position: "relative", width: "100%", overflow: "hidden", borderTop: `1px solid ${RULE}` }}>
+        <video autoPlay loop muted playsInline
+          style={{ display: "block", width: "100%", height: "auto", maxHeight: "80vh", objectFit: "cover" }}>
+          <source src="/echo-working.mp4" type="video/mp4" />
+        </video>
+
+        {/* Dark gradient bottom → top (heavy black at bottom for text legibility) */}
+        <div style={{
+          position: "absolute", inset: 0,
+          background: `linear-gradient(0deg, ${BLACK} 0%, rgba(10,10,10,0.85) 30%, rgba(10,10,10,0.15) 65%, transparent 100%)`,
+          pointerEvents: "none",
+        }} />
+
+        {/* Copy overlaid at bottom of the video */}
+        <div className="echo-video-copy" style={{
+          position: "absolute", left: 0, right: 0, bottom: 0,
+          padding: "80px 44px 100px", maxWidth: 880, margin: "0 auto",
+          textAlign: "center",
+        }}>
+          <p style={{ margin: 0, fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: GREEN }}>
+            Setup → Valeur
+          </p>
+          <h2 style={{ margin: "16px 0 0", fontFamily: SANS, fontSize: 56, fontWeight: 500, letterSpacing: "-0.03em", lineHeight: 1.05, color: OFFWHITE }}>
+            Du setup à la valeur <span className="serif-italic">en minutes</span>.
+          </h2>
+          <p style={{ margin: "24px auto 0", maxWidth: 620, fontSize: 17, lineHeight: 1.55, color: "rgba(245,245,240,0.75)" }}>
+            Créer ton système Echo est délibérément simple. Ajoute ton business une fois, définis comment tu fonctionnes, et ton centre de contrôle est prêt à opérer — pas de config complexe, pas de setup technique.
+          </p>
         </div>
       </section>
 
       {/* ═════════════ FOOTER ═════════════ */}
-      <footer className="echo-footer" style={{ borderTop: "1px solid rgba(255,255,255,0.07)", padding: "48px 44px" }}>
-        <div className="echo-footer-inner" style={{ maxWidth: 1240, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 24, flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 13 }}>
-            <div style={{ width: 40, height: 40, borderRadius: 11, overflow: "hidden", border: "1px solid rgba(52,211,120,0.35)", boxShadow: "0 0 18px rgba(52,211,120,0.25)", background: "radial-gradient(circle at 50% 40%, #123a24, #071109)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
-              <img src="/echo-mascot.png" alt="Echo" style={{ width: "150%", marginBottom: -5 }} />
+      <footer style={{ borderTop: `1px solid ${RULE}`, padding: "40px 44px", background: BLACK }}>
+        <div style={{ maxWidth: 1240, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 24, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ width: 28, height: 28, borderRadius: 6, overflow: "hidden", background: BLACK, border: `1px solid ${RULE}`, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+              <img src="/echo-mascot.png" alt="Echo" style={{ width: "150%", marginBottom: -3 }} />
             </div>
-            <div>
-              <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 19, fontWeight: 700, color: "#fafefb" }}>Echo</div>
-              <div style={{ fontSize: 13, color: "#7c9086" }}>Ton centre de contrôle business, propulsé par l'IA</div>
-            </div>
+            <span style={{ fontFamily: SANS, fontSize: 15, fontWeight: 600, color: OFFWHITE }}>Echo</span>
           </div>
-          <div style={{ fontSize: 13, color: "#6f8479" }}>© 2026 Echo. Tous droits réservés.</div>
+          <div style={{ fontSize: 12.5, color: MUTED }}>© 2026 Echo · Tous droits réservés</div>
         </div>
       </footer>
 
-      {/* ═════════════ Chat modal (interactive 60-second tracker builder) ═════════════ */}
+      {/* Chat modal (interactive 60-second tracker builder) */}
       {chatOpen && (
         <div onClick={() => setChatOpen(false)}
-          style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(3,7,5,0.85)", backdropFilter: "blur(8px)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 20, overflowY: "auto" }}>
+          style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(10,10,10,0.9)", backdropFilter: "blur(8px)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 20, overflowY: "auto" }}>
           <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 560, marginTop: 40, marginBottom: 40 }}>
             <div style={{ textAlign: "center", marginBottom: 20 }}>
-              <p style={{ fontSize: 13, fontWeight: 600, color: "#8ff2b3", margin: "0 0 4px", letterSpacing: "0.04em" }}>CONSTRUIS TON TRACKER EN 60 SECONDES</p>
-              <button onClick={() => setChatOpen(false)} style={{ background: "none", border: "1px solid rgba(255,255,255,0.15)", color: "#cfe9d8", cursor: "pointer", fontSize: 12, padding: "6px 12px", borderRadius: 999, fontFamily: "inherit" }}>
+              <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: GREEN, margin: "0 0 12px" }}>
+                Construis ton tracker en 60 secondes
+              </p>
+              <button onClick={() => setChatOpen(false)}
+                style={{ background: "none", border: `1px solid ${RULE}`, color: OFFWHITE, cursor: "pointer", fontSize: 12, padding: "6px 12px", borderRadius: 999, fontFamily: "inherit" }}>
                 ← Fermer
               </button>
             </div>
@@ -350,181 +431,116 @@ export default function Landing() {
   );
 }
 
-// ─── Pillar row component ────────────────────────────────────────────────────
+// ─── Pillar row — restyled minimal ────────────────────────────────────────────
 
-function PillarRow({ num, title, desc, leftExtra, rightVisual, reversed }: {
-  num: string; title: string; desc: React.ReactNode; leftExtra?: React.ReactNode; rightVisual: React.ReactNode; reversed: boolean;
+function PillarRow({ num, eyebrow, title, desc, last }: {
+  num: string; eyebrow: string; title: string; desc: string; last?: boolean;
 }) {
   return (
-    <div className="echo-pillar-row" style={{ display: "flex", gap: 64, alignItems: "center", marginBottom: 96, flexWrap: "wrap", flexDirection: reversed ? "row-reverse" : "row" }}>
-      <div style={{ flex: 1, minWidth: 320 }}>
-        <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 15, fontWeight: 700, color: "#34d378", letterSpacing: "0.08em", marginBottom: 16 }}>{num}</div>
-        <h3 className="echo-pillar-h3" style={{ margin: "0 0 16px", fontFamily: "'Space Grotesk', sans-serif", fontSize: 30, fontWeight: 700, letterSpacing: "-0.02em", color: "#fafefb" }}>{title}</h3>
-        <p className="echo-pillar-p" style={{ margin: "0 0 20px", fontSize: 17, lineHeight: 1.65, color: "#9db0a4", maxWidth: 460 }}>{desc}</p>
-        {leftExtra}
+    <div className="echo-pillar-row"
+      style={{
+        display: "grid",
+        gridTemplateColumns: "80px 1fr 1.4fr",
+        gap: 40,
+        alignItems: "start",
+        padding: "40px 0",
+        borderBottom: last ? "none" : `1px solid ${RULE}`,
+      }}>
+      <div style={{ fontFamily: SANS, fontSize: 22, fontWeight: 500, color: GREEN, letterSpacing: "-0.02em" }}>{num}</div>
+      <div>
+        <p style={{ margin: 0, fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED }}>{eyebrow}</p>
+        <h3 style={{ margin: "12px 0 0", fontFamily: SANS, fontSize: 28, fontWeight: 500, letterSpacing: "-0.02em", color: OFFWHITE, lineHeight: 1.15 }}>{title}</h3>
       </div>
-      <div style={{ flex: 1, minWidth: 340 }}>{rightVisual}</div>
+      <p style={{ margin: 0, fontSize: 16, lineHeight: 1.6, color: MUTED, maxWidth: 460 }}>{desc}</p>
     </div>
   );
 }
 
-// ─── Mock previews ───────────────────────────────────────────────────────────
+// ─── Pricing card — clean editorial ───────────────────────────────────────────
 
-const mockCardStyle: React.CSSProperties = {
-  borderRadius: 20, overflow: "hidden",
-  background: "linear-gradient(165deg,#0c1611,#070f0b)",
-  border: "1px solid rgba(52,211,120,0.16)",
-  boxShadow: "0 30px 60px -30px rgba(0,0,0,0.9), 0 0 50px -20px rgba(52,211,120,0.2)",
-};
-
-function AiChatMock() {
-  return (
-    <div style={mockCardStyle}>
-      <div style={{ display: "flex", alignItems: "center", gap: 11, padding: "16px 18px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-        <div style={{ width: 34, height: 34, borderRadius: 9, overflow: "hidden", background: "radial-gradient(circle at 50% 40%, #123a24, #071109)", display: "flex", alignItems: "flex-end", justifyContent: "center", border: "1px solid rgba(52,211,120,0.3)" }}>
-          <img src="/echo-mascot.png" alt="" style={{ width: "150%", marginBottom: -4 }} />
-        </div>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: "#fafefb" }}>Echo</div>
-          <div style={{ fontSize: 11.5, color: "#7ff0a8" }}>● en ligne</div>
-        </div>
-      </div>
-      <div style={{ padding: "20px 18px", display: "flex", flexDirection: "column", gap: 14 }}>
-        <div style={{ alignSelf: "flex-end", maxWidth: "78%", padding: "11px 15px", borderRadius: "14px 14px 4px 14px", background: "linear-gradient(145deg,#34d378,#28b566)", color: "#052012", fontSize: 13.5, fontWeight: 600 }}>Quels clients rapportent le plus ce trimestre ?</div>
-        <div style={{ alignSelf: "flex-start", maxWidth: "86%", padding: "13px 15px", borderRadius: "14px 14px 14px 4px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.07)", color: "#dbe7e0", fontSize: 13.5, lineHeight: 1.55 }}>
-          Tes 3 meilleurs clients ce trimestre :
-          <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><span>Suna Films Media</span><span style={{ color: "#34d378", fontWeight: 700 }}>$18,4k</span></div>
-            <div style={{ height: 5, borderRadius: 999, background: "rgba(255,255,255,0.08)" }}><div style={{ height: "100%", width: "82%", borderRadius: 999, background: "linear-gradient(90deg,#6ef0a0,#34d378)" }} /></div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><span>Roux &amp; Bachand</span><span style={{ color: "#34d378", fontWeight: 700 }}>$11,2k</span></div>
-            <div style={{ height: 5, borderRadius: 999, background: "rgba(255,255,255,0.08)" }}><div style={{ height: "100%", width: "52%", borderRadius: 999, background: "linear-gradient(90deg,#6ef0a0,#34d378)" }} /></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ClientPortalMock() {
-  return (
-    <div style={mockCardStyle}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: 18, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-        <div style={{ width: 42, height: 42, borderRadius: 11, background: "linear-gradient(145deg,#34d378,#1f9d54)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "#052012", fontSize: 16 }}>Y</div>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: "#fafefb" }}>Portail — Yannick Charette</div>
-          <div style={{ fontSize: 12, color: "#7c9086" }}>Client actif · depuis mars 2026</div>
-        </div>
-        <span style={{ fontSize: 11, fontWeight: 600, color: "#7ff0a8", background: "rgba(52,211,120,0.12)", border: "1px solid rgba(52,211,120,0.3)", padding: "4px 10px", borderRadius: 999 }}>En cours</span>
-      </div>
-      <div style={{ padding: 18, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-        <div style={{ padding: 14, borderRadius: 12, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}><div style={{ fontSize: 12, color: "#7c9086", marginBottom: 6 }}>Revenu généré</div><div style={{ fontSize: 22, fontWeight: 800, color: "#34d378" }}>$8,200</div></div>
-        <div style={{ padding: 14, borderRadius: 12, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}><div style={{ fontSize: 12, color: "#7c9086", marginBottom: 6 }}>Documents</div><div style={{ fontSize: 22, fontWeight: 800, color: "#fafefb" }}>6</div></div>
-        <div style={{ gridColumn: "1 / -1", padding: 14, borderRadius: 12, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}><span style={{ fontSize: 13, color: "#cfe9d8", fontWeight: 600 }}>Prochaine étape</span><span style={{ fontSize: 12, color: "#7c9086" }}>Cette semaine</span></div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13.5, color: "#dbe7e0" }}><span style={{ width: 9, height: 9, borderRadius: "50%", background: "#fbbf24" }} />Validation du script de tournage</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function TeamMock() {
-  return (
-    <div style={{ ...mockCardStyle, padding: 18 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-        <span style={{ fontSize: 15, fontWeight: 700, color: "#fafefb" }}>Tâches de l'équipe</span>
-        <span style={{ fontSize: 12, color: "#7c9086" }}>3 en cours</span>
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {[
-          { initials: "JB", name: "Jean", task: "Montage vidéo — Client B", due: "échéance vendredi", status: "En cours", statusColor: "#fbbf24", statusBg: "rgba(251,191,36,0.12)", grad: "linear-gradient(145deg,#3f6cf4,#2947c9)" },
-          { initials: "SD", name: "Sylvain", task: "Rédiger la proposition", due: "échéance demain", status: "Prêt", statusColor: "#34d378", statusBg: "rgba(52,211,120,0.12)", grad: "linear-gradient(145deg,#a855f7,#7c3aed)" },
-          { initials: "LR", name: "Luis", task: "Appel de suivi — Client C", due: "aujourd'hui", status: "À faire", statusColor: "#7c9086", statusBg: "rgba(255,255,255,0.06)", grad: "linear-gradient(145deg,#34d378,#1f9d54)" },
-        ].map((row) => (
-          <div key={row.initials} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: 12, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
-            <div style={{ width: 32, height: 32, borderRadius: 9, background: row.grad, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#fff" }}>{row.initials}</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 14, color: "#eef4f0", fontWeight: 500 }}>{row.task}</div>
-              <div style={{ fontSize: 11.5, color: "#7c9086" }}>{row.name} · {row.due}</div>
-            </div>
-            <span style={{ fontSize: 11, fontWeight: 600, color: row.statusColor, background: row.statusBg, padding: "4px 9px", borderRadius: 999 }}>{row.status}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function DashboardMock() {
-  return (
-    <div style={{ borderRadius: 16, overflow: "hidden", background: "#0d0d0e", border: "1px solid rgba(255,255,255,0.10)", boxShadow: "0 40px 70px -30px rgba(0,0,0,0.95), 0 0 60px -22px rgba(52,211,120,0.16)" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "11px 14px", background: "#111113", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-        <span style={{ width: 11, height: 11, borderRadius: "50%", background: "#ff5f57" }} />
-        <span style={{ width: 11, height: 11, borderRadius: "50%", background: "#febc2e" }} />
-        <span style={{ width: 11, height: 11, borderRadius: "50%", background: "#28c840" }} />
-      </div>
-      <img src="/exports/dashboard-demo.png" alt="Dashboard Echo" style={{ width: "100%", display: "block" }}
-        onError={(e) => {
-          // Fallback if screenshot not yet added
-          const el = e.currentTarget;
-          el.style.display = "none";
-          const parent = el.parentElement;
-          if (parent) parent.insertAdjacentHTML("beforeend", `<div style="padding:48px;text-align:center;color:#7c9086;font-size:13px;">Aperçu du dashboard<br/><span style="color:#4a5951;font-size:11px;">(ajoute /public/exports/dashboard-demo.png)</span></div>`);
-        }} />
-    </div>
-  );
-}
-
-// ─── Pricing card ────────────────────────────────────────────────────────────
-
-function PricingCard({ name, tagline, price, priceColor, features, ctaLabel, onSelect, primary }: {
-  name: string; tagline: string; price: string; priceColor: string;
-  features: { label: string; included: boolean; bold?: boolean }[];
-  ctaLabel: string; onSelect: () => void; primary: boolean;
+function PricingCard({ name, tagline, price, features, ctaLabel, onSelect, featured }: {
+  name: string; tagline: string; price: string;
+  features: string[];
+  ctaLabel: string; onSelect: () => void; featured?: boolean;
 }) {
-  const cardStyle: React.CSSProperties = primary ? {
-    position: "relative", display: "flex", flexDirection: "column", padding: "30px 28px", borderRadius: 22,
-    background: "linear-gradient(165deg, rgba(20,44,30,0.95), rgba(8,20,13,0.95))",
-    border: "1.5px solid rgba(52,211,120,0.5)",
-    boxShadow: "0 30px 70px -28px rgba(52,211,120,0.4), 0 0 60px -26px rgba(52,211,120,0.4)",
-    transform: "translateY(-8px)",
-  } : {
-    display: "flex", flexDirection: "column", padding: "30px 28px", borderRadius: 22,
-    background: "linear-gradient(165deg,#0c1611,#070f0b)",
-    border: "1px solid rgba(255,255,255,0.08)",
-  };
-  const btnStyle: React.CSSProperties = primary ? {
-    textDecoration: "none", textAlign: "center", padding: 13, borderRadius: 12, fontSize: 14.5, fontWeight: 700, cursor: "pointer", border: 0,
-    color: "#052012", background: "linear-gradient(145deg,#6ef0a0,#34d378)",
-    boxShadow: "0 12px 26px -8px rgba(52,211,120,0.5), inset 0 1px 0 rgba(255,255,255,0.4)",
-    marginBottom: 24, fontFamily: "inherit",
-  } : {
-    textDecoration: "none", textAlign: "center", padding: 13, borderRadius: 12, fontSize: 14.5, fontWeight: 700, cursor: "pointer",
-    color: "#dcece3", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)",
-    marginBottom: 24, fontFamily: "inherit",
-  };
   return (
-    <div className={primary ? "echo-pricing-pro" : ""} style={cardStyle}>
-      {primary && (
-        <span style={{ position: "absolute", top: -13, left: "50%", transform: "translateX(-50%)", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "#052012", background: "linear-gradient(145deg,#6ef0a0,#34d378)", padding: "5px 14px", borderRadius: 999, boxShadow: "0 6px 16px -4px rgba(52,211,120,0.6)" }}>Populaire</span>
+    <div className={featured ? "echo-pricing-pro" : ""}
+      style={{
+        position: "relative",
+        padding: "36px 30px",
+        borderRadius: 12,
+        border: `1px solid ${featured ? GREEN : RULE}`,
+        background: featured ? "rgba(0,200,83,0.03)" : "transparent",
+        display: "flex",
+        flexDirection: "column",
+        transform: featured ? "translateY(-8px)" : "none",
+      }}>
+      {featured && (
+        <span style={{
+          position: "absolute", top: -12, left: 24,
+          fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
+          color: BLACK, background: GREEN, padding: "4px 10px", borderRadius: 999,
+        }}>Le plus populaire</span>
       )}
-      <div style={{ fontSize: 16, fontWeight: 700, color: "#fafefb", marginBottom: 6 }}>{name}</div>
-      <div style={{ fontSize: 13.5, color: primary ? "#8ba396" : "#7c9086", marginBottom: 20 }}>{tagline}</div>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 4, marginBottom: 24 }}>
-        <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 44, fontWeight: 700, color: priceColor }}>{price}</span>
-        <span style={{ fontSize: 15, color: primary ? "#8ba396" : "#7c9086" }}>/mois</span>
+      <div style={{ fontSize: 13, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: MUTED }}>{name}</div>
+      <div style={{ marginTop: 20, display: "flex", alignItems: "baseline", gap: 6 }}>
+        <span style={{ fontFamily: SANS, fontSize: 52, fontWeight: 500, letterSpacing: "-0.03em", color: OFFWHITE }}>{price}</span>
+        <span style={{ fontSize: 14, color: MUTED }}>/mois</span>
       </div>
-      <button onClick={onSelect} className={primary ? "echo-btn-primary" : "echo-outline-btn"} style={btnStyle}>{ctaLabel}</button>
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <p style={{ margin: "12px 0 32px", fontSize: 14, color: MUTED, lineHeight: 1.5 }}>{tagline}</p>
+
+      <button onClick={onSelect}
+        style={{
+          cursor: "pointer", padding: "14px 20px", borderRadius: 999,
+          fontSize: 14, fontWeight: 600, fontFamily: "inherit",
+          color: featured ? BLACK : OFFWHITE,
+          background: featured ? GREEN : "transparent",
+          border: `1px solid ${featured ? GREEN : RULE}`,
+          marginBottom: 28,
+          transition: "all 0.15s ease",
+        }}
+        onMouseEnter={(e) => {
+          if (!featured) { e.currentTarget.style.background = GREEN; e.currentTarget.style.color = BLACK; e.currentTarget.style.borderColor = GREEN; }
+        }}
+        onMouseLeave={(e) => {
+          if (!featured) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = OFFWHITE; e.currentTarget.style.borderColor = RULE; }
+        }}>
+        {ctaLabel}
+      </button>
+
+      <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 10 }}>
         {features.map((f) => (
-          <div key={f.label} style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 14, color: f.included ? (f.bold ? "#dbe7e0" : "#c3d3ca") : "#7c9086", fontWeight: f.bold ? 600 : 400 }}>
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={f.included ? "#34d378" : "#5b6b62"} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ flex: "0 0 auto", marginTop: 1 }}>
-              {f.included ? <path d="M20 6L9 17l-5-5" /> : <path d="M18 6L6 18M6 6l12 12" />}
-            </svg>
-            {f.label}
-          </div>
+          <li key={f} style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 14, lineHeight: 1.5, color: OFFWHITE }}>
+            <span style={{ color: GREEN, flex: "0 0 auto", marginTop: 1 }}>▲</span>
+            <span>{f}</span>
+          </li>
         ))}
-      </div>
+      </ul>
+    </div>
+  );
+}
+
+// ─── FAQ item ────────────────────────────────────────────────────────────────
+
+function FaqItem({ q, a }: { q: string; a: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ borderTop: `1px solid ${RULE}` }}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          width: "100%", background: "transparent", border: 0, cursor: "pointer",
+          padding: "24px 0", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16,
+          textAlign: "left", fontFamily: "inherit",
+        }}>
+        <span style={{ fontFamily: SANS, fontSize: 18, fontWeight: 500, color: OFFWHITE, letterSpacing: "-0.01em" }}>{q}</span>
+        <span style={{ fontSize: 20, color: MUTED, fontFamily: SANS, transform: open ? "rotate(45deg)" : "none", transition: "transform 0.2s ease" }}>+</span>
+      </button>
+      {open && (
+        <div style={{ paddingBottom: 24, fontSize: 15, lineHeight: 1.6, color: MUTED, maxWidth: 640 }}>
+          {a}
+        </div>
+      )}
     </div>
   );
 }
