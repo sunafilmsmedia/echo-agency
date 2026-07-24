@@ -149,34 +149,50 @@ export function OverviewTab() {
     low:    { border: "border-blue-500/30",     bg: "bg-blue-500/5",     icon: "text-blue-400",     badge: "bg-blue-500/15 text-blue-400",        badgeText: "INFO" },
   };
 
+  // Progress = current value / target. Clamped 0..1. Used to render the
+  // ambient bar-in-background of each KPI card.
+  const clip = (x: number) => Math.max(0, Math.min(1, x));
+
+  const clientsGoal = Math.max(activeClients.length + pipelineClients.length, 10);
+  const mrrGoal     = metrics?.mrr_goal && metrics.mrr_goal > 0 ? metrics.mrr_goal : Math.max(mrr * 1.25, 5000);
+  const closingRate = metrics?.closing_rate ?? 50;
+  const leadsWeek   = metrics?.leads_per_week ?? 0;
+  const leadsGoal   = Math.max(leadsWeek * 1.5, 20);
+
   const stats = [
     {
       label: "Clients Actifs",
       value: activeClients.length.toString(),
-      sub: "+1/semaine",
+      sub: `sur ${clientsGoal} suivis · ${Math.round(clip(activeClients.length / clientsGoal) * 100)}%`,
       icon: Users,
       color: "text-primary",
+      progress: clip(activeClients.length / clientsGoal),
     },
     {
       label: "MRR Récurrent",
       value: formatCurrency(mrr),
-      sub: `Pipeline: ${formatCurrency(pipelineValue)}`,
+      sub: metrics?.mrr_goal
+        ? `${Math.round(clip(mrr / mrrGoal) * 100)}% de ${formatCurrency(mrrGoal)}`
+        : `Pipeline : ${formatCurrency(pipelineValue)}`,
       icon: DollarSign,
       color: "text-emerald-400",
+      progress: clip(mrr / mrrGoal),
     },
     {
       label: "Taux de Closing",
-      value: `${metrics?.closing_rate ?? 50}%`,
-      sub: "4 RDV/semaine",
+      value: `${closingRate}%`,
+      sub: `Cible : 100%`,
       icon: Target,
       color: "text-amber-400",
+      progress: clip(closingRate / 100),
     },
     {
       label: "Leads Générés",
-      value: `${metrics?.leads_per_week ?? 10}/sem`,
-      sub: `${pipelineClients.length} en pipeline`,
+      value: `${leadsWeek}/sem`,
+      sub: `${pipelineClients.length} en pipeline · cible ${leadsGoal}/sem`,
       icon: TrendingUp,
       color: "text-blue-400",
+      progress: clip(leadsWeek / leadsGoal),
     },
   ];
 
@@ -191,18 +207,37 @@ export function OverviewTab() {
         </div>
       </div>
 
-      {/* KPI Stats — cleaner, less noisy */}
+      {/* KPI Stats — with ambient background progress bar */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map(({ label, value, sub, icon: Icon, color }) => (
-          <div key={label} className="rounded-2xl border border-border/30 bg-card p-5 space-y-3">
-            <div className="flex items-center justify-between">
+        {stats.map(({ label, value, sub, icon: Icon, color, progress }) => (
+          <div key={label} className="relative rounded-2xl border border-border/30 bg-card p-5 space-y-3 overflow-hidden">
+            {/* Background progress fill — left-to-right, subtle green wash */}
+            <div
+              aria-hidden
+              className="absolute inset-y-0 left-0 transition-all duration-700 ease-out pointer-events-none"
+              style={{
+                width: `${progress * 100}%`,
+                background: `linear-gradient(90deg, hsl(var(--primary) / 0.14) 0%, hsl(var(--primary) / 0.05) 70%, transparent 100%)`,
+              }}
+            />
+            {/* Bottom accent line — matches the fill width */}
+            <div
+              aria-hidden
+              className="absolute bottom-0 left-0 h-[2px] transition-all duration-700 ease-out pointer-events-none"
+              style={{
+                width: `${progress * 100}%`,
+                background: `linear-gradient(90deg, hsl(var(--primary) / 0.8), hsl(var(--primary) / 0.3))`,
+              }}
+            />
+            {/* Content */}
+            <div className="relative flex items-center justify-between">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
-              <div className="w-7 h-7 rounded-lg bg-muted/40 flex items-center justify-center">
+              <div className="w-7 h-7 rounded-lg bg-background/60 backdrop-blur flex items-center justify-center border border-border/40">
                 <Icon className={`w-3.5 h-3.5 ${color}`} />
               </div>
             </div>
-            <p className="text-3xl font-bold text-foreground tracking-tight">{value}</p>
-            <p className="text-[11px] text-muted-foreground">{sub}</p>
+            <p className="relative text-3xl font-bold text-foreground tracking-tight">{value}</p>
+            <p className="relative text-[11px] text-muted-foreground">{sub}</p>
           </div>
         ))}
       </div>
