@@ -1,4 +1,4 @@
-// Small read-only helper to expose Rene's Ads KPI data outside of KpiTab.
+// Read-only helpers to expose KPI data (ads + content) outside of KpiTab.
 // Storage layout is owned by KpiTab; this module ONLY reads from localStorage.
 
 const QUARTERS = [[1,2,3],[4,5,6],[7,8,9],[10,11,12]];
@@ -17,6 +17,31 @@ function loadMonth(year: number, month: number): Record<string, StoredRow> {
   } catch {
     return {};
   }
+}
+
+// ── Content (Sandra) helpers ─────────────────────────────────────────────────
+
+/** Total views + videos for a client over the last N months (default 3). */
+export function clientContentTotals(clientId: string, lookbackMonths = 3): { views: number; videos: number; months: number } {
+  const now = new Date();
+  let views = 0, videos = 0, months = 0;
+  for (let i = 0; i < lookbackMonths; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const row = loadMonth(d.getFullYear(), d.getMonth() + 1)[clientId];
+    if (!row) continue;
+    let hadData = false;
+    if (typeof row.views  === "number") { views  += row.views;  hadData = true; }
+    if (typeof row.videos === "number") { videos += row.videos; hadData = true; }
+    if (hadData) months++;
+  }
+  return { views, videos, months };
+}
+
+/** Avg monthly views over the last N months (default 3). null if no data. */
+export function clientAvgViewsPerMonth(clientId: string, lookbackMonths = 3): number | null {
+  const { views, months } = clientContentTotals(clientId, lookbackMonths);
+  if (months === 0) return null;
+  return Math.round(views / months);
 }
 
 /** Sum of budget spent and leads generated for a client over the last N months (default 3). */

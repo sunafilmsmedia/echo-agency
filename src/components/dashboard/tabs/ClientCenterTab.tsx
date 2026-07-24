@@ -11,12 +11,13 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import {
   ExternalLink, FolderOpen, Link, Check, X, Copy, ChevronDown, ChevronUp,
   Users, ClipboardList, Mail, Phone, FileText, Loader2, Sparkles, Lock, RefreshCw,
-  BookOpen, Send, User as UserIcon, Calendar as CalendarIcon, Megaphone,
+  BookOpen, Send, User as UserIcon, Calendar as CalendarIcon, Megaphone, FileDown, Eye, Video,
 } from "lucide-react";
 import type { Client } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { askClaudeText } from "@/lib/claude-client";
-import { clientAdsTotals, clientAvgCpl } from "@/lib/kpi-ads";
+import { clientAdsTotals, clientAvgCpl, clientContentTotals } from "@/lib/kpi-ads";
+import { downloadClientKpiReport } from "@/lib/kpi-report";
 
 function slugify(s: string): string {
   return s.toLowerCase()
@@ -689,21 +690,37 @@ export function ClientCenterTab() {
                         {client.contract_start_date && <span>Depuis {formatDate(client.contract_start_date)}</span>}
                       </div>
                       {(() => {
-                        const totals = clientAdsTotals(client.id, 3);
-                        const avgCpl = clientAvgCpl(client.id, 3);
-                        if (totals.months === 0) return null;
+                        const ads     = clientAdsTotals(client.id, 3);
+                        const content = clientContentTotals(client.id, 3);
+                        const avgCpl  = clientAvgCpl(client.id, 3);
+                        const hasAny  = ads.months > 0 || content.months > 0;
+                        if (!hasAny) return null;
                         return (
-                          <div className="flex items-center gap-2 mt-1.5 text-[11px]">
-                            <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-                              <Megaphone className="w-3 h-3" />
-                              {totals.leads} leads
-                            </span>
-                            {avgCpl !== null && (
-                              <span className="text-muted-foreground">
-                                CPL moyen : <span className="font-semibold text-foreground">${avgCpl.toFixed(2)}</span>
+                          <div className="flex items-center gap-1.5 mt-1.5 flex-wrap text-[11px]">
+                            {content.views > 0 && (
+                              <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                                <Eye className="w-3 h-3" />
+                                {content.views.toLocaleString("fr-CA")} vues
                               </span>
                             )}
-                            <span className="text-[10px] text-muted-foreground italic">(sur {totals.months}m)</span>
+                            {content.videos > 0 && (
+                              <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                                <Video className="w-3 h-3" />
+                                {content.videos} vidéos
+                              </span>
+                            )}
+                            {ads.leads > 0 && (
+                              <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                                <Megaphone className="w-3 h-3" />
+                                {ads.leads} leads
+                              </span>
+                            )}
+                            {avgCpl !== null && (
+                              <span className="text-muted-foreground">
+                                CPL : <span className="font-semibold text-foreground">${avgCpl.toFixed(2)}</span>
+                              </span>
+                            )}
+                            <span className="text-[10px] text-muted-foreground italic">(3m)</span>
                           </div>
                         );
                       })()}
@@ -720,6 +737,23 @@ export function ClientCenterTab() {
                         onClick={() => startEdit(client.id, client.google_drive_url)}>
                         <Link className="w-3.5 h-3.5" />
                         {client.google_drive_url ? "Changer" : "Connecter Drive"}
+                      </Button>
+                      <Button size="sm" variant="outline"
+                        className="gap-1.5 text-xs border-primary/30 text-primary hover:bg-primary/10"
+                        onClick={() => {
+                          try {
+                            downloadClientKpiReport(
+                              { id: client.id, name: client.name, industry: client.industry, contract_start_date: client.contract_start_date },
+                              { name: agencyData?.name ?? "Mon Agence", color: agencyData?.color ?? "#7c3aed" },
+                              6,
+                            );
+                            toast.success("Rapport téléchargé");
+                          } catch (e: any) {
+                            toast.error(e?.message ?? "Erreur PDF");
+                          }
+                        }}>
+                        <FileDown className="w-3.5 h-3.5" />
+                        Rapport
                       </Button>
                       <Button size="sm" variant="outline"
                         className="gap-1.5 text-xs border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10"
