@@ -39,8 +39,12 @@ export function RevenueTab() {
   const createExpense = useCreateExpenseItem();
   const deleteExpense = useDeleteExpenseItem();
 
-  const [extraRevenue, setExtraRevenue] = useState(0);
-  const [extraExpenses, setExtraExpenses] = useState(0);
+  // Accumulated extras for the current month (read-only display, comes from DB)
+  const extraRevenue  = metrics?.extra_revenue  ?? 0;
+  const extraExpenses = metrics?.extra_expenses ?? 0;
+  // Amount the user is about to ADD (resets after save so multiple extras can stack)
+  const [newExtraRev, setNewExtraRev] = useState<string>("");
+  const [newExtraExp, setNewExtraExp] = useState<string>("");
   const [mrrGoal, setMrrGoal] = useState(0);
   const [yearlyGoal, setYearlyGoal] = useState(0);
   const [editingMetrics, setEditingMetrics] = useState(false);
@@ -92,8 +96,6 @@ export function RevenueTab() {
 
   useEffect(() => {
     if (metrics) {
-      setExtraRevenue(metrics.extra_revenue ?? 0);
-      setExtraExpenses(metrics.extra_expenses ?? 0);
       setMrrGoal(metrics.mrr_goal ?? 0);
       setYearlyGoal(metrics.yearly_goal ?? 0);
       setGrowthForm({
@@ -123,28 +125,58 @@ export function RevenueTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expenseItems]);
 
-  // Explicit save on blur / Enter — persists into the current month row,
-  // stays there forever (rolls into monthly history + YTD totals).
-  const saveExtraRevenue = () => {
-    updateMetrics.mutate({ extra_revenue: extraRevenue }, {
-      onSuccess: () => toast.success(
-        extraRevenue > 0
-          ? `+ ${formatCurrency(extraRevenue)} sauvegardés au revenu du mois`
-          : "Extra retiré du revenu du mois"
-      ),
+  // Add-to-current-total pattern: the input is a single new extra to ADD
+  // on top of the accumulated month total, then clears itself so multiple
+  // extras can be logged over the month.
+  const addExtraRevenue = () => {
+    const delta = parseFloat(newExtraRev);
+    if (!Number.isFinite(delta) || delta === 0) return;
+    const nextTotal = extraRevenue + delta;
+    updateMetrics.mutate({ extra_revenue: nextTotal }, {
+      onSuccess: () => {
+        toast.success(
+          delta > 0
+            ? `+ ${formatCurrency(delta)} ajoutés au revenu du mois (total extras : ${formatCurrency(nextTotal)})`
+            : `${formatCurrency(delta)} retirés du revenu du mois (total extras : ${formatCurrency(nextTotal)})`
+        );
+        setNewExtraRev("");
+      },
     });
   };
 
-  const saveExtraExpenses = () => {
+  const addExtraExpense = () => {
+    const delta = parseFloat(newExtraExp);
+    if (!Number.isFinite(delta) || delta === 0) return;
+    const nextTotal = extraExpenses + delta;
     updateMetrics.mutate({
-      extra_expenses: extraExpenses,
-      monthly_expenses: recurringExpenses + extraExpenses,
+      extra_expenses: nextTotal,
+      monthly_expenses: recurringExpenses + nextTotal,
     }, {
-      onSuccess: () => toast.success(
-        extraExpenses > 0
-          ? `+ ${formatCurrency(extraExpenses)} sauvegardés aux dépenses du mois`
-          : "Extra retiré des dépenses du mois"
-      ),
+      onSuccess: () => {
+        toast.success(
+          delta > 0
+            ? `+ ${formatCurrency(delta)} ajoutés aux dépenses du mois (total extras : ${formatCurrency(nextTotal)})`
+            : `${formatCurrency(delta)} retirés des dépenses du mois (total extras : ${formatCurrency(nextTotal)})`
+        );
+        setNewExtraExp("");
+      },
+    });
+  };
+
+  const resetExtraRevenue = () => {
+    if (!confirm(`Réinitialiser tous les extras de revenu de ce mois (${formatCurrency(extraRevenue)}) ?`)) return;
+    updateMetrics.mutate({ extra_revenue: 0 }, {
+      onSuccess: () => toast.success("Extras revenu réinitialisés"),
+    });
+  };
+
+  const resetExtraExpense = () => {
+    if (!confirm(`Réinitialiser tous les extras de dépenses de ce mois (${formatCurrency(extraExpenses)}) ?`)) return;
+    updateMetrics.mutate({
+      extra_expenses: 0,
+      monthly_expenses: recurringExpenses,
+    }, {
+      onSuccess: () => toast.success("Extras dépenses réinitialisés"),
     });
   };
 
@@ -278,34 +310,59 @@ export function RevenueTab() {
 
       {/* Top metric cards */}
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
-        {/* MRR Récurrent — with highlighted extra overlay */}
+        {/* MRR Récurrent — total combiné visible en gros quand extras > 0 */}
         <Card>
           <CardContent className="pt-4 pb-4">
             <p className="text-xs text-muted-foreground mb-1">MRR Récurrent</p>
             {extraRevenue > 0 && (
-              <p className="text-xs font-bold text-emerald-400 mb-0.5">
-                = {formatCurrency(mrr + extraRevenue)} <span className="text-[10px] font-normal opacity-80">(+{formatCurrency(extraRevenue)} extra)</span>
+              <p className="text-lg font-bold text-emerald-400 leading-tight">
+                {formatCurrency(mrr + extraRevenue)}
               </p>
             )}
-            <p className="text-lg font-bold text-foreground">{formatCurrency(mrr)}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">{metrics?.active_clients_count ?? 0} clients</p>
+            <p className={`${extraRevenue > 0 ? "text-xs text-muted-foreground line-through" : "text-lg font-bold text-foreground"}`}>
+              {formatCurrency(mrr)}
+            </p>
+            {extraRevenue > 0 && (
+              <p className="text-[10px] text-emerald-400 mt-0.5">
+                +{formatCurrency(extraRevenue)} extras ce mois
+              </p>
+            )}
+            {!extraRevenue && (
+              <p className="text-xs text-muted-foreground mt-0.5">{metrics?.active_clients_count ?? 0} clients</p>
+            )}
           </CardContent>
         </Card>
 
-        {/* Extra ce mois — editable input, saves on blur + Enter */}
+        {/* Ajouter un extra — input vide qui s'accumule au total */}
         <Card className={extraRevenue > 0 ? "border-emerald-500/40 bg-emerald-500/[0.03]" : ""}>
-          <CardContent className="pt-4 pb-4">
-            <p className="text-xs text-muted-foreground mb-1">Extra ce mois</p>
-            <Input
-              type="number"
-              value={extraRevenue}
-              onChange={(e) => setExtraRevenue(Number(e.target.value))}
-              onBlur={saveExtraRevenue}
-              onKeyDown={(e) => { if (e.key === "Enter") { e.currentTarget.blur(); } }}
-              className={`h-7 text-sm font-bold p-1 ${extraRevenue > 0 ? "text-emerald-400" : "text-foreground"}`}
-            />
-            <p className="text-[10px] mt-1 italic text-muted-foreground">
-              {extraRevenue > 0 ? <span className="text-emerald-400">✓ sauvegardé pour ce mois</span> : "Entrée / Tab pour sauvegarder"}
+          <CardContent className="pt-4 pb-4 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">+ Extra revenu</p>
+              {extraRevenue > 0 && (
+                <button onClick={resetExtraRevenue}
+                  className="text-[9px] text-muted-foreground hover:text-destructive underline">
+                  reset
+                </button>
+              )}
+            </div>
+            <div className="flex gap-1">
+              <Input
+                type="number"
+                value={newExtraRev}
+                onChange={(e) => setNewExtraRev(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addExtraRevenue(); } }}
+                placeholder="0"
+                className="h-7 text-sm font-bold p-1"
+              />
+              <Button size="sm" className="h-7 px-2 text-xs" onClick={addExtraRevenue}
+                disabled={!newExtraRev || parseFloat(newExtraRev) === 0}>
+                Ajouter
+              </Button>
+            </div>
+            <p className="text-[10px] italic text-muted-foreground">
+              {extraRevenue > 0
+                ? <>Total extras : <span className="text-emerald-400 font-semibold">{formatCurrency(extraRevenue)}</span></>
+                : "Entrée pour ajouter au MRR"}
             </p>
           </CardContent>
         </Card>
@@ -586,23 +643,41 @@ export function RevenueTab() {
             );
           })}
 
-          {/* Dépenses extra du mois — saves on blur + Enter */}
-          <div className="flex items-center justify-between px-3 py-2.5 mt-2 rounded-lg border border-dashed border-amber-500/30 bg-amber-500/[0.03]">
+          {/* Dépenses extra du mois — s'accumule + reset après ajout */}
+          <div className="flex items-center justify-between gap-3 px-3 py-2.5 mt-2 rounded-lg border border-dashed border-amber-500/30 bg-amber-500/[0.03]">
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-foreground">Dépenses extra ce mois</p>
+              <p className="text-sm font-medium text-foreground flex items-center gap-2">
+                Dépenses extra ce mois
+                {extraExpenses > 0 && (
+                  <span className="text-amber-400 font-semibold">
+                    · Total : {formatCurrency(extraExpenses)}
+                  </span>
+                )}
+                {extraExpenses > 0 && (
+                  <button onClick={resetExtraExpense}
+                    className="text-[9px] text-muted-foreground hover:text-destructive underline ml-auto">
+                    reset
+                  </button>
+                )}
+              </p>
               <p className="text-[10px] text-muted-foreground">
-                Coûts ponctuels non récurrents. {extraExpenses > 0 ? <span className="text-amber-400">✓ sauvegardé pour ce mois</span> : "Entrée / Tab pour sauvegarder."}
+                Ajoute chaque coût ponctuel — le champ se vide après pour en rentrer un autre.
               </p>
             </div>
-            <Input
-              type="number"
-              value={extraExpenses}
-              onChange={(e) => setExtraExpenses(Number(e.target.value))}
-              onBlur={saveExtraExpenses}
-              onKeyDown={(e) => { if (e.key === "Enter") { e.currentTarget.blur(); } }}
-              placeholder="0"
-              className={`h-8 w-28 text-sm font-bold text-right ${extraExpenses > 0 ? "text-amber-400" : "text-foreground"}`}
-            />
+            <div className="flex gap-1 items-center">
+              <Input
+                type="number"
+                value={newExtraExp}
+                onChange={(e) => setNewExtraExp(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addExtraExpense(); } }}
+                placeholder="0"
+                className="h-8 w-24 text-sm font-bold text-right"
+              />
+              <Button size="sm" className="h-8 px-3 text-xs" onClick={addExtraExpense}
+                disabled={!newExtraExp || parseFloat(newExtraExp) === 0}>
+                +
+              </Button>
+            </div>
           </div>
 
           <div className="pt-3 border-t border-border/40 space-y-1.5 text-sm">
