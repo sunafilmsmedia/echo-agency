@@ -973,73 +973,10 @@ function MetaCell({ label, value }: { label: string; value: string }) {
 }
 
 
+
 // ─── Nos forfaits — vue de référence pour l'équipe de vente ─────────────────
 
-interface PackageDef {
-  id: "systeme" | "croissance" | "domination";
-  name: string;
-  monthly: number;
-  installQuarter: number;   // Option B — 4 mois payés d'avance, prix unique
-  installMonthly: number;   // Option B — équivalent mensuel avec le −10%
-  flexMonthly: number;      // Option C — mois à mois (+15%)
-  promise: string;
-  includes: string[];
-  featured?: boolean;
-  note?: string;
-}
-
-const PACKAGES_LIST: PackageDef[] = [
-  {
-    id: "systeme",
-    name: "Système",
-    monthly: 2800,
-    installQuarter: 10080, installMonthly: 2520,
-    flexMonthly: 3200,
-    promise: "Des rendez-vous qualifiés, sans t'impliquer.",
-    includes: [
-      "1 tournage aux 2 mois (demi-journée) — banque de 10 à 16 vidéos",
-      "5 à 8 vidéos publiées par mois",
-      "Gestion Meta Ads complète — création, tests, opti hebdo",
-      "Logiciel AI de qualification personnalisé + dashboard client",
-      "Suivi structuré des leads jusqu'au RDV",
-    ],
-    note: "Implication client : une demi-journée aux 2 mois.",
-  },
-  {
-    id: "croissance",
-    name: "Croissance",
-    monthly: 3400,
-    installQuarter: 12240, installMonthly: 3060,
-    flexMonthly: 3900,
-    promise: "Notoriété + leads. Ta marque travaille pour toi.",
-    includes: [
-      "Tout le forfait Système (incluant le logiciel AI)",
-      "1 tournage par mois — 10 à 15 vidéos publiées",
-      "1 campagne Meta Ads — création, lancement, gestion continue",
-      "Stratégie de contenu + idées sur mesure",
-      "Coaching caméra pour être percutant à l'écran",
-    ],
-    featured: true,
-  },
-  {
-    id: "domination",
-    name: "Domination",
-    monthly: 4000,
-    installQuarter: 14400, installMonthly: 3600,
-    flexMonthly: 4600,
-    promise: "On devient ton département marketing.",
-    includes: [
-      "Tout le forfait Croissance",
-      "15 à 20 vidéos par mois — 1 tournage mensuel",
-      "2 à 3 campagnes Meta Ads simultanées",
-      "CRM personnalisé et adapté à ton processus",
-      "Logiciel AI version avancée + accès prioritaire nouveautés SFM",
-    ],
-    note: "Interne : envisager frais de setup unique (1 500-2 500 $) pour couvrir le build du CRM, prix mensuel inchangé.",
-  },
-];
-
-const CLOSING_SCRIPT = `T'as trois façons de travailler avec nous. La plupart partent sur 6 mois — c'est le temps réaliste pour que le système donne son plein rendement. Si tu veux le meilleur deal pis régler ça d'un coup, l'installation 4 mois te donne 10 % de rabais. Pis si tu veux juste tester, le mois-à-mois existe, mais il coûte 15 % de plus.`;
+const CLOSING_SCRIPT = `On a deux façons de bosser ensemble. Si t'as besoin de générer des rendez-vous immédiatement, on installe ta machine à leads pour toi — 10 000 $ pour bâtir + les 4 premiers mois, ensuite 2 500 $/mois. Si ton problème c'est plus la visibilité pis la marque, notre forfait contenu, c'est 8 ou 10 vidéos par mois qui font travailler ta marque à ta place — 3 200 ou 3 500 $ selon le volume que tu veux pousser.`;
 
 function ForfaitsView({ onBack }: { onBack: () => void }) {
   const fmt = (n: number) => n.toLocaleString("fr-CA");
@@ -1061,166 +998,161 @@ function ForfaitsView({ onBack }: { onBack: () => void }) {
             <h2 className="text-xl font-semibold text-foreground flex items-center gap-2">
               <FileText className="w-5 h-5 text-primary" /> Nos forfaits
             </h2>
-            <p className="text-sm text-muted-foreground mt-0.5">Structure Suna Films — référence rapide pour ton équipe de vente</p>
+            <p className="text-sm text-muted-foreground mt-0.5">Structure Suna Films — 2 forfaits, chacun avec sa promesse claire</p>
           </div>
         </div>
       </div>
 
-      {/* 3 package cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {PACKAGES_LIST.map((p) => (
-          <div key={p.id}
-            className={`relative rounded-2xl border-2 p-6 space-y-4 flex flex-col ${
-              p.featured
-                ? "border-primary/60 bg-primary/[0.06] shadow-glow"
-                : "border-border/40 bg-card"
-            }`}>
-            {p.featured && (
-              <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold uppercase tracking-wider">
-                ★ Le plus populaire
-              </span>
-            )}
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                {p.id === "systeme" ? "Palier 1" : p.id === "croissance" ? "Palier 2" : "Palier 3"}
-              </p>
-              <h3 className="text-2xl font-bold text-foreground mt-1">{p.name}</h3>
-              <p className="text-sm text-muted-foreground mt-1 italic">« {p.promise} »</p>
-            </div>
-            <div className="pt-1">
-              <p className={`text-4xl font-bold tracking-tight ${p.featured ? "text-primary" : "text-foreground"}`}>
-                {fmt(p.monthly)} $<span className="text-sm font-normal text-muted-foreground">/mois</span>
-              </p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">Engagement 6 mois — prix affiché</p>
-            </div>
-            <ul className="space-y-2 flex-1">
-              {p.includes.map((inc, i) => (
+      {/* ═══ Forfait 01 — LEAD GEN ═══ */}
+      <div className="rounded-2xl border-2 border-primary/50 bg-primary/[0.04] p-6 space-y-6 shadow-glow">
+        <div className="flex items-start justify-between flex-wrap gap-4">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Forfait 01</p>
+            <h3 className="text-3xl font-bold text-foreground mt-1">LEAD GEN</h3>
+            <p className="text-sm text-muted-foreground italic mt-1">« On installe ta machine à rendez-vous, et on la fait rouler. »</p>
+          </div>
+        </div>
+
+        {/* Pricing 2-phase */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="rounded-xl border border-primary/40 bg-background/40 p-5">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-primary mb-1">Installation</p>
+            <p className="text-4xl font-bold text-primary tracking-tight">{fmt(10000)} $<span className="text-sm text-muted-foreground font-normal"> une fois</span></p>
+            <p className="text-[11px] text-muted-foreground mt-2">Construction du système + les 4 premiers mois de gestion inclus</p>
+          </div>
+          <div className="rounded-xl border border-border/40 bg-background/40 p-5">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Ensuite</p>
+            <p className="text-4xl font-bold text-foreground tracking-tight">{fmt(2500)} $<span className="text-sm text-muted-foreground font-normal">/mois</span></p>
+            <p className="text-[11px] text-muted-foreground mt-2">À partir du mois 5</p>
+          </div>
+        </div>
+
+        {/* Terms */}
+        <div className="rounded-lg border border-border/40 bg-muted/20 p-4 text-xs text-muted-foreground space-y-1">
+          <p><span className="text-foreground font-semibold">Engagement 12 mois.</span> Système livré en 30 jours ou <span className="text-primary font-semibold">le mois 5 est gratuit</span>. Le délai part à la réception des accès client.</p>
+          <p><span className="text-foreground font-semibold">Paiement de l'installation en 2 versements :</span> 5 000 $ à la signature, 5 000 $ à la livraison.</p>
+        </div>
+
+        {/* Deliverables */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-primary mb-2">Construction — jours 1 à 30</p>
+            <ul className="space-y-1.5">
+              {[
+                "CRM complet + automatisations, séquences SMS/courriel, pipeline sur mesure",
+                "Logiciel AI de qualification personnalisé + dashboard client",
+                "Landing page de conversion + tracking (Pixel / CAPI)",
+                "Premier lot de créatifs : ads vidéo + ads statiques",
+              ].map((s, i) => (
                 <li key={i} className="text-xs text-foreground flex items-start gap-2">
-                  <Check className={`w-3.5 h-3.5 flex-shrink-0 mt-0.5 ${p.featured ? "text-primary" : "text-emerald-400"}`} />
-                  <span>{inc}</span>
+                  <Check className="w-3.5 h-3.5 text-primary flex-shrink-0 mt-0.5" /> {s}
                 </li>
               ))}
             </ul>
-            {p.note && (
-              <p className="text-[10px] text-muted-foreground italic pt-3 border-t border-border/30">{p.note}</p>
-            )}
           </div>
-        ))}
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Chaque mois</p>
+            <ul className="space-y-1.5">
+              {[
+                "Gestion Meta Ads complète — création, tests d'angles, opti hebdo",
+                "Nouvelles ads statiques chaque mois",
+                "Tournage jusqu'à 1 demi-journée aux 2 mois, au besoin — déplacement inclus",
+                "Maintenance du CRM et du logiciel AI",
+                "Rapport mensuel + call de review",
+              ].map((s, i) => (
+                <li key={i} className="text-xs text-foreground flex items-start gap-2">
+                  <Check className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0 mt-0.5" /> {s}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        {/* Extras */}
+        <div className="pt-3 border-t border-border/30">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Extras (sur devis)</p>
+          <div className="flex flex-wrap gap-2">
+            {["Bot AI conversationnel", "Contenu organique", "Gestion de page", "Marque personnelle"].map((e) => (
+              <span key={e} className="text-[11px] px-2 py-1 rounded-full bg-muted/40 text-muted-foreground border border-border/40">
+                + {e}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ═══ Forfait 02 — CONTENU ═══ */}
+      <div className="rounded-2xl border border-border/40 bg-card p-6 space-y-6">
+        <div className="flex items-start justify-between flex-wrap gap-4">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Forfait 02</p>
+            <h3 className="text-3xl font-bold text-foreground mt-1">CONTENU</h3>
+            <p className="text-sm text-muted-foreground italic mt-1">« Leads + visibilité. Ton nom devient la référence. »</p>
+          </div>
+        </div>
+
+        {/* Two format options */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="rounded-xl border border-border/40 bg-background/40 p-5">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Format 16</p>
+            <p className="text-sm text-muted-foreground mb-2">8 vidéos publiées / mois</p>
+            <p className="text-4xl font-bold text-foreground tracking-tight">{fmt(3200)} $<span className="text-sm text-muted-foreground font-normal">/mois</span></p>
+            <p className="text-[11px] text-muted-foreground mt-2">16 vidéos par cycle de 2 mois</p>
+          </div>
+          <div className="relative rounded-xl border-2 border-primary/50 bg-primary/[0.06] p-5">
+            <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold uppercase tracking-wider">★ Le plus populaire</span>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-primary mb-1">Format 20</p>
+            <p className="text-sm text-muted-foreground mb-2">10 vidéos publiées / mois</p>
+            <p className="text-4xl font-bold text-primary tracking-tight">{fmt(3500)} $<span className="text-sm text-muted-foreground font-normal">/mois</span></p>
+            <p className="text-[11px] text-muted-foreground mt-2">20 vidéos par cycle de 2 mois</p>
+          </div>
+        </div>
+
+        {/* Terms */}
+        <div className="rounded-lg border border-border/40 bg-muted/20 p-4 text-xs text-muted-foreground">
+          <p><span className="text-foreground font-semibold">Engagement 6 mois.</span> Démarrage <span className="text-foreground font-semibold">1 500 $</span> (stratégie, angles, setup ads et tracking) — <span className="text-emerald-400 font-semibold">offert si 4 mois payés d'avance</span>.</p>
+        </div>
+
+        {/* Included */}
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Inclus dans les deux formats</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1.5">
+            {[
+              "1 tournage obligatoire aux 2 mois (demi-journée) — déplacement inclus",
+              "16 ou 20 vidéos montées, sous-titrées, adaptées par plateforme",
+              "Stratégie de contenu 50/30/20 + sujets sur mesure",
+              "Coaching caméra à chaque tournage",
+              "Direction de marque — positionnement, ton de voix, cohérence",
+              "Ads vidéo + statiques, gestion Meta complète",
+              "Logiciel AI de qualification + dashboard",
+              "Review stratégique mensuelle en direct",
+            ].map((s, i) => (
+              <div key={i} className="text-xs text-foreground flex items-start gap-2">
+                <Check className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0 mt-0.5" /> {s}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Extras */}
+        <div className="pt-3 border-t border-border/30">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Extras & upsells</p>
+          <div className="flex flex-wrap gap-2">
+            {["CRM (upsell au mois 3)", "Bot AI", "Landing page"].map((e) => (
+              <span key={e} className="text-[11px] px-2 py-1 rounded-full bg-muted/40 text-muted-foreground border border-border/40">
+                + {e}
+              </span>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* AI blurb */}
       <div className="rounded-xl border border-primary/20 bg-primary/[0.03] p-4 flex items-start gap-3">
         <div className="text-2xl">🤖</div>
         <div>
-          <p className="text-sm font-semibold text-foreground">Inclus dans tous les forfaits</p>
-          <p className="text-xs text-muted-foreground mt-0.5">Notre logiciel AI de qualification des leads avec ton propre dashboard — le client voit en temps réel ce que son investissement génère.</p>
-        </div>
-      </div>
-
-      {/* Payment options */}
-      <div className="space-y-4">
-        <div>
-          <h3 className="text-lg font-semibold text-foreground">Trois façons de travailler ensemble</h3>
-          <p className="text-sm text-muted-foreground mt-0.5">Un système contenu + publicité donne son plein rendement en 3 à 6 mois. Le pricing est bâti autour de ça.</p>
-        </div>
-
-        {/* Option A */}
-        <div className="rounded-2xl border border-border/40 bg-card p-5 space-y-3">
-          <div className="flex items-start justify-between gap-3 flex-wrap">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-primary mb-0.5">Option A · STANDARD</p>
-              <h4 className="text-base font-bold text-foreground">Engagement 6 mois</h4>
-              <p className="text-xs text-muted-foreground">Le prix affiché. Facturation mensuelle simple. Renouvellement au choix après 6 mois.</p>
-            </div>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border/40">
-                  <th className="text-left py-2 font-semibold">Forfait</th>
-                  <th className="text-right py-2 font-semibold">Prix mensuel</th>
-                </tr>
-              </thead>
-              <tbody>
-                {PACKAGES_LIST.map((p) => (
-                  <tr key={p.id} className="border-b border-border/20 last:border-0">
-                    <td className="py-2 text-foreground">{p.name}</td>
-                    <td className="py-2 text-right font-semibold text-foreground">{fmt(p.monthly)} $/mois</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Option B */}
-        <div className="rounded-2xl border-2 border-emerald-500/40 bg-emerald-500/[0.04] p-5 space-y-3">
-          <div className="flex items-start justify-between gap-3 flex-wrap">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 mb-0.5">Option B · MEILLEUR DEAL</p>
-              <h4 className="text-base font-bold text-foreground">Installation — 4 mois payés d'avance (−10 %)</h4>
-              <p className="text-xs text-muted-foreground">Un paiement au départ · Ensuite mois à mois au prix régulier (pas +15 %) · Annulation avec préavis 30 jours.</p>
-            </div>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border/40">
-                  <th className="text-left py-2 font-semibold">Forfait</th>
-                  <th className="text-right py-2 font-semibold">Paiement unique</th>
-                  <th className="text-right py-2 font-semibold">Équivalent mensuel</th>
-                  <th className="text-right py-2 font-semibold">Ensuite</th>
-                </tr>
-              </thead>
-              <tbody>
-                {PACKAGES_LIST.map((p) => (
-                  <tr key={p.id} className="border-b border-border/20 last:border-0">
-                    <td className="py-2 text-foreground">{p.name}</td>
-                    <td className="py-2 text-right font-bold text-emerald-400">{fmt(p.installQuarter)} $</td>
-                    <td className="py-2 text-right text-muted-foreground">{fmt(p.installMonthly)} $/mois</td>
-                    <td className="py-2 text-right text-muted-foreground">{fmt(p.monthly)} $/mois</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <p className="text-[10px] text-emerald-400/80 italic border-t border-border/30 pt-2">
-            ⚠ Fenêtre de churn au mois 5 — prévoir bilan de résultats au mois 3 + offre de conversion vers engagement 6 mois.
-          </p>
-        </div>
-
-        {/* Option C */}
-        <div className="rounded-2xl border border-border/40 bg-card p-5 space-y-3">
-          <div className="flex items-start justify-between gap-3 flex-wrap">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-amber-400 mb-0.5">Option C · FLEXIBLE</p>
-              <h4 className="text-base font-bold text-foreground">Mois à mois (+15 %)</h4>
-              <p className="text-xs text-muted-foreground">Aucun engagement long terme. Premier + dernier mois à la signature. Annulation en tout temps, préavis 30 jours.</p>
-            </div>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border/40">
-                  <th className="text-left py-2 font-semibold">Forfait</th>
-                  <th className="text-right py-2 font-semibold">Signature (1er + dernier)</th>
-                  <th className="text-right py-2 font-semibold">Ensuite</th>
-                </tr>
-              </thead>
-              <tbody>
-                {PACKAGES_LIST.map((p) => (
-                  <tr key={p.id} className="border-b border-border/20 last:border-0">
-                    <td className="py-2 text-foreground">{p.name}</td>
-                    <td className="py-2 text-right font-bold text-amber-400">{fmt(p.flexMonthly * 2)} $</td>
-                    <td className="py-2 text-right text-muted-foreground">{fmt(p.flexMonthly)} $/mois</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <p className="text-[10px] text-muted-foreground italic border-t border-border/30 pt-2">
-            Le dernier mois est déjà couvert par le paiement de signature (dépôt) — le client ne le paie pas à nouveau à la fin.
-          </p>
+          <p className="text-sm font-semibold text-foreground">Inclus dans les deux forfaits</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Notre logiciel AI de qualification des leads avec dashboard client en temps réel.</p>
         </div>
       </div>
 
@@ -1229,7 +1161,7 @@ function ForfaitsView({ onBack }: { onBack: () => void }) {
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-wider text-fuchsia-400 mb-1">🎯 Angle de closing</p>
-            <p className="text-xs text-muted-foreground">Ce que tu dis quand tu présentes les 3 options au prospect.</p>
+            <p className="text-xs text-muted-foreground">Comment présenter les 2 forfaits au prospect.</p>
           </div>
           <Button size="sm" variant="outline" onClick={copyScript} className="gap-1.5 flex-shrink-0">
             <Copy className="w-3.5 h-3.5" /> Copier
@@ -1242,9 +1174,9 @@ function ForfaitsView({ onBack }: { onBack: () => void }) {
 
       {/* Internal note */}
       <div className="rounded-xl border border-border/40 bg-muted/20 p-4 text-xs text-muted-foreground space-y-1.5">
-        <p className="font-semibold text-foreground">📌 Rappel interne · pricing décidé</p>
-        <p>Plafond à 4 000 $/mois. Rétention long terme &gt; ticket max. Un client à 3 400-4 000 $ qui reste 2-3 ans vaut plus qu'un client à 6 800 $ qui part à 8 mois.</p>
-        <p>Le vrai KPI : <span className="text-foreground font-medium">revenu par tournage</span>. Système = 5 600 $ par tournage (65 % plus payant que Croissance). Système est le moteur économique de l'agence ; Croissance et Domination sont des upsells de relation.</p>
+        <p className="font-semibold text-foreground">📌 Notes internes</p>
+        <p><span className="text-foreground">Lead Gen</span> — bon pour ticket immédiat élevé (10k signature) + cash-flow prévisible dès le mois 5. Garantie 30 jours = pression sur nous, mais barrière d'engagement pour le client. Vérifier accès client à J1 sinon le compteur ne part pas.</p>
+        <p><span className="text-foreground">Contenu</span> — meilleur pour rétention long terme. Format 20 est le sweet spot (visibilité qui compound). CRM en upsell au mois 3 = ARR add-on facile.</p>
       </div>
     </div>
   );
