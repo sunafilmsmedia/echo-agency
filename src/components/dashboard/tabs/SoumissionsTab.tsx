@@ -107,7 +107,7 @@ function saveSubmissions(list: Submission[]) {
 
 export function SoumissionsTab() {
   const [submissions, setSubmissions] = useState<Submission[]>(() => loadSubmissions());
-  const [view, setView] = useState<"list" | "new" | "detail" | "forfaits">("list");
+  const [view, setView] = useState<"list" | "new" | "detail" | "forfaits" | "calculator">("list");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   useEffect(() => saveSubmissions(submissions), [submissions]);
@@ -131,6 +131,10 @@ export function SoumissionsTab() {
     return <ForfaitsView onBack={() => setView("list")} />;
   }
 
+  if (view === "calculator") {
+    return <CalculatorView onBack={() => setView("list")} />;
+  }
+
   if (view === "new") {
     return <NewSubmissionForm
       onCancel={() => setView("list")}
@@ -151,6 +155,7 @@ export function SoumissionsTab() {
     submissions={submissions}
     onNew={() => setView("new")}
     onForfaits={() => setView("forfaits")}
+    onCalculator={() => setView("calculator")}
     onOpen={(id) => { setSelectedId(id); setView("detail"); }}
     onDelete={remove}
   />;
@@ -158,8 +163,8 @@ export function SoumissionsTab() {
 
 // ─── List view ──────────────────────────────────────────────────────────────
 
-function SubmissionsList({ submissions, onNew, onForfaits, onOpen, onDelete }: {
-  submissions: Submission[]; onNew: () => void; onForfaits: () => void; onOpen: (id: string) => void; onDelete: (id: string) => void;
+function SubmissionsList({ submissions, onNew, onForfaits, onCalculator, onOpen, onDelete }: {
+  submissions: Submission[]; onNew: () => void; onForfaits: () => void; onCalculator: () => void; onOpen: (id: string) => void; onDelete: (id: string) => void;
 }) {
   return (
     <div className="p-8 space-y-6 max-w-5xl mx-auto">
@@ -170,9 +175,12 @@ function SubmissionsList({ submissions, onNew, onForfaits, onOpen, onDelete }: {
           </h2>
           <p className="text-sm text-muted-foreground mt-0.5">Génère des propositions commerciales avec Gamma AI</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button onClick={onForfaits} variant="outline" className="gap-2">
             <FileText className="w-4 h-4" /> Nos forfaits
+          </Button>
+          <Button onClick={onCalculator} variant="outline" className="gap-2">
+            <Wand2 className="w-4 h-4" /> Calculateur
           </Button>
           <Button onClick={onNew} className="gap-2 shadow-glow">
             <Plus className="w-4 h-4" /> Nouvelle soumission
@@ -1177,6 +1185,385 @@ function ForfaitsView({ onBack }: { onBack: () => void }) {
         <p className="font-semibold text-foreground">📌 Notes internes</p>
         <p><span className="text-foreground">Lead Gen</span> — bon pour ticket immédiat élevé (10k signature) + cash-flow prévisible dès le mois 5. Garantie 30 jours = pression sur nous, mais barrière d'engagement pour le client. Vérifier accès client à J1 sinon le compteur ne part pas.</p>
         <p><span className="text-foreground">Contenu</span> — meilleur pour rétention long terme. Format 20 est le sweet spot (visibilité qui compound). CRM en upsell au mois 3 = ARR add-on facile.</p>
+      </div>
+    </div>
+  );
+}
+
+
+// ─── Calculateur de prix — forfait + extras ─────────────────────────────────
+// Installation = fixe. Le mensuel s'ajuste selon les extras cochés.
+// Les prix des extras sont éditables inline (aucune source de vérité codée en dur).
+
+interface BasePackage {
+  id: "leadgen" | "contenu16" | "contenu20";
+  name: string;
+  installation: number;       // 0 pour les packages sans install
+  installationLabel?: string; // ex: "10 000 $ une fois" or "1 500 $ démarrage"
+  monthly: number;            // Prix mensuel de base après installation
+  installIncludesFirstMonths?: number; // Lead Gen: install couvre les 4 premiers mois
+  engagement: string;         // "12 mois", "6 mois"
+}
+
+const BASE_PACKAGES: BasePackage[] = [
+  {
+    id: "leadgen",
+    name: "Lead Gen",
+    installation: 10000,
+    installationLabel: "10 000 $ (inclut les 4 premiers mois)",
+    monthly: 2500,
+    installIncludesFirstMonths: 4,
+    engagement: "12 mois",
+  },
+  {
+    id: "contenu16",
+    name: "Contenu — Format 16 (8 vidéos/mois)",
+    installation: 1500,
+    installationLabel: "1 500 $ démarrage (offert si 4 mois payés d'avance)",
+    monthly: 3200,
+    engagement: "6 mois",
+  },
+  {
+    id: "contenu20",
+    name: "Contenu — Format 20 (10 vidéos/mois) ★",
+    installation: 1500,
+    installationLabel: "1 500 $ démarrage (offert si 4 mois payés d'avance)",
+    monthly: 3500,
+    engagement: "6 mois",
+  },
+];
+
+interface ExtraDef {
+  id: string;
+  label: string;
+  defaultMonthly: number;
+  defaultOneTime: number;
+}
+const DEFAULT_EXTRAS: ExtraDef[] = [
+  { id: "botai",       label: "Bot AI conversationnel", defaultMonthly: 500, defaultOneTime: 1500 },
+  { id: "crm",         label: "CRM personnalisé",       defaultMonthly: 500, defaultOneTime: 1500 },
+  { id: "landing",     label: "Landing page",           defaultMonthly: 200, defaultOneTime: 1000 },
+  { id: "contenuOrg",  label: "Contenu organique",      defaultMonthly: 800, defaultOneTime: 0 },
+  { id: "gestionPage", label: "Gestion de page",        defaultMonthly: 400, defaultOneTime: 0 },
+  { id: "marquePerso", label: "Marque personnelle",     defaultMonthly: 600, defaultOneTime: 0 },
+];
+
+interface ExtraLine {
+  id: string;
+  label: string;
+  monthly: number;
+  oneTime: number;
+  enabled: boolean;
+}
+
+function CalculatorView({ onBack }: { onBack: () => void }) {
+  const [packageId, setPackageId] = useState<BasePackage["id"]>("leadgen");
+  const [waiveStartup, setWaiveStartup] = useState(false); // Contenu: 4 mois payés d'avance → démarrage offert
+  const [prepaidMonths, setPrepaidMonths] = useState<string>("");   // Lead Gen: ignoré (couvert par install)
+  const [extras, setExtras] = useState<ExtraLine[]>(
+    DEFAULT_EXTRAS.map((e) => ({ id: e.id, label: e.label, monthly: e.defaultMonthly, oneTime: e.defaultOneTime, enabled: false })),
+  );
+  const [customLabel,   setCustomLabel]   = useState("");
+  const [customMonthly, setCustomMonthly] = useState("");
+  const [customOneTime, setCustomOneTime] = useState("");
+
+  const pkg = BASE_PACKAGES.find((p) => p.id === packageId)!;
+  const isLeadGen  = pkg.id === "leadgen";
+  const isContenu  = pkg.id.startsWith("contenu");
+
+  const fmt = (n: number) => n.toLocaleString("fr-CA");
+
+  // Installation effective : Lead Gen = fixe. Contenu = 1500 sauf si waived.
+  const effectiveInstall = isContenu && waiveStartup ? 0 : pkg.installation;
+
+  // Mensuel de base — Lead Gen à partir du mois 5, Contenu dès le mois 1
+  const baseMonthly = pkg.monthly;
+
+  // Extras enabled
+  const activeExtras = extras.filter((e) => e.enabled);
+  const extrasMonthly = activeExtras.reduce((s, e) => s + (Number(e.monthly) || 0), 0);
+  const extrasOneTime = activeExtras.reduce((s, e) => s + (Number(e.oneTime) || 0), 0);
+
+  const totalMonthly = baseMonthly + extrasMonthly;
+  const totalOneTime = effectiveInstall + extrasOneTime;
+
+  // Pour le contrat total : sur la durée d'engagement (12 mois Lead Gen, 6 mois Contenu)
+  const engagementMonths = isLeadGen ? 12 : 6;
+  const monthsChargedRecurring = isLeadGen
+    ? engagementMonths - (pkg.installIncludesFirstMonths ?? 0)  // Lead Gen : install couvre M1-M4
+    : engagementMonths;
+  const contractTotal = totalOneTime + (totalMonthly * monthsChargedRecurring);
+
+  const toggleExtra = (id: string) =>
+    setExtras((prev) => prev.map((e) => (e.id === id ? { ...e, enabled: !e.enabled } : e)));
+
+  const updateExtra = (id: string, field: "monthly" | "oneTime", value: string) => {
+    const n = parseFloat(value.replace(/\s/g, "")) || 0;
+    setExtras((prev) => prev.map((e) => (e.id === id ? { ...e, [field]: n } : e)));
+  };
+
+  const addCustom = () => {
+    if (!customLabel.trim()) return;
+    const m = parseFloat(customMonthly.replace(/\s/g, "")) || 0;
+    const o = parseFloat(customOneTime.replace(/\s/g, "")) || 0;
+    setExtras((prev) => [
+      ...prev,
+      { id: `custom-${Date.now()}`, label: customLabel.trim(), monthly: m, oneTime: o, enabled: true },
+    ]);
+    setCustomLabel(""); setCustomMonthly(""); setCustomOneTime("");
+  };
+
+  const removeExtra = (id: string) => {
+    // On ne peut supprimer que les customs; les extras par défaut sont juste désactivés
+    if (DEFAULT_EXTRAS.some((d) => d.id === id)) return;
+    setExtras((prev) => prev.filter((e) => e.id !== id));
+  };
+
+  const resetAll = () => {
+    setExtras(DEFAULT_EXTRAS.map((e) => ({ id: e.id, label: e.label, monthly: e.defaultMonthly, oneTime: e.defaultOneTime, enabled: false })));
+    setWaiveStartup(false);
+    setPrepaidMonths("");
+    toast.success("Calculateur réinitialisé");
+  };
+
+  const copyBreakdown = async () => {
+    const lines: string[] = [
+      `SOUMISSION — ${pkg.name}`,
+      `Engagement : ${pkg.engagement}`,
+      ``,
+    ];
+    if (effectiveInstall > 0) {
+      lines.push(`Installation : ${fmt(effectiveInstall)} $`);
+    }
+    if (isContenu && waiveStartup) {
+      lines.push(`Démarrage : offert (4 mois payés d'avance)`);
+    }
+    lines.push(`Mensuel de base : ${fmt(baseMonthly)} $`);
+    if (isLeadGen) lines.push(`  (à partir du mois 5 — l'installation couvre les 4 premiers mois)`);
+    if (activeExtras.length > 0) {
+      lines.push(``, `Extras :`);
+      activeExtras.forEach((e) => {
+        const parts: string[] = [];
+        if (e.monthly > 0) parts.push(`${fmt(e.monthly)} $/mois`);
+        if (e.oneTime > 0) parts.push(`${fmt(e.oneTime)} $ setup`);
+        lines.push(`  • ${e.label} — ${parts.join(" + ")}`);
+      });
+    }
+    lines.push(``, `TOTAL MENSUEL : ${fmt(totalMonthly)} $`);
+    if (totalOneTime > 0) lines.push(`TOTAL SETUP  : ${fmt(totalOneTime)} $`);
+    lines.push(``, `Contrat total (${engagementMonths} mois) : ${fmt(contractTotal)} $`);
+    await navigator.clipboard.writeText(lines.join("\n"));
+    toast.success("Détail copié");
+  };
+
+  return (
+    <div className="p-8 space-y-6 max-w-6xl mx-auto">
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          <button onClick={onBack} className="p-1.5 rounded-lg border border-border/50 hover:bg-accent transition-colors">
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+          <div>
+            <h2 className="text-xl font-semibold text-foreground flex items-center gap-2">
+              <Wand2 className="w-5 h-5 text-primary" /> Calculateur de prix
+            </h2>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Installation fixe · le mensuel s'ajuste selon les extras cochés
+            </p>
+          </div>
+        </div>
+        <Button onClick={resetAll} variant="ghost" size="sm" className="text-xs text-muted-foreground gap-1.5">
+          <Trash2 className="w-3.5 h-3.5" /> Réinitialiser
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6 items-start">
+        {/* ─── LEFT : configuration ─── */}
+        <div className="space-y-6">
+          {/* Package picker */}
+          <div className="rounded-2xl border border-border/40 bg-card p-5 space-y-3">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">1 · Choisis le forfait</p>
+            <div className="space-y-2">
+              {BASE_PACKAGES.map((p) => (
+                <button key={p.id} type="button" onClick={() => setPackageId(p.id)}
+                  className={`w-full text-left rounded-xl border p-3 flex items-center justify-between gap-3 transition ${
+                    packageId === p.id
+                      ? "border-primary bg-primary/5"
+                      : "border-border/40 hover:border-primary/40"
+                  }`}>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">{p.name}</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      {p.installationLabel && <>Installation : {p.installationLabel} · </>}
+                      Mensuel : {fmt(p.monthly)} $ · Engagement {p.engagement}
+                    </p>
+                  </div>
+                  <span className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${
+                    packageId === p.id ? "border-primary bg-primary" : "border-border"
+                  }`} />
+                </button>
+              ))}
+            </div>
+
+            {/* Contenu-specific: waive startup */}
+            {isContenu && (
+              <label className="flex items-start gap-2 pt-2 border-t border-border/30 cursor-pointer">
+                <input type="checkbox" checked={waiveStartup}
+                  onChange={(e) => setWaiveStartup(e.target.checked)}
+                  className="mt-1 flex-shrink-0" />
+                <div>
+                  <p className="text-xs font-medium text-foreground">4 mois payés d'avance → démarrage 1 500 $ offert</p>
+                  <p className="text-[10px] text-muted-foreground">Retire les 1 500 $ du total installation.</p>
+                </div>
+              </label>
+            )}
+            {isContenu && waiveStartup && (
+              <div className="space-y-1">
+                <Label className="text-[10px]">Nombre de mois payés d'avance (optionnel)</Label>
+                <Input type="number" value={prepaidMonths} onChange={(e) => setPrepaidMonths(e.target.value)}
+                  placeholder="4" className="h-8 text-xs w-24" />
+              </div>
+            )}
+          </div>
+
+          {/* Extras */}
+          <div className="rounded-2xl border border-border/40 bg-card p-5 space-y-3">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">2 · Ajoute des extras</p>
+            <p className="text-[11px] text-muted-foreground">
+              Coche ceux qui s'appliquent. Les prix sont éditables — ajuste selon la négociation.
+            </p>
+
+            <div className="space-y-2">
+              {extras.map((e) => (
+                <div key={e.id}
+                  className={`flex items-center gap-3 p-3 rounded-lg border transition ${
+                    e.enabled ? "border-primary/40 bg-primary/5" : "border-border/40 bg-transparent"
+                  }`}>
+                  <input type="checkbox" checked={e.enabled} onChange={() => toggleExtra(e.id)}
+                    className="flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">{e.label}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1">
+                      <Input type="number" value={e.monthly || ""}
+                        onChange={(ev) => updateExtra(e.id, "monthly", ev.target.value)}
+                        disabled={!e.enabled}
+                        placeholder="0"
+                        className="h-8 w-20 text-xs text-right" />
+                      <span className="text-[10px] text-muted-foreground">$/mois</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Input type="number" value={e.oneTime || ""}
+                        onChange={(ev) => updateExtra(e.id, "oneTime", ev.target.value)}
+                        disabled={!e.enabled}
+                        placeholder="0"
+                        className="h-8 w-20 text-xs text-right" />
+                      <span className="text-[10px] text-muted-foreground">$ setup</span>
+                    </div>
+                    {!DEFAULT_EXTRAS.some((d) => d.id === e.id) && (
+                      <button type="button" onClick={() => removeExtra(e.id)}
+                        className="text-muted-foreground/60 hover:text-destructive transition-colors">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Custom extra */}
+            <div className="pt-3 border-t border-border/30 space-y-2">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Extra sur mesure</p>
+              <div className="flex flex-wrap gap-2 items-end">
+                <div className="flex-1 min-w-[180px] space-y-1">
+                  <Label className="text-[10px]">Libellé</Label>
+                  <Input value={customLabel} onChange={(e) => setCustomLabel(e.target.value)}
+                    placeholder="Ex: Refonte site vitrine" className="h-8 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px]">$/mois</Label>
+                  <Input type="number" value={customMonthly} onChange={(e) => setCustomMonthly(e.target.value)}
+                    placeholder="0" className="h-8 w-24 text-xs text-right" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px]">$ setup</Label>
+                  <Input type="number" value={customOneTime} onChange={(e) => setCustomOneTime(e.target.value)}
+                    placeholder="0" className="h-8 w-24 text-xs text-right" />
+                </div>
+                <Button onClick={addCustom} disabled={!customLabel.trim()} size="sm" className="h-8 gap-1.5">
+                  <Plus className="w-3.5 h-3.5" /> Ajouter
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ─── RIGHT : sticky total ─── */}
+        <div className="lg:sticky lg:top-6 space-y-4">
+          <div className="rounded-2xl border-2 border-primary/40 bg-primary/[0.04] p-6 space-y-4 shadow-glow">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-primary mb-1">Total</p>
+              <p className="text-4xl font-bold text-primary tracking-tight">{fmt(totalMonthly)} $<span className="text-sm text-muted-foreground font-normal">/mois</span></p>
+              {isLeadGen && (
+                <p className="text-[10px] text-muted-foreground mt-1">à partir du mois 5</p>
+              )}
+              {extrasMonthly > 0 && (
+                <p className="text-[11px] text-emerald-400 mt-1">
+                  + {fmt(extrasMonthly)} $ d'extras vs base {fmt(baseMonthly)} $
+                </p>
+              )}
+            </div>
+
+            {totalOneTime > 0 && (
+              <div className="pt-3 border-t border-border/30">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Total setup / installation</p>
+                <p className="text-2xl font-bold text-foreground">{fmt(totalOneTime)} $</p>
+                <p className="text-[10px] text-muted-foreground mt-1">Fixe · ne change pas avec les extras récurrents</p>
+              </div>
+            )}
+
+            <div className="pt-3 border-t border-border/30 space-y-1 text-xs">
+              <div className="flex justify-between text-muted-foreground">
+                <span>Base mensuelle</span>
+                <span>{fmt(baseMonthly)} $</span>
+              </div>
+              {extrasMonthly > 0 && (
+                <div className="flex justify-between text-emerald-400">
+                  <span>+ Extras récurrents</span>
+                  <span>{fmt(extrasMonthly)} $</span>
+                </div>
+              )}
+              {effectiveInstall > 0 && (
+                <div className="flex justify-between text-muted-foreground pt-1">
+                  <span>Installation</span>
+                  <span>{fmt(effectiveInstall)} $</span>
+                </div>
+              )}
+              {extrasOneTime > 0 && (
+                <div className="flex justify-between text-muted-foreground">
+                  <span>+ Setup extras</span>
+                  <span>{fmt(extrasOneTime)} $</span>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-3 border-t border-border/30">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Contrat total ({engagementMonths} mois)</p>
+              <p className="text-xl font-bold text-foreground">{fmt(contractTotal)} $</p>
+              {isLeadGen && (
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  {fmt(effectiveInstall + extrasOneTime)} $ installation + ({monthsChargedRecurring} mois × {fmt(totalMonthly)} $)
+                </p>
+              )}
+            </div>
+          </div>
+
+          <Button onClick={copyBreakdown} className="w-full gap-2 shadow-glow">
+            <Copy className="w-4 h-4" /> Copier le détail
+          </Button>
+        </div>
       </div>
     </div>
   );
