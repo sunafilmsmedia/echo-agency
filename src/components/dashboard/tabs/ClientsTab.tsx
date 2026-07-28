@@ -29,16 +29,37 @@ const INDUSTRY_PRESETS = [
   "Courtier hypothécaire",
 ];
 
-const SERVICE_OPTIONS: { id: string; label: string; emoji: string }[] = [
-  { id: "videos",     label: "Vidéos",           emoji: "🎥" },
-  { id: "ai",         label: "Formulaire IA",    emoji: "🤖" },
-  { id: "ads",        label: "Publicités (Ads)", emoji: "📣" },
-  { id: "crm",        label: "CRM",              emoji: "🗂️" },
-  { id: "setter",     label: "Setter",           emoji: "📞" },
-  { id: "social",     label: "Social media",     emoji: "📱" },
-  { id: "web",        label: "Site web",         emoji: "🌐" },
-  { id: "seo",        label: "SEO",              emoji: "🔍" },
+// Aligned with Suna's 2 forfaits (Lead Gen + Contenu).
+// Group 1 = ce qui identifie le forfait principal du client.
+// Group 2 = les livrables inclus / choisis.
+// Group 3 = extras (upsells).
+// IDs "setter" et "seo" sont volontairement omis de la nouvelle offre — les
+// anciens clients qui les portent verront juste un chip vide (pas de crash).
+const SERVICE_OPTIONS: { id: string; label: string; emoji: string; group: "forfait" | "core" | "extra" }[] = [
+  // ─ Forfaits ─
+  { id: "leadgen",          label: "Lead Gen (installation + gestion)",  emoji: "🚀", group: "forfait" },
+  { id: "contenu16",        label: "Contenu · Format 16 (8 vidéos/mois)", emoji: "🎬", group: "forfait" },
+  { id: "contenu20",        label: "Contenu · Format 20 (10 vidéos/mois)", emoji: "🎬", group: "forfait" },
+
+  // ─ Livrables cœur (inclus dans un forfait) ─
+  { id: "videos",           label: "Vidéos (tournage + montage)",       emoji: "🎥", group: "core" },
+  { id: "ads",              label: "Meta Ads (vidéo + statique)",       emoji: "📣", group: "core" },
+  { id: "ai",               label: "Formulaire IA de qualification",    emoji: "🤖", group: "core" },
+  { id: "crm",              label: "CRM personnalisé + automatisations", emoji: "📇", group: "core" },
+  { id: "web",              label: "Landing page (+ tracking Pixel/CAPI)", emoji: "🌐", group: "core" },
+  { id: "brand_direction",  label: "Direction de marque + coaching caméra", emoji: "🎨", group: "core" },
+
+  // ─ Extras (upsells) ─
+  { id: "bot_ai",           label: "Bot AI conversationnel",            emoji: "💬", group: "extra" },
+  { id: "social",           label: "Contenu organique / gestion page",  emoji: "📱", group: "extra" },
+  { id: "personal_brand",   label: "Marque personnelle",                emoji: "🎯", group: "extra" },
 ];
+
+const SERVICE_GROUP_LABELS: Record<"forfait" | "core" | "extra", string> = {
+  forfait: "Forfait principal",
+  core:    "Livrables inclus",
+  extra:   "Extras / upsells",
+};
 
 // Reusable pickers so add & edit dialogs share the same UI
 function IndustryPicker({
@@ -84,23 +105,37 @@ function ServicesPicker({
   const toggle = (id: string) => {
     onChange(value.includes(id) ? value.filter((s) => s !== id) : [...value, id]);
   };
+  const groups: ("forfait" | "core" | "extra")[] = ["forfait", "core", "extra"];
   return (
-    <div className="flex flex-wrap gap-1.5">
-      {SERVICE_OPTIONS.map((opt) => {
-        const active = value.includes(opt.id);
+    <div className="space-y-2.5">
+      {groups.map((g) => {
+        const opts = SERVICE_OPTIONS.filter((o) => o.group === g);
+        if (opts.length === 0) return null;
         return (
-          <button
-            key={opt.id}
-            type="button"
-            onClick={() => toggle(opt.id)}
-            className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${
-              active
-                ? "bg-primary text-primary-foreground border-primary"
-                : "bg-muted/30 text-muted-foreground border-border hover:border-primary/50"
-            }`}
-          >
-            {opt.emoji} {opt.label}
-          </button>
+          <div key={g}>
+            <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5">
+              {SERVICE_GROUP_LABELS[g]}
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {opts.map((opt) => {
+                const active = value.includes(opt.id);
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => toggle(opt.id)}
+                    className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${
+                      active
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-muted/30 text-muted-foreground border-border hover:border-primary/50"
+                    }`}
+                  >
+                    {opt.emoji} {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         );
       })}
     </div>
