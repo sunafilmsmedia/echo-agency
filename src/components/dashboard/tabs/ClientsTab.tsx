@@ -40,6 +40,7 @@ const SERVICE_OPTIONS: { id: string; label: string; emoji: string; group: "forfa
   { id: "leadgen",          label: "Lead Gen (installation + gestion)",  emoji: "🚀", group: "forfait" },
   { id: "contenu16",        label: "Contenu · Format 16 (8 vidéos/mois)", emoji: "🎬", group: "forfait" },
   { id: "contenu20",        label: "Contenu · Format 20 (10 vidéos/mois)", emoji: "🎬", group: "forfait" },
+  { id: "botai_forfait",    label: "Bot AI (forfait autonome)",           emoji: "💬", group: "forfait" },
 
   // ─ Livrables cœur (inclus dans un forfait) ─
   { id: "videos",           label: "Vidéos (tournage + montage)",       emoji: "🎥", group: "core" },
