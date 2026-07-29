@@ -785,7 +785,7 @@ function AdsKpiDetail({ employee, onBack }: { employee: Employee; onBack: () => 
   );
 }
 
-// ── Corrections KPI detail (Élodie: erreurs de montage/semaine → bonus) ─────
+// ── Corrections KPI detail (Élodie: erreurs de montage / MOIS → bonus) ──────
 
 const CORRECTION_CATEGORIES: { id: string; label: string }[] = [
   { id: "orthographe",   label: "Orthographe / grammaire" },
@@ -795,137 +795,115 @@ const CORRECTION_CATEGORIES: { id: string; label: string }[] = [
   { id: "titre",         label: "Titre erroné" },
 ];
 
-interface CorrectionWeek {
+interface CorrectionMonth {
   total: number;
   categories: Record<string, number>; // Optional per-category counts
   notes?: string;
 }
 
-// Storage key: single JSON object per employee.
-// { "2026-W28": { total, categories, notes }, ... }
-function loadCorrections(employeeId: string): Record<string, CorrectionWeek> {
+// Storage: { "2026-07": { total, categories, notes }, ... } — one key per employee.
+function loadCorrections(employeeId: string): Record<string, CorrectionMonth> {
   try {
     const raw = localStorage.getItem(`corr_${employeeId}`);
     return raw ? JSON.parse(raw) : {};
   } catch { return {}; }
 }
-function saveCorrections(employeeId: string, data: Record<string, CorrectionWeek>) {
+function saveCorrections(employeeId: string, data: Record<string, CorrectionMonth>) {
   localStorage.setItem(`corr_${employeeId}`, JSON.stringify(data));
 }
 
-// ISO week helpers — Monday-start weeks. `weekKey(d)` returns "YYYY-WNN".
-function getIsoWeek(date: Date): { year: number; week: number } {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  const dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  const week = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-  return { year: d.getUTCFullYear(), week };
+// Month helpers — keys like "2026-07".
+function monthKey(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
-function weekKey(date: Date): string {
-  const { year, week } = getIsoWeek(date);
-  return `${year}-W${String(week).padStart(2, "0")}`;
+function parseMonthKey(key: string): { year: number; month: number } {
+  const [y, m] = key.split("-");
+  return { year: parseInt(y, 10), month: parseInt(m, 10) };
 }
-function weekMonday(year: number, week: number): Date {
-  const jan4 = new Date(Date.UTC(year, 0, 4));
-  const jan4Day = jan4.getUTCDay() || 7;
-  const mondayOfWeek1 = new Date(jan4);
-  mondayOfWeek1.setUTCDate(jan4.getUTCDate() - (jan4Day - 1));
-  const result = new Date(mondayOfWeek1);
-  result.setUTCDate(mondayOfWeek1.getUTCDate() + (week - 1) * 7);
-  return result;
+function formatMonthLabel(key: string): string {
+  const { year, month } = parseMonthKey(key);
+  return new Date(year, month - 1, 1).toLocaleDateString("fr-CA", { month: "long", year: "numeric" });
 }
-function parseWeekKey(key: string): { year: number; week: number } {
-  const [y, w] = key.split("-W");
-  return { year: parseInt(y, 10), week: parseInt(w, 10) };
+function shiftMonth(key: string, delta: number): string {
+  const { year, month } = parseMonthKey(key);
+  const d = new Date(year, month - 1 + delta, 1);
+  return monthKey(d);
 }
-function formatWeekRange(key: string): string {
-  const { year, week } = parseWeekKey(key);
-  const mon = weekMonday(year, week);
-  const sun = new Date(mon); sun.setUTCDate(mon.getUTCDate() + 6);
-  const fmt = (d: Date) => d.toLocaleDateString("fr-CA", { day: "numeric", month: "short", timeZone: "UTC" });
-  return `${fmt(mon)} — ${fmt(sun)}`;
-}
-function shiftWeek(key: string, delta: number): string {
-  const { year, week } = parseWeekKey(key);
-  const mon = weekMonday(year, week);
-  mon.setUTCDate(mon.getUTCDate() + delta * 7);
-  return weekKey(mon);
-}
-function lastNWeekKeys(n: number, from: string): string[] {
+function lastNMonthKeys(n: number, from: string): string[] {
   const keys: string[] = [];
-  for (let i = n - 1; i >= 0; i--) keys.push(shiftWeek(from, -i));
+  for (let i = n - 1; i >= 0; i--) keys.push(shiftMonth(from, -i));
   return keys;
 }
 
-// Bonus tiers per user's brief.
+// Bonus tiers — monthly thresholds (roughly 4x the weekly ones from the brief).
+// Bonus amounts kept the same ($150 / $100 / $50 / $0) since they were monthly-feeling
+// figures in the original scorecard.
 function calcCorrectionsBonus(total: number): number {
-  if (total <= 3) return 150;
-  if (total <= 5) return 100;
-  if (total <= 7) return 50;
+  if (total <= 12) return 150;
+  if (total <= 20) return 100;
+  if (total <= 30) return 50;
   return 0;
 }
 function tierLabel(total: number): { label: string; color: string } {
-  if (total <= 3) return { label: "Excellence",  color: "text-emerald-400" };
-  if (total <= 5) return { label: "Très bien",   color: "text-primary" };
-  if (total <= 7) return { label: "Bien",        color: "text-amber-400" };
+  if (total <= 12) return { label: "Excellence",  color: "text-emerald-400" };
+  if (total <= 20) return { label: "Très bien",   color: "text-primary" };
+  if (total <= 30) return { label: "Bien",        color: "text-amber-400" };
   return { label: "À améliorer", color: "text-destructive" };
 }
 
 function CorrectionsKpiDetail({ employee, onBack }: { employee: Employee; onBack: () => void }) {
-  const [data, setData]     = useState<Record<string, CorrectionWeek>>(() => loadCorrections(employee.id));
-  const [currentKey, setCurrentKey] = useState<string>(() => weekKey(new Date()));
+  const [data, setData]     = useState<Record<string, CorrectionMonth>>(() => loadCorrections(employee.id));
+  const [currentKey, setCurrentKey] = useState<string>(() => monthKey(new Date()));
   const [showBreakdown, setShowBreakdown] = useState(false);
 
-  const week   = data[currentKey] ?? { total: 0, categories: {}, notes: "" };
-  const bonus  = calcCorrectionsBonus(week.total);
-  const tier   = tierLabel(week.total);
+  const month  = data[currentKey] ?? { total: 0, categories: {}, notes: "" };
+  const bonus  = calcCorrectionsBonus(month.total);
+  const tier   = tierLabel(month.total);
 
-  const persist = (next: Record<string, CorrectionWeek>) => {
+  const persist = (next: Record<string, CorrectionMonth>) => {
     setData(next);
     saveCorrections(employee.id, next);
   };
 
-  const setWeek = (patch: Partial<CorrectionWeek>) => {
-    const next = { ...data, [currentKey]: { ...(week ?? { total: 0, categories: {} }), ...patch } };
+  const setMonth = (patch: Partial<CorrectionMonth>) => {
+    const next = { ...data, [currentKey]: { ...(month ?? { total: 0, categories: {} }), ...patch } };
     persist(next);
   };
 
   const setTotal = (raw: string) => {
     const n = raw === "" ? 0 : Math.max(0, parseInt(raw, 10) || 0);
-    setWeek({ total: n });
+    setMonth({ total: n });
   };
 
   const setCategory = (catId: string, raw: string) => {
     const n = raw === "" ? 0 : Math.max(0, parseInt(raw, 10) || 0);
-    const nextCats = { ...(week.categories || {}), [catId]: n };
-    // If user is tracking by category, keep the total as the sum of categories.
+    const nextCats = { ...(month.categories || {}), [catId]: n };
+    // If user tracks by category, total = sum of categories.
     const sum = Object.values(nextCats).reduce((s, v) => s + (v || 0), 0);
-    setWeek({ categories: nextCats, total: sum });
+    setMonth({ categories: nextCats, total: sum });
   };
 
-  // ─── Rolling stats (last 12 weeks including current) ───
-  const last12Keys = lastNWeekKeys(12, currentKey);
-  const last12 = last12Keys.map((k) => ({ key: k, week: data[k] ?? { total: 0, categories: {} } }));
-  const filledWeeks = last12.filter((w) => data[w.key] !== undefined);
-  const totalTracked = filledWeeks.reduce((s, w) => s + (w.week.total || 0), 0);
-  const avg          = filledWeeks.length > 0 ? +(totalTracked / filledWeeks.length).toFixed(1) : 0;
-  const rolling4     = (() => {
-    const last4 = lastNWeekKeys(4, currentKey).map((k) => data[k]).filter(Boolean);
-    if (last4.length === 0) return 0;
-    return +(last4.reduce((s, w) => s + w.total, 0) / last4.length).toFixed(1);
+  // ─── Rolling stats (last 12 months including current) ───
+  const last12Keys = lastNMonthKeys(12, currentKey);
+  const last12 = last12Keys.map((k) => ({ key: k, month: data[k] ?? { total: 0, categories: {} } }));
+  const filledMonths = last12.filter((w) => data[w.key] !== undefined);
+  const totalTracked = filledMonths.reduce((s, w) => s + (w.month.total || 0), 0);
+  const avg          = filledMonths.length > 0 ? +(totalTracked / filledMonths.length).toFixed(1) : 0;
+  const rolling3     = (() => {
+    const last3 = lastNMonthKeys(3, currentKey).map((k) => data[k]).filter(Boolean);
+    if (last3.length === 0) return 0;
+    return +(last3.reduce((s, w) => s + w.total, 0) / last3.length).toFixed(1);
   })();
 
   const totalsByCategory = CORRECTION_CATEGORIES.map((c) => ({
     ...c,
-    total: filledWeeks.reduce((s, w) => s + (w.week.categories?.[c.id] || 0), 0),
+    total: filledMonths.reduce((s, w) => s + (w.month.categories?.[c.id] || 0), 0),
   }));
 
-  // Best / worst week (only across weeks with data)
-  const best  = filledWeeks.length > 0 ? filledWeeks.reduce((a, b) => (a.week.total <= b.week.total ? a : b)) : null;
-  const worst = filledWeeks.length > 0 ? filledWeeks.reduce((a, b) => (a.week.total >= b.week.total ? a : b)) : null;
+  const best  = filledMonths.length > 0 ? filledMonths.reduce((a, b) => (a.month.total <= b.month.total ? a : b)) : null;
+  const worst = filledMonths.length > 0 ? filledMonths.reduce((a, b) => (a.month.total >= b.month.total ? a : b)) : null;
 
-  const maxBarValue = Math.max(1, ...last12.map((w) => w.week.total || 0));
+  const maxBarValue = Math.max(1, ...last12.map((w) => w.month.total || 0));
 
   return (
     <div className="p-6 space-y-5 max-w-6xl mx-auto">
@@ -939,31 +917,31 @@ function CorrectionsKpiDetail({ employee, onBack }: { employee: Employee; onBack
             <h2 className="text-xl font-semibold text-foreground flex items-center gap-2">
               <Trophy className="w-5 h-5 text-amber-400" /> Corrections — {employee.name}
             </h2>
-            <p className="text-sm text-muted-foreground mt-0.5">Bonus hebdomadaire selon le nombre d'erreurs corrigées · échelle progressive</p>
+            <p className="text-sm text-muted-foreground mt-0.5">Bonus mensuel selon le nombre d'erreurs corrigées · échelle progressive</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => setCurrentKey(shiftWeek(currentKey, -1))} className="p-1.5 rounded-lg border border-border/50 hover:bg-accent transition-colors">
+          <button onClick={() => setCurrentKey(shiftMonth(currentKey, -1))} className="p-1.5 rounded-lg border border-border/50 hover:bg-accent transition-colors">
             <ChevronLeft className="w-4 h-4" />
           </button>
           <div className="text-center w-56">
-            <p className="text-sm font-bold text-foreground">{currentKey}</p>
-            <p className="text-[11px] text-muted-foreground">{formatWeekRange(currentKey)}</p>
+            <p className="text-sm font-bold text-foreground capitalize">{formatMonthLabel(currentKey)}</p>
+            <p className="text-[11px] text-muted-foreground">{currentKey}</p>
           </div>
-          <button onClick={() => setCurrentKey(shiftWeek(currentKey, 1))} className="p-1.5 rounded-lg border border-border/50 hover:bg-accent transition-colors">
+          <button onClick={() => setCurrentKey(shiftMonth(currentKey, 1))} className="p-1.5 rounded-lg border border-border/50 hover:bg-accent transition-colors">
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>
       </div>
 
-      {/* Current week card */}
+      {/* Current month card */}
       <div className={`rounded-2xl border-2 p-6 space-y-4 ${bonus > 0 ? "border-primary/40 bg-primary/[0.04]" : "border-border/40 bg-card"}`}>
         <div className="grid grid-cols-1 md:grid-cols-[1fr_260px] gap-6 items-start">
           <div className="space-y-4">
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Corrections cette semaine</p>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Corrections ce mois</p>
               <div className="flex items-baseline gap-3 mt-1">
-                <Input type="number" min="0" value={week.total || ""}
+                <Input type="number" min="0" value={month.total || ""}
                   onChange={(e) => setTotal(e.target.value)}
                   className="h-12 text-2xl font-bold w-24 text-center"
                   placeholder="0" />
@@ -982,7 +960,7 @@ function CorrectionsKpiDetail({ employee, onBack }: { employee: Employee; onBack
                     <div key={c.id} className="flex items-center gap-2">
                       <label className="text-xs text-muted-foreground flex-1">{c.label}</label>
                       <Input type="number" min="0"
-                        value={week.categories?.[c.id] || ""}
+                        value={month.categories?.[c.id] || ""}
                         onChange={(e) => setCategory(c.id, e.target.value)}
                         className="h-7 w-16 text-xs text-right" placeholder="0" />
                     </div>
@@ -996,8 +974,8 @@ function CorrectionsKpiDetail({ employee, onBack }: { employee: Employee; onBack
 
             <div>
               <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Notes</label>
-              <Input value={week.notes || ""} onChange={(e) => setWeek({ notes: e.target.value })}
-                placeholder="Ex: semaine avec 2 clients + tournage supplémentaire"
+              <Input value={month.notes || ""} onChange={(e) => setMonth({ notes: e.target.value })}
+                placeholder="Ex: mois avec 2 nouveaux clients + tournage supplémentaire"
                 className="h-8 text-xs mt-1" />
             </div>
           </div>
@@ -1009,7 +987,7 @@ function CorrectionsKpiDetail({ employee, onBack }: { employee: Employee; onBack
               {bonus > 0 ? `${bonus} $` : "0 $"}
             </p>
             <p className="text-[10px] text-muted-foreground mt-1">
-              {week.total} correction{week.total > 1 ? "s" : ""} · palier « {tier.label} »
+              {month.total} correction{month.total > 1 ? "s" : ""} · palier « {tier.label} »
             </p>
           </div>
         </div>
@@ -1017,49 +995,49 @@ function CorrectionsKpiDetail({ employee, onBack }: { employee: Employee; onBack
 
       {/* Rolling stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatTile label="Moyenne 12 sem." value={filledWeeks.length > 0 ? `${avg}` : "—"} sub="corrections / semaine" />
-        <StatTile label="Rolling 4 sem." value={rolling4 > 0 ? `${rolling4}` : "—"} sub="baseline dynamique" />
-        <StatTile label="Meilleure semaine" value={best ? String(best.week.total) : "—"} sub={best ? formatWeekRange(best.key) : ""} accent="emerald" />
-        <StatTile label="Pire semaine" value={worst ? String(worst.week.total) : "—"} sub={worst ? formatWeekRange(worst.key) : ""} accent="destructive" />
+        <StatTile label="Moyenne 12 mois" value={filledMonths.length > 0 ? `${avg}` : "—"} sub="corrections / mois" />
+        <StatTile label="Rolling 3 mois" value={rolling3 > 0 ? `${rolling3}` : "—"} sub="baseline dynamique" />
+        <StatTile label="Meilleur mois" value={best ? String(best.month.total) : "—"} sub={best ? formatMonthLabel(best.key) : ""} accent="emerald" />
+        <StatTile label="Pire mois" value={worst ? String(worst.month.total) : "—"} sub={worst ? formatMonthLabel(worst.key) : ""} accent="destructive" />
       </div>
 
-      {/* Bar chart — last 12 weeks */}
+      {/* Bar chart — last 12 months */}
       <div className="rounded-2xl border border-border/40 bg-card p-6 space-y-4">
         <div className="flex items-center justify-between">
-          <p className="text-sm font-semibold text-foreground">Évolution — 12 dernières semaines</p>
+          <p className="text-sm font-semibold text-foreground">Évolution — 12 derniers mois</p>
           <p className="text-[11px] text-muted-foreground">
             Ligne pointillée = moyenne ({avg})
           </p>
         </div>
         <div className="relative flex items-end gap-1.5" style={{ height: 180 }}>
-          {/* Average line */}
           {avg > 0 && (
             <div aria-hidden className="absolute inset-x-0 border-t border-dashed border-primary/50 z-10"
               style={{ bottom: `${(avg / maxBarValue) * 100}%` }} />
           )}
-          {last12.map(({ key, week: w }) => {
+          {last12.map(({ key, month: m }) => {
             const isCurrent = key === currentKey;
-            const isAbove = w.total > avg;
-            const heightPct = maxBarValue > 0 ? (w.total / maxBarValue) * 100 : 0;
-            const tierBonus = calcCorrectionsBonus(w.total);
+            const isAbove = m.total > avg;
+            const heightPct = maxBarValue > 0 ? (m.total / maxBarValue) * 100 : 0;
+            const tierBonus = calcCorrectionsBonus(m.total);
+            const shortLabel = formatMonthLabel(key).split(" ")[0].slice(0, 3);
             return (
               <div key={key} className="flex-1 flex flex-col items-center gap-1 min-w-0 h-full">
                 <div className="w-full flex-1 flex items-end">
                   <div
                     className={`w-full rounded-t transition-all cursor-pointer ${
                       isCurrent ? "bg-primary" :
-                      w.total === 0 ? "bg-muted/30" :
+                      m.total === 0 ? "bg-muted/30" :
                       isAbove ? "bg-destructive/60 hover:bg-destructive/80" :
                       "bg-emerald-500/60 hover:bg-emerald-500/80"
                     }`}
                     style={{ height: `${heightPct}%` }}
-                    title={`${key} · ${w.total} corr. · bonus ${tierBonus}$`}
+                    title={`${formatMonthLabel(key)} · ${m.total} corr. · bonus ${tierBonus}$`}
                     onClick={() => setCurrentKey(key)}
                   />
                 </div>
                 <div className="text-center">
-                  <p className={`text-[10px] font-semibold ${isCurrent ? "text-primary" : "text-foreground"}`}>{w.total}</p>
-                  <p className="text-[9px] text-muted-foreground truncate w-full">{key.slice(-3)}</p>
+                  <p className={`text-[10px] font-semibold ${isCurrent ? "text-primary" : "text-foreground"}`}>{m.total}</p>
+                  <p className="text-[9px] text-muted-foreground truncate w-full capitalize">{shortLabel}</p>
                 </div>
               </div>
             );
@@ -1068,14 +1046,14 @@ function CorrectionsKpiDetail({ employee, onBack }: { employee: Employee; onBack
         <div className="flex items-center gap-4 text-[10px] text-muted-foreground pt-2 border-t border-border/30">
           <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-500/60" /> Sous la moyenne</span>
           <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-destructive/60" /> Au-dessus</span>
-          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-primary" /> Semaine active</span>
+          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-primary" /> Mois actif</span>
         </div>
       </div>
 
       {/* Category breakdown */}
       {totalsByCategory.some((c) => c.total > 0) && (
         <div className="rounded-2xl border border-border/40 bg-card p-6 space-y-3">
-          <p className="text-sm font-semibold text-foreground">Répartition des erreurs (12 sem.)</p>
+          <p className="text-sm font-semibold text-foreground">Répartition des erreurs (12 mois)</p>
           <div className="space-y-2">
             {totalsByCategory
               .filter((c) => c.total > 0)
@@ -1099,24 +1077,24 @@ function CorrectionsKpiDetail({ employee, onBack }: { employee: Employee; onBack
 
       {/* Bonus tier legend */}
       <div className="rounded-2xl border border-border/40 bg-muted/20 p-5 space-y-3">
-        <p className="text-sm font-semibold text-foreground">Structure des paliers</p>
+        <p className="text-sm font-semibold text-foreground">Structure des paliers (mensuels)</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {[
-            { label: "Excellence",  range: "0 — 3",   bonus: 150, color: "border-emerald-500/40 bg-emerald-500/5 text-emerald-400" },
-            { label: "Très bien",   range: "4 — 5",   bonus: 100, color: "border-primary/40 bg-primary/5 text-primary" },
-            { label: "Bien",        range: "6 — 7",   bonus: 50,  color: "border-amber-500/40 bg-amber-500/5 text-amber-400" },
-            { label: "À améliorer", range: "8+",      bonus: 0,   color: "border-destructive/40 bg-destructive/5 text-destructive" },
+            { label: "Excellence",  range: "0 — 12",   bonus: 150, color: "border-emerald-500/40 bg-emerald-500/5 text-emerald-400" },
+            { label: "Très bien",   range: "13 — 20",  bonus: 100, color: "border-primary/40 bg-primary/5 text-primary" },
+            { label: "Bien",        range: "21 — 30",  bonus: 50,  color: "border-amber-500/40 bg-amber-500/5 text-amber-400" },
+            { label: "À améliorer", range: "31+",      bonus: 0,   color: "border-destructive/40 bg-destructive/5 text-destructive" },
           ].map((t) => (
             <div key={t.label} className={`rounded-xl border p-3 ${t.color}`}>
               <p className="text-[10px] font-bold uppercase tracking-wider opacity-80">{t.label}</p>
               <p className="text-lg font-bold mt-1">+ {t.bonus} $</p>
-              <p className="text-[11px] opacity-70">{t.range} corrections / sem.</p>
+              <p className="text-[11px] opacity-70">{t.range} corrections / mois</p>
             </div>
           ))}
         </div>
         <p className="text-[10px] text-muted-foreground italic">
-          Note : ce KPI compte les vraies erreurs (orthographe, ponctuation, sous-titrage, technique, titre). Les changements créatifs demandés par le client ne comptent pas.
-          Astuce : pour une comparaison plus juste selon le volume, garder un œil sur le ratio erreurs / vidéo produite.
+          Ce KPI compte les vraies erreurs (orthographe, ponctuation, sous-titrage, technique, titre). Les changements créatifs demandés par le client ne comptent pas.
+          Astuce : pour normaliser selon le volume, garder un œil sur le ratio erreurs / vidéo produite.
         </p>
       </div>
     </div>
