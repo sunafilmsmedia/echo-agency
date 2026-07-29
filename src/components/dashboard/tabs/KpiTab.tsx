@@ -6,7 +6,7 @@ import { useClients } from "@/hooks/useClients";
 
 // ── Employees ─────────────────────────────────────────────────────────────────
 
-type KpiType = "content" | "ads";
+type KpiType = "content" | "ads" | "corrections";
 
 interface Employee {
   id: string;
@@ -19,6 +19,7 @@ interface Employee {
 const EMPLOYEES: Employee[] = [
   { id: "sandra", name: "Sandra", role: "Gestionnaire de contenu", initials: "S", kpiType: "content" },
   { id: "rene",   name: "René",   role: "Gestionnaire d'ads",       initials: "R", kpiType: "ads" },
+  { id: "elodie", name: "Élodie", role: "Monteuse vidéo",           initials: "É", kpiType: "corrections" },
 ];
 
 // ── Bonus logic ───────────────────────────────────────────────────────────────
@@ -156,7 +157,8 @@ function VideosBadge({ actual, baseline }: { actual: number | null; baseline: nu
 // ── Content KPI detail (Sandra: views + videos) ──────────────────────────────
 
 function EmployeeKpiDetail({ employee, onBack }: { employee: Employee; onBack: () => void }) {
-  if (employee.kpiType === "ads") return <AdsKpiDetail employee={employee} onBack={onBack} />;
+  if (employee.kpiType === "ads")         return <AdsKpiDetail         employee={employee} onBack={onBack} />;
+  if (employee.kpiType === "corrections") return <CorrectionsKpiDetail employee={employee} onBack={onBack} />;
   return <ContentKpiDetail employee={employee} onBack={onBack} />;
 }
 
@@ -779,6 +781,359 @@ function AdsKpiDetail({ employee, onBack }: { employee: Employee; onBack: () => 
       <div className="rounded-xl border border-primary/20 bg-primary/[0.03] p-3 text-xs text-muted-foreground">
         <span className="font-semibold text-primary">💡 Info :</span> le CPL (coût par lead) = budget ÷ leads. Le CPL du trimestre est pondéré (budget total ÷ leads total), plus juste qu'une moyenne des CPL mensuels. Ces chiffres alimentent aussi le <span className="font-semibold text-foreground">Centre Clients</span> pour montrer l'efficacité par client.
       </div>
+    </div>
+  );
+}
+
+// ── Corrections KPI detail (Élodie: erreurs de montage/semaine → bonus) ─────
+
+const CORRECTION_CATEGORIES: { id: string; label: string }[] = [
+  { id: "orthographe",   label: "Orthographe / grammaire" },
+  { id: "ponctuation",   label: "Ponctuation / formatage" },
+  { id: "sous_titrage",  label: "Sous-titrage inexact" },
+  { id: "montage",       label: "Montage / technique" },
+  { id: "titre",         label: "Titre erroné" },
+];
+
+interface CorrectionWeek {
+  total: number;
+  categories: Record<string, number>; // Optional per-category counts
+  notes?: string;
+}
+
+// Storage key: single JSON object per employee.
+// { "2026-W28": { total, categories, notes }, ... }
+function loadCorrections(employeeId: string): Record<string, CorrectionWeek> {
+  try {
+    const raw = localStorage.getItem(`corr_${employeeId}`);
+    return raw ? JSON.parse(raw) : {};
+  } catch { return {}; }
+}
+function saveCorrections(employeeId: string, data: Record<string, CorrectionWeek>) {
+  localStorage.setItem(`corr_${employeeId}`, JSON.stringify(data));
+}
+
+// ISO week helpers — Monday-start weeks. `weekKey(d)` returns "YYYY-WNN".
+function getIsoWeek(date: Date): { year: number; week: number } {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const week = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+  return { year: d.getUTCFullYear(), week };
+}
+function weekKey(date: Date): string {
+  const { year, week } = getIsoWeek(date);
+  return `${year}-W${String(week).padStart(2, "0")}`;
+}
+function weekMonday(year: number, week: number): Date {
+  const jan4 = new Date(Date.UTC(year, 0, 4));
+  const jan4Day = jan4.getUTCDay() || 7;
+  const mondayOfWeek1 = new Date(jan4);
+  mondayOfWeek1.setUTCDate(jan4.getUTCDate() - (jan4Day - 1));
+  const result = new Date(mondayOfWeek1);
+  result.setUTCDate(mondayOfWeek1.getUTCDate() + (week - 1) * 7);
+  return result;
+}
+function parseWeekKey(key: string): { year: number; week: number } {
+  const [y, w] = key.split("-W");
+  return { year: parseInt(y, 10), week: parseInt(w, 10) };
+}
+function formatWeekRange(key: string): string {
+  const { year, week } = parseWeekKey(key);
+  const mon = weekMonday(year, week);
+  const sun = new Date(mon); sun.setUTCDate(mon.getUTCDate() + 6);
+  const fmt = (d: Date) => d.toLocaleDateString("fr-CA", { day: "numeric", month: "short", timeZone: "UTC" });
+  return `${fmt(mon)} — ${fmt(sun)}`;
+}
+function shiftWeek(key: string, delta: number): string {
+  const { year, week } = parseWeekKey(key);
+  const mon = weekMonday(year, week);
+  mon.setUTCDate(mon.getUTCDate() + delta * 7);
+  return weekKey(mon);
+}
+function lastNWeekKeys(n: number, from: string): string[] {
+  const keys: string[] = [];
+  for (let i = n - 1; i >= 0; i--) keys.push(shiftWeek(from, -i));
+  return keys;
+}
+
+// Bonus tiers per user's brief.
+function calcCorrectionsBonus(total: number): number {
+  if (total <= 3) return 150;
+  if (total <= 5) return 100;
+  if (total <= 7) return 50;
+  return 0;
+}
+function tierLabel(total: number): { label: string; color: string } {
+  if (total <= 3) return { label: "Excellence",  color: "text-emerald-400" };
+  if (total <= 5) return { label: "Très bien",   color: "text-primary" };
+  if (total <= 7) return { label: "Bien",        color: "text-amber-400" };
+  return { label: "À améliorer", color: "text-destructive" };
+}
+
+function CorrectionsKpiDetail({ employee, onBack }: { employee: Employee; onBack: () => void }) {
+  const [data, setData]     = useState<Record<string, CorrectionWeek>>(() => loadCorrections(employee.id));
+  const [currentKey, setCurrentKey] = useState<string>(() => weekKey(new Date()));
+  const [showBreakdown, setShowBreakdown] = useState(false);
+
+  const week   = data[currentKey] ?? { total: 0, categories: {}, notes: "" };
+  const bonus  = calcCorrectionsBonus(week.total);
+  const tier   = tierLabel(week.total);
+
+  const persist = (next: Record<string, CorrectionWeek>) => {
+    setData(next);
+    saveCorrections(employee.id, next);
+  };
+
+  const setWeek = (patch: Partial<CorrectionWeek>) => {
+    const next = { ...data, [currentKey]: { ...(week ?? { total: 0, categories: {} }), ...patch } };
+    persist(next);
+  };
+
+  const setTotal = (raw: string) => {
+    const n = raw === "" ? 0 : Math.max(0, parseInt(raw, 10) || 0);
+    setWeek({ total: n });
+  };
+
+  const setCategory = (catId: string, raw: string) => {
+    const n = raw === "" ? 0 : Math.max(0, parseInt(raw, 10) || 0);
+    const nextCats = { ...(week.categories || {}), [catId]: n };
+    // If user is tracking by category, keep the total as the sum of categories.
+    const sum = Object.values(nextCats).reduce((s, v) => s + (v || 0), 0);
+    setWeek({ categories: nextCats, total: sum });
+  };
+
+  // ─── Rolling stats (last 12 weeks including current) ───
+  const last12Keys = lastNWeekKeys(12, currentKey);
+  const last12 = last12Keys.map((k) => ({ key: k, week: data[k] ?? { total: 0, categories: {} } }));
+  const filledWeeks = last12.filter((w) => data[w.key] !== undefined);
+  const totalTracked = filledWeeks.reduce((s, w) => s + (w.week.total || 0), 0);
+  const avg          = filledWeeks.length > 0 ? +(totalTracked / filledWeeks.length).toFixed(1) : 0;
+  const rolling4     = (() => {
+    const last4 = lastNWeekKeys(4, currentKey).map((k) => data[k]).filter(Boolean);
+    if (last4.length === 0) return 0;
+    return +(last4.reduce((s, w) => s + w.total, 0) / last4.length).toFixed(1);
+  })();
+
+  const totalsByCategory = CORRECTION_CATEGORIES.map((c) => ({
+    ...c,
+    total: filledWeeks.reduce((s, w) => s + (w.week.categories?.[c.id] || 0), 0),
+  }));
+
+  // Best / worst week (only across weeks with data)
+  const best  = filledWeeks.length > 0 ? filledWeeks.reduce((a, b) => (a.week.total <= b.week.total ? a : b)) : null;
+  const worst = filledWeeks.length > 0 ? filledWeeks.reduce((a, b) => (a.week.total >= b.week.total ? a : b)) : null;
+
+  const maxBarValue = Math.max(1, ...last12.map((w) => w.week.total || 0));
+
+  return (
+    <div className="p-6 space-y-5 max-w-6xl mx-auto">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <button onClick={onBack} className="p-1.5 rounded-lg border border-border/50 hover:bg-accent transition-colors">
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+          <div>
+            <h2 className="text-xl font-semibold text-foreground flex items-center gap-2">
+              <Trophy className="w-5 h-5 text-amber-400" /> Corrections — {employee.name}
+            </h2>
+            <p className="text-sm text-muted-foreground mt-0.5">Bonus hebdomadaire selon le nombre d'erreurs corrigées · échelle progressive</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setCurrentKey(shiftWeek(currentKey, -1))} className="p-1.5 rounded-lg border border-border/50 hover:bg-accent transition-colors">
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <div className="text-center w-56">
+            <p className="text-sm font-bold text-foreground">{currentKey}</p>
+            <p className="text-[11px] text-muted-foreground">{formatWeekRange(currentKey)}</p>
+          </div>
+          <button onClick={() => setCurrentKey(shiftWeek(currentKey, 1))} className="p-1.5 rounded-lg border border-border/50 hover:bg-accent transition-colors">
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Current week card */}
+      <div className={`rounded-2xl border-2 p-6 space-y-4 ${bonus > 0 ? "border-primary/40 bg-primary/[0.04]" : "border-border/40 bg-card"}`}>
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_260px] gap-6 items-start">
+          <div className="space-y-4">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Corrections cette semaine</p>
+              <div className="flex items-baseline gap-3 mt-1">
+                <Input type="number" min="0" value={week.total || ""}
+                  onChange={(e) => setTotal(e.target.value)}
+                  className="h-12 text-2xl font-bold w-24 text-center"
+                  placeholder="0" />
+                <span className={`text-sm font-semibold ${tier.color}`}>{tier.label}</span>
+              </div>
+            </div>
+
+            <div>
+              <button type="button" onClick={() => setShowBreakdown((v) => !v)}
+                className="text-[11px] text-primary hover:underline">
+                {showBreakdown ? "− Masquer" : "+ Détail par catégorie (optionnel)"}
+              </button>
+              {showBreakdown && (
+                <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {CORRECTION_CATEGORIES.map((c) => (
+                    <div key={c.id} className="flex items-center gap-2">
+                      <label className="text-xs text-muted-foreground flex-1">{c.label}</label>
+                      <Input type="number" min="0"
+                        value={week.categories?.[c.id] || ""}
+                        onChange={(e) => setCategory(c.id, e.target.value)}
+                        className="h-7 w-16 text-xs text-right" placeholder="0" />
+                    </div>
+                  ))}
+                  <p className="text-[10px] text-muted-foreground italic sm:col-span-2 mt-1">
+                    Si tu remplis les catégories, le total se calcule automatiquement à partir de la somme.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Notes</label>
+              <Input value={week.notes || ""} onChange={(e) => setWeek({ notes: e.target.value })}
+                placeholder="Ex: semaine avec 2 clients + tournage supplémentaire"
+                className="h-8 text-xs mt-1" />
+            </div>
+          </div>
+
+          {/* Bonus payable */}
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-5 text-center">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-amber-400 mb-1">Bonus payable</p>
+            <p className={`text-4xl font-bold ${bonus > 0 ? "text-amber-400" : "text-muted-foreground"}`}>
+              {bonus > 0 ? `${bonus} $` : "0 $"}
+            </p>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              {week.total} correction{week.total > 1 ? "s" : ""} · palier « {tier.label} »
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Rolling stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <StatTile label="Moyenne 12 sem." value={filledWeeks.length > 0 ? `${avg}` : "—"} sub="corrections / semaine" />
+        <StatTile label="Rolling 4 sem." value={rolling4 > 0 ? `${rolling4}` : "—"} sub="baseline dynamique" />
+        <StatTile label="Meilleure semaine" value={best ? String(best.week.total) : "—"} sub={best ? formatWeekRange(best.key) : ""} accent="emerald" />
+        <StatTile label="Pire semaine" value={worst ? String(worst.week.total) : "—"} sub={worst ? formatWeekRange(worst.key) : ""} accent="destructive" />
+      </div>
+
+      {/* Bar chart — last 12 weeks */}
+      <div className="rounded-2xl border border-border/40 bg-card p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-semibold text-foreground">Évolution — 12 dernières semaines</p>
+          <p className="text-[11px] text-muted-foreground">
+            Ligne pointillée = moyenne ({avg})
+          </p>
+        </div>
+        <div className="relative flex items-end gap-1.5" style={{ height: 180 }}>
+          {/* Average line */}
+          {avg > 0 && (
+            <div aria-hidden className="absolute inset-x-0 border-t border-dashed border-primary/50 z-10"
+              style={{ bottom: `${(avg / maxBarValue) * 100}%` }} />
+          )}
+          {last12.map(({ key, week: w }) => {
+            const isCurrent = key === currentKey;
+            const isAbove = w.total > avg;
+            const heightPct = maxBarValue > 0 ? (w.total / maxBarValue) * 100 : 0;
+            const tierBonus = calcCorrectionsBonus(w.total);
+            return (
+              <div key={key} className="flex-1 flex flex-col items-center gap-1 min-w-0 h-full">
+                <div className="w-full flex-1 flex items-end">
+                  <div
+                    className={`w-full rounded-t transition-all cursor-pointer ${
+                      isCurrent ? "bg-primary" :
+                      w.total === 0 ? "bg-muted/30" :
+                      isAbove ? "bg-destructive/60 hover:bg-destructive/80" :
+                      "bg-emerald-500/60 hover:bg-emerald-500/80"
+                    }`}
+                    style={{ height: `${heightPct}%` }}
+                    title={`${key} · ${w.total} corr. · bonus ${tierBonus}$`}
+                    onClick={() => setCurrentKey(key)}
+                  />
+                </div>
+                <div className="text-center">
+                  <p className={`text-[10px] font-semibold ${isCurrent ? "text-primary" : "text-foreground"}`}>{w.total}</p>
+                  <p className="text-[9px] text-muted-foreground truncate w-full">{key.slice(-3)}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="flex items-center gap-4 text-[10px] text-muted-foreground pt-2 border-t border-border/30">
+          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-500/60" /> Sous la moyenne</span>
+          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-destructive/60" /> Au-dessus</span>
+          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-primary" /> Semaine active</span>
+        </div>
+      </div>
+
+      {/* Category breakdown */}
+      {totalsByCategory.some((c) => c.total > 0) && (
+        <div className="rounded-2xl border border-border/40 bg-card p-6 space-y-3">
+          <p className="text-sm font-semibold text-foreground">Répartition des erreurs (12 sem.)</p>
+          <div className="space-y-2">
+            {totalsByCategory
+              .filter((c) => c.total > 0)
+              .sort((a, b) => b.total - a.total)
+              .map((c) => {
+                const max = Math.max(1, ...totalsByCategory.map((x) => x.total));
+                const pct = (c.total / max) * 100;
+                return (
+                  <div key={c.id} className="flex items-center gap-3">
+                    <div className="w-40 text-xs text-muted-foreground truncate">{c.label}</div>
+                    <div className="flex-1 h-2 rounded-full bg-muted/30 overflow-hidden">
+                      <div className="h-full bg-primary rounded-full" style={{ width: `${pct}%` }} />
+                    </div>
+                    <div className="w-8 text-right text-sm font-semibold text-foreground">{c.total}</div>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      )}
+
+      {/* Bonus tier legend */}
+      <div className="rounded-2xl border border-border/40 bg-muted/20 p-5 space-y-3">
+        <p className="text-sm font-semibold text-foreground">Structure des paliers</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {[
+            { label: "Excellence",  range: "0 — 3",   bonus: 150, color: "border-emerald-500/40 bg-emerald-500/5 text-emerald-400" },
+            { label: "Très bien",   range: "4 — 5",   bonus: 100, color: "border-primary/40 bg-primary/5 text-primary" },
+            { label: "Bien",        range: "6 — 7",   bonus: 50,  color: "border-amber-500/40 bg-amber-500/5 text-amber-400" },
+            { label: "À améliorer", range: "8+",      bonus: 0,   color: "border-destructive/40 bg-destructive/5 text-destructive" },
+          ].map((t) => (
+            <div key={t.label} className={`rounded-xl border p-3 ${t.color}`}>
+              <p className="text-[10px] font-bold uppercase tracking-wider opacity-80">{t.label}</p>
+              <p className="text-lg font-bold mt-1">+ {t.bonus} $</p>
+              <p className="text-[11px] opacity-70">{t.range} corrections / sem.</p>
+            </div>
+          ))}
+        </div>
+        <p className="text-[10px] text-muted-foreground italic">
+          Note : ce KPI compte les vraies erreurs (orthographe, ponctuation, sous-titrage, technique, titre). Les changements créatifs demandés par le client ne comptent pas.
+          Astuce : pour une comparaison plus juste selon le volume, garder un œil sur le ratio erreurs / vidéo produite.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function StatTile({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: "emerald" | "destructive" }) {
+  const color = accent === "emerald"
+    ? "text-emerald-400"
+    : accent === "destructive"
+    ? "text-destructive"
+    : "text-foreground";
+  return (
+    <div className="rounded-xl border border-border/40 bg-muted/20 p-4">
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className={`text-2xl font-bold mt-1 ${color}`}>{value}</p>
+      {sub && <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{sub}</p>}
     </div>
   );
 }
