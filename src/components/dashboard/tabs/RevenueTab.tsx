@@ -308,6 +308,58 @@ export function RevenueTab() {
         </CardContent>
       </Card>
 
+      {/* Big Profit Margin hero card */}
+      {(() => {
+        const marginPct = totalRevenue > 0 ? Math.round((netProfit / totalRevenue) * 100) : 0;
+        const positive = netProfit >= 0;
+        const excellent = marginPct >= 30;
+        const good      = marginPct >= 15;
+        const label = !positive ? "Perte" : excellent ? "Excellent" : good ? "Sain" : "Marge serrée";
+        const borderCol = !positive ? "border-destructive/50" : excellent ? "border-emerald-500/60" : good ? "border-primary/50" : "border-amber-500/50";
+        const bgCol     = !positive ? "bg-destructive/[0.06]" : excellent ? "bg-emerald-500/[0.06]" : good ? "bg-primary/[0.05]" : "bg-amber-500/[0.05]";
+        const textCol   = !positive ? "text-destructive" : excellent ? "text-emerald-400" : good ? "text-primary" : "text-amber-400";
+        const glowCol   = !positive ? "rgba(239,68,68,0.35)" : excellent ? "rgba(0,200,83,0.4)" : good ? "rgba(147,51,234,0.35)" : "rgba(251,191,36,0.35)";
+        const clamped = Math.max(0, Math.min(100, marginPct));
+        return (
+          <div className={`relative rounded-2xl border-2 ${borderCol} ${bgCol} p-6 overflow-hidden`}
+               style={{ boxShadow: `0 0 80px -20px ${glowCol}` }}>
+            {/* Progress fill (background) */}
+            <div aria-hidden className="absolute inset-y-0 left-0 pointer-events-none transition-all duration-700 ease-out"
+                 style={{
+                   width: `${clamped}%`,
+                   background: `linear-gradient(90deg, ${glowCol.replace("0.35", "0.15").replace("0.4", "0.18")} 0%, transparent 100%)`,
+                 }} />
+            {/* Corner glow */}
+            <div aria-hidden className="absolute -top-10 -right-10 w-48 h-48 rounded-full pointer-events-none"
+                 style={{ background: `radial-gradient(circle, ${glowCol}, transparent 65%)`, filter: "blur(30px)" }} />
+            <div className="relative grid grid-cols-1 md:grid-cols-[1fr_auto] gap-6 items-center">
+              <div>
+                <p className={`text-[10px] font-bold uppercase tracking-widest ${textCol} mb-2`}>
+                  📈 Marge de profit — {label}
+                </p>
+                <p className={`text-6xl md:text-7xl font-bold tracking-tight ${textCol} leading-none`}>
+                  {positive ? "" : "−"}{Math.abs(marginPct)}<span className="text-3xl md:text-4xl align-top ml-1">%</span>
+                </p>
+                <p className="text-sm text-muted-foreground mt-3">
+                  Profit net : <span className={`font-semibold ${textCol}`}>{positive ? "" : "−"}{formatCurrency(Math.abs(netProfit))}</span>
+                  {" "}sur {formatCurrency(totalRevenue)} de revenus
+                </p>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-1 gap-2 min-w-[180px]">
+                <div className="rounded-lg border border-border/40 bg-background/40 px-3 py-2">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Revenus</p>
+                  <p className="text-sm font-bold text-foreground">{formatCurrency(totalRevenue)}</p>
+                </div>
+                <div className="rounded-lg border border-border/40 bg-background/40 px-3 py-2">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Dépenses</p>
+                  <p className="text-sm font-bold text-destructive">−{formatCurrency(totalExpenses)}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Top metric cards */}
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
         {/* MRR Récurrent — total combiné visible en gros quand extras > 0 */}
