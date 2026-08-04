@@ -206,9 +206,26 @@ export function RevenueTab() {
   const monthsElapsed = now.getMonth() + 1;
   const ytdRevenue   = ytd.reduce((s, m) => s + m.total_revenue + m.extra_revenue, 0);
   const ytdExpenses  = ytd.reduce((s, m) => s + m.monthly_expenses, 0);
-  const yearlyProjection = monthsElapsed > 0 ? (ytdRevenue / monthsElapsed) * 12 : 0;
-  // Annual expenses: actual YTD + run-rate × remaining months
-  const annualExpenses   = ytdExpenses + (totalExpenses * (12 - monthsElapsed));
+
+  // Count past months that actually have data (>0), so we can spot gaps.
+  const monthsWithRevenueData = ytd.filter((m) => (m.total_revenue + m.extra_revenue) > 0).length;
+  const monthsWithExpenseData = ytd.filter((m) => m.monthly_expenses > 0).length;
+
+  // For any past month with no data recorded, assume the current month's run-rate.
+  // This avoids the classic bug where empty history + current-month expenses → fake 100% profit
+  // for the months where nothing was logged.
+  const revenueGap  = Math.max(0, monthsElapsed - monthsWithRevenueData);
+  const expenseGap  = Math.max(0, monthsElapsed - monthsWithExpenseData);
+  const filledYtdRevenue  = ytdRevenue  + (totalRevenue  * revenueGap);
+  const filledYtdExpenses = ytdExpenses + (totalExpenses * expenseGap);
+
+  const remainingMonths  = 12 - monthsElapsed;
+  const yearlyProjection = filledYtdRevenue  + (totalRevenue  * remainingMonths);
+  const annualExpenses   = filledYtdExpenses + (totalExpenses * remainingMonths);
+
+  // Explainer bits used in the tiles below
+  const revenueGapNote = revenueGap > 0 ? ` · ${revenueGap} mois estimé${revenueGap > 1 ? "s" : ""} au run-rate` : "";
+  const expenseGapNote = expenseGap > 0 ? ` · ${expenseGap} mois estimé${expenseGap > 1 ? "s" : ""} au run-rate` : "";
 
   const saveGrowthMetrics = () => {
     updateMetrics.mutate(growthForm);
@@ -474,6 +491,14 @@ export function RevenueTab() {
                 basé sur {monthsElapsed} mois écoulés
               </span>
             </div>
+            {(revenueGap > 0 || expenseGap > 0) && (
+              <div className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[11px] text-amber-400/90">
+                ⚠ {revenueGap > 0 && `${revenueGap} mois passé${revenueGap > 1 ? "s" : ""} sans revenus enregistrés`}
+                {revenueGap > 0 && expenseGap > 0 && " · "}
+                {expenseGap > 0 && `${expenseGap} mois passé${expenseGap > 1 ? "s" : ""} sans dépenses enregistrées`}
+                . Ces mois sont estimés au run-rate actuel — corrige l'historique mensuel plus bas pour une projection précise.
+              </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {/* Revenu projeté */}
               <div className="rounded-xl border-2 border-emerald-500/30 bg-emerald-500/[0.04] p-4">
@@ -484,7 +509,7 @@ export function RevenueTab() {
                   {formatCurrency(yearlyProjection)}
                 </p>
                 <p className="text-[10px] text-muted-foreground mt-1">
-                  YTD {formatCurrency(ytdRevenue)} extrapolé × 12
+                  YTD réel {formatCurrency(ytdRevenue)}{revenueGapNote}
                 </p>
               </div>
 
@@ -497,7 +522,7 @@ export function RevenueTab() {
                   {formatCurrency(annualExpenses)}
                 </p>
                 <p className="text-[10px] text-muted-foreground mt-1">
-                  YTD {formatCurrency(ytdExpenses)} + {formatCurrency(totalExpenses)}/mois × {12 - monthsElapsed}
+                  YTD réel {formatCurrency(ytdExpenses)}{expenseGapNote}
                 </p>
               </div>
 
