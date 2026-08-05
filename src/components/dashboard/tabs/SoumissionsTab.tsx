@@ -982,215 +982,351 @@ function MetaCell({ label, value }: { label: string; value: string }) {
 
 
 
-// ─── Nos forfaits — vue de référence pour l'équipe de vente ─────────────────
 
-const CLOSING_SCRIPT = `On a deux façons de bosser ensemble. Si t'as besoin de générer des rendez-vous immédiatement, on installe ta machine à leads pour toi — 10 000 $ pour bâtir + les 4 premiers mois, ensuite 2 500 $/mois. Si ton problème c'est plus la visibilité pis la marque, notre forfait contenu, c'est 8 ou 10 vidéos par mois qui font travailler ta marque à ta place — 3 200 ou 3 500 $ selon le volume que tu veux pousser.`;
+// ─── Nos forfaits — page de référence (structure 2a) ────────────────────────
+
+// ── Section 1 : HERO (Forfait 01) ──
+// Overriding local Blue + Orange accents since dashboard --primary is agency-configurable
+// and we need explicit color contrast between F1 (bleu) and F2 (orange) per spec.
+
+const BLUE = { text: "text-blue-400", bg: "bg-blue-500", bgHover: "hover:bg-blue-600", border: "border-blue-500/40", bgSoft: "bg-blue-500/[0.06]", dot: "bg-blue-500" };
+const ORNG = { text: "text-orange-400", bg: "bg-orange-500", bgHover: "hover:bg-orange-600", border: "border-orange-500/40", bgSoft: "bg-orange-500/[0.06]", dot: "bg-orange-500" };
+
+interface ToolItem { name: string; icon: React.ReactNode }
+
+const TOOLS: ToolItem[] = [
+  { name: "Meta",         icon: <MetaMark /> },
+  { name: "Claude",       icon: <StarburstMark /> },
+  { name: "GoHighLevel",  icon: <ArrowsUpMark /> },
+  { name: "Metricool",    icon: <InfinityMark /> },
+  { name: "ClickUp",      icon: <ClickUpMark /> },
+  { name: "Instagram",    icon: <InstagramSVG /> },
+  { name: "Facebook",     icon: <FacebookSVG /> },
+  { name: "TikTok",       icon: <TikTokMark /> },
+  { name: "YouTube",      icon: <YouTubeSVG /> },
+];
 
 function ForfaitsView({ onBack }: { onBack: () => void }) {
-  const fmt = (n: number) => n.toLocaleString("fr-CA");
-
-  const copyScript = async () => {
-    await navigator.clipboard.writeText(CLOSING_SCRIPT);
-    toast.success("Script de closing copié");
-  };
-
   return (
-    <div className="p-8 space-y-8 max-w-6xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <button onClick={onBack} className="p-1.5 rounded-lg border border-border/50 hover:bg-accent transition-colors">
-            <ArrowLeft className="w-4 h-4" />
+    <div className="p-8 space-y-20 max-w-6xl mx-auto text-foreground">
+      <style>{`
+        @keyframes marquee-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+        .marquee-track { animation: marquee-scroll 34s linear infinite; }
+        @keyframes crm-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+        .crm-dot { animation: crm-pulse 1.6s ease-in-out infinite; }
+      `}</style>
+
+      {/* Header (back) */}
+      <div className="flex items-center gap-3 -mt-2">
+        <button onClick={onBack} className="p-1.5 rounded-lg border border-border/50 hover:bg-accent transition-colors">
+          <ArrowLeft className="w-4 h-4" />
+        </button>
+        <span className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">Nos forfaits</span>
+      </div>
+
+      {/* ═════════ 1 · HERO — Forfait 01 ═════════ */}
+      <section className="flex flex-col items-center text-center gap-8 pt-4">
+        <p className={`text-[11px] font-mono uppercase tracking-widest ${BLUE.text}`}>
+          Forfait 01 · Génération de rendez-vous
+        </p>
+        <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold uppercase tracking-tight leading-[0.95] max-w-[9ch]">
+          Ta machine<br />à rendez-vous
+        </h1>
+
+        {/* 3-line pricing block */}
+        <div className="w-[420px] max-w-full divide-y divide-border/30 border-y border-border/30">
+          {[
+            { label: "Installation",   value: "Une seule fois" },
+            { label: "Gestion",        value: "Chaque mois"    },
+            { label: "Renouvellement", value: "Aux 2 mois"     },
+          ].map((line) => (
+            <div key={line.label} className="flex items-center justify-between py-3 text-sm">
+              <span className="font-mono text-muted-foreground">{line.label}</span>
+              <span className="text-foreground font-medium">{line.value}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-5">
+          <button className={`${BLUE.bg} ${BLUE.bgHover} text-white text-sm font-semibold px-5 py-3 rounded-full transition-colors`}>
+            Réserver un appel
           </button>
-          <div>
-            <h2 className="text-xl font-semibold text-foreground flex items-center gap-2">
-              <FileText className="w-5 h-5 text-primary" /> Nos forfaits
-            </h2>
-            <p className="text-sm text-muted-foreground mt-0.5">Structure Suna Films — 2 forfaits, chacun avec sa promesse claire</p>
-          </div>
+          <a href="#inclus" className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground transition-colors">
+            Voir comment ça marche
+          </a>
         </div>
-      </div>
+      </section>
 
-      {/* ═══ Forfait 01 — LEAD GEN ═══ */}
-      <div className="rounded-2xl border-2 border-primary/50 bg-primary/[0.04] p-6 space-y-6 shadow-glow">
-        <div className="flex items-start justify-between flex-wrap gap-4">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Forfait 01</p>
-            <h3 className="text-3xl font-bold text-foreground mt-1">LEAD GEN</h3>
-            <p className="text-sm text-muted-foreground italic mt-1">« On installe ta machine à rendez-vous, et on la fait rouler. »</p>
-          </div>
-        </div>
+      {/* ═════════ 2 · TOOLS BANNER ═════════ */}
+      <section className="space-y-8">
+        <p className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
+          Sur quoi c'est bâti
+        </p>
 
-        {/* Pricing 2-phase */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div className="rounded-xl border border-primary/40 bg-background/40 p-5">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-primary mb-1">Installation</p>
-            <p className="text-4xl font-bold text-primary tracking-tight">{fmt(10000)} $<span className="text-sm text-muted-foreground font-normal"> une fois</span></p>
-            <p className="text-[11px] text-muted-foreground mt-2">Construction du système + les 4 premiers mois de gestion inclus</p>
-          </div>
-          <div className="rounded-xl border border-border/40 bg-background/40 p-5">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Ensuite</p>
-            <p className="text-4xl font-bold text-foreground tracking-tight">{fmt(2500)} $<span className="text-sm text-muted-foreground font-normal">/mois</span></p>
-            <p className="text-[11px] text-muted-foreground mt-2">À partir du mois 5</p>
-          </div>
-        </div>
-
-        {/* Terms */}
-        <div className="rounded-lg border border-border/40 bg-muted/20 p-4 text-xs text-muted-foreground space-y-1">
-          <p><span className="text-foreground font-semibold">Engagement 12 mois.</span> Système livré en 30 jours ou <span className="text-primary font-semibold">le mois 5 est gratuit</span>. Le délai part à la réception des accès client.</p>
-          <p><span className="text-foreground font-semibold">Paiement de l'installation en 2 versements :</span> 5 000 $ à la signature, 5 000 $ à la livraison.</p>
-        </div>
-
-        {/* Deliverables */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-primary mb-2">Construction — jours 1 à 30</p>
-            <ul className="space-y-1.5">
-              {[
-                "CRM complet + automatisations, séquences SMS/courriel, pipeline sur mesure",
-                "Logiciel AI de qualification personnalisé + dashboard client",
-                "Landing page de conversion + tracking (Pixel / CAPI)",
-                "Premier lot de créatifs : ads vidéo + ads statiques",
-              ].map((s, i) => (
-                <li key={i} className="text-xs text-foreground flex items-start gap-2">
-                  <Check className="w-3.5 h-3.5 text-primary flex-shrink-0 mt-0.5" /> {s}
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Chaque mois</p>
-            <ul className="space-y-1.5">
-              {[
-                "Gestion Meta Ads complète — création, tests d'angles, opti hebdo",
-                "Nouvelles ads statiques chaque mois",
-                "Tournage jusqu'à 1 demi-journée aux 2 mois, au besoin — déplacement inclus",
-                "Maintenance du CRM et du logiciel AI",
-                "Rapport mensuel + call de review",
-              ].map((s, i) => (
-                <li key={i} className="text-xs text-foreground flex items-start gap-2">
-                  <Check className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0 mt-0.5" /> {s}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-
-        {/* Extras */}
-        <div className="pt-3 border-t border-border/30">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Extras (sur devis)</p>
-          <div className="flex flex-wrap gap-2">
-            {["Bot AI conversationnel", "Contenu organique", "Gestion de page", "Marque personnelle"].map((e) => (
-              <span key={e} className="text-[11px] px-2 py-1 rounded-full bg-muted/40 text-muted-foreground border border-border/40">
-                + {e}
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* ═══ Forfait 02 — CONTENU ═══ */}
-      <div className="rounded-2xl border border-border/40 bg-card p-6 space-y-6">
-        <div className="flex items-start justify-between flex-wrap gap-4">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Forfait 02</p>
-            <h3 className="text-3xl font-bold text-foreground mt-1">CONTENU</h3>
-            <p className="text-sm text-muted-foreground italic mt-1">« Leads + visibilité. Ton nom devient la référence. »</p>
-          </div>
-        </div>
-
-        {/* Two format options */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div className="rounded-xl border border-border/40 bg-background/40 p-5">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Format 16</p>
-            <p className="text-sm text-muted-foreground mb-2">8 vidéos publiées / mois</p>
-            <p className="text-4xl font-bold text-foreground tracking-tight">{fmt(3200)} $<span className="text-sm text-muted-foreground font-normal">/mois</span></p>
-            <p className="text-[11px] text-muted-foreground mt-2">16 vidéos par cycle de 2 mois</p>
-          </div>
-          <div className="relative rounded-xl border-2 border-primary/50 bg-primary/[0.06] p-5">
-            <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold uppercase tracking-wider">★ Le plus populaire</span>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-primary mb-1">Format 20</p>
-            <p className="text-sm text-muted-foreground mb-2">10 vidéos publiées / mois</p>
-            <p className="text-4xl font-bold text-primary tracking-tight">{fmt(3500)} $<span className="text-sm text-muted-foreground font-normal">/mois</span></p>
-            <p className="text-[11px] text-muted-foreground mt-2">20 vidéos par cycle de 2 mois</p>
-          </div>
-        </div>
-
-        {/* Terms */}
-        <div className="rounded-lg border border-border/40 bg-muted/20 p-4 text-xs text-muted-foreground">
-          <p><span className="text-foreground font-semibold">Engagement 6 mois.</span> Démarrage <span className="text-foreground font-semibold">1 500 $</span> (stratégie, angles, setup ads et tracking) — <span className="text-emerald-400 font-semibold">offert si 4 mois payés d'avance</span>.</p>
-        </div>
-
-        {/* Included */}
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Inclus dans les deux formats</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1.5">
-            {[
-              "1 tournage obligatoire aux 2 mois (demi-journée) — déplacement inclus",
-              "16 ou 20 vidéos montées, sous-titrées, adaptées par plateforme",
-              "Stratégie de contenu 50/30/20 + sujets sur mesure",
-              "Coaching caméra à chaque tournage",
-              "Direction de marque — positionnement, ton de voix, cohérence",
-              "Ads vidéo + statiques, gestion Meta complète",
-              "Logiciel AI de qualification + dashboard",
-              "Review stratégique mensuelle en direct",
-            ].map((s, i) => (
-              <div key={i} className="text-xs text-foreground flex items-start gap-2">
-                <Check className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0 mt-0.5" /> {s}
+        {/* Marquee */}
+        <div className="relative overflow-hidden"
+             style={{
+               maskImage: "linear-gradient(90deg, transparent 0%, black 8%, black 92%, transparent 100%)",
+               WebkitMaskImage: "linear-gradient(90deg, transparent 0%, black 8%, black 92%, transparent 100%)",
+             }}>
+          <div className="marquee-track flex gap-12 w-max whitespace-nowrap">
+            {[...TOOLS, ...TOOLS].map((t, i) => (
+              <div key={i} className="flex items-center gap-2.5 shrink-0">
+                <span className="w-5 h-5 text-foreground opacity-85 flex items-center justify-center">{t.icon}</span>
+                <span className="text-sm font-medium text-foreground opacity-85">{t.name}</span>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Extras */}
-        <div className="pt-3 border-t border-border/30">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Extras & upsells</p>
-          <div className="flex flex-wrap gap-2">
-            {["CRM (upsell au mois 3)", "Bot AI", "Landing page"].map((e) => (
-              <span key={e} className="text-[11px] px-2 py-1 rounded-full bg-muted/40 text-muted-foreground border border-border/40">
-                + {e}
+        {/* 3 cards below */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {[
+            { title: "Acquisition payante", desc: "Meta Ads gérées : création, tests d'angles, opti hebdo." },
+            { title: "Automatisation & IA",  desc: "GoHighLevel + Claude : qualification, séquences, suivi jusqu'au RDV." },
+            { title: "Publication & suivi", desc: "Metricool + ClickUp : programmation, dashboards, rapports mensuels." },
+          ].map((c) => (
+            <div key={c.title} className="rounded-xl border border-border/40 p-5 bg-card/40">
+              <p className="text-sm font-semibold text-foreground">{c.title}</p>
+              <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">{c.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ═════════ SECTION 01 · CE QUI EST INCLUS ═════════ */}
+      <section id="inclus" className="space-y-10">
+        <div className="flex items-baseline gap-6">
+          <span className="text-[11px] font-mono text-muted-foreground">01</span>
+          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Ce qui est inclus</h2>
+        </div>
+
+        <IncludedBlock
+          title="À la signature"
+          items={[
+            "Audit de départ (marché, offre, objectifs)",
+            "CRM personnalisé (pipelines, tags, workflows)",
+            "Automatisations SMS + courriel",
+            "Landing page de conversion",
+            "Tracking Pixel Meta + CAPI serveur",
+            "Logiciel IA de qualification personnalisé",
+            "Dashboard client en direct",
+            "Premier tournage (demi-journée) + premier lot de créatifs",
+          ]}
+        />
+        <IncludedBlock
+          title="Chaque mois"
+          items={[
+            "Gestion Meta Ads complète (création, tests, opti hebdo)",
+            "Nouvelles ads statiques (2 à 3 par mois)",
+            "Maintenance du CRM + automatisations",
+            "Suivi structuré des leads jusqu'au RDV",
+            "Rapport mensuel de performance",
+            "Call de review + ajustements stratégiques",
+            "Support prioritaire (Slack / courriel)",
+            "Optimisation continue des angles publicitaires",
+          ]}
+        />
+        <IncludedBlock
+          title="À chaque 2 mois"
+          items={[
+            "1 tournage vidéo (demi-journée) — déplacement inclus",
+            "Nouveau lot de créatifs vidéo",
+            "Renouvellement des angles publicitaires",
+            "Session stratégique de recalibrage",
+          ]}
+        />
+      </section>
+
+      {/* ═════════ SECTION 02 · LE PREMIER MOIS ═════════ */}
+      <section className="space-y-10">
+        <div className="flex items-baseline gap-6">
+          <span className="text-[11px] font-mono text-muted-foreground">02</span>
+          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Le premier mois</h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          {[
+            { label: "Semaine 1", title: "Kickoff & audit",     sentence: "On aligne les objectifs, on récupère les accès, on définit les angles à tester." },
+            { label: "Semaine 2", title: "Build & tracking",    sentence: "CRM configuré, landing en ligne, Pixel + CAPI installés, automatisations en place." },
+            { label: "Semaine 3", title: "Tournage & créatifs", sentence: "Premier tournage sur ta demi-journée, montage rapide, premières ads produites." },
+            { label: "Semaine 4+", title: "Launch & opti",      sentence: "Ads en ligne, mesures quotidiennes, ajustements en continu, premiers RDV qualifiés." },
+          ].map((w) => (
+            <div key={w.label} className="pt-6 border-t border-border/40">
+              <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">{w.label}</p>
+              <p className="mt-3 text-lg font-semibold text-foreground">{w.title}</p>
+              <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{w.sentence}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ═════════ SECTION 04 · FORFAIT 02 (ORANGE) ═════════ */}
+      <section
+        className={`-mx-8 px-8 py-16 space-y-12 ${ORNG.bgSoft} border-y ${ORNG.border}`}
+      >
+        {/* Header */}
+        <div className="flex flex-col items-start gap-3">
+          <p className={`text-[11px] font-mono uppercase tracking-widest ${ORNG.text}`}>
+            Forfait 02 · Contenu et visibilité
+          </p>
+          <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground max-w-2xl">
+            Ton nom devient <span style={{ fontFamily: "Georgia, serif" }} className="italic text-orange-400">la référence</span>.
+          </h2>
+        </div>
+
+        {/* Pastilles horizontales */}
+        <div className="flex items-center gap-4 flex-wrap">
+          {["Être vu", "Créer de la confiance", "Générer des prospects"].map((step, i, arr) => (
+            <div key={step} className="flex items-center gap-4">
+              <span className={`px-4 py-2 rounded-full border ${ORNG.border} ${ORNG.bgSoft} text-sm ${ORNG.text} font-medium`}>
+                {step}
               </span>
+              {i < arr.length - 1 && <ArrowRightIcon className={`w-4 h-4 ${ORNG.text} opacity-70`} />}
+            </div>
+          ))}
+        </div>
+
+        {/* Choisis ton rythme */}
+        <div>
+          <p className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground mb-4">Choisis ton rythme</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {[
+              { label: "Format 8", videos: "8 vidéos publiées / mois",  price: "3 200 $", note: "Pour maintenir une présence solide." },
+              { label: "Format 10", videos: "10 vidéos publiées / mois", price: "3 500 $", note: "Pour dominer ta niche — le plus populaire." , featured: true },
+            ].map((f) => (
+              <div key={f.label} className={`rounded-2xl border-2 p-6 ${f.featured ? `${ORNG.border}` : "border-border/40"} bg-card/40`}>
+                <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">{f.label}</p>
+                <p className={`text-3xl font-bold mt-2 ${f.featured ? ORNG.text : "text-foreground"}`}>{f.price}<span className="text-sm text-muted-foreground font-normal">/mois</span></p>
+                <p className="text-sm text-foreground mt-3">{f.videos}</p>
+                <p className="text-xs text-muted-foreground mt-1">{f.note}</p>
+              </div>
             ))}
           </div>
         </div>
-      </div>
 
-      {/* AI blurb */}
-      <div className="rounded-xl border border-primary/20 bg-primary/[0.03] p-4 flex items-start gap-3">
-        <div className="text-2xl">🤖</div>
+        {/* 4 axes complémentaires */}
         <div>
-          <p className="text-sm font-semibold text-foreground">Inclus dans les deux forfaits</p>
-          <p className="text-xs text-muted-foreground mt-0.5">Notre logiciel AI de qualification des leads avec dashboard client en temps réel.</p>
-        </div>
-      </div>
-
-      {/* Closing script */}
-      <div className="rounded-2xl border-2 border-fuchsia-500/30 bg-fuchsia-500/[0.03] p-5 space-y-3">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-fuchsia-400 mb-1">🎯 Angle de closing</p>
-            <p className="text-xs text-muted-foreground">Comment présenter les 2 forfaits au prospect.</p>
+          <p className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground mb-4">4 axes complémentaires</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {[
+              { title: "Stratégie",    desc: "Angles, positionnement, calendrier 50/30/20 (éducation/preuve/offre)." },
+              { title: "Création",     desc: "Tournage aux 2 mois, montage, sous-titrage, adaptation par plateforme." },
+              { title: "Acquisition",  desc: "Ads vidéo + statiques, gestion Meta complète pour amplifier le contenu." },
+              { title: "Accompagnement", desc: "Coaching caméra à chaque tournage + review stratégique mensuelle." },
+            ].map((a) => (
+              <div key={a.title} className={`rounded-xl border ${ORNG.border} p-5 bg-card/40`}>
+                <p className="text-sm font-semibold text-foreground">{a.title}</p>
+                <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">{a.desc}</p>
+              </div>
+            ))}
           </div>
-          <Button size="sm" variant="outline" onClick={copyScript} className="gap-1.5 flex-shrink-0">
-            <Copy className="w-3.5 h-3.5" /> Copier
-          </Button>
         </div>
-        <blockquote className="text-sm text-foreground italic leading-relaxed border-l-2 border-fuchsia-500/40 pl-4">
-          « {CLOSING_SCRIPT} »
-        </blockquote>
-      </div>
 
-      {/* Internal note */}
-      <div className="rounded-xl border border-border/40 bg-muted/20 p-4 text-xs text-muted-foreground space-y-1.5">
-        <p className="font-semibold text-foreground">📌 Notes internes</p>
-        <p><span className="text-foreground">Lead Gen</span> — bon pour ticket immédiat élevé (10k signature) + cash-flow prévisible dès le mois 5. Garantie 30 jours = pression sur nous, mais barrière d'engagement pour le client. Vérifier accès client à J1 sinon le compteur ne part pas.</p>
-        <p><span className="text-foreground">Contenu</span> — meilleur pour rétention long terme. Format 20 est le sweet spot (visibilité qui compound). CRM en upsell au mois 3 = ARR add-on facile.</p>
-      </div>
+        {/* Sur mesure */}
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-6 items-end pt-4">
+          <div>
+            <p className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground mb-3">Sur mesure</p>
+            <ul className="space-y-2 text-sm text-foreground">
+              <li>· Volume plus élevé (15 à 20 vidéos / mois)</li>
+              <li>· CRM personnalisé (upsell disponible dès le mois 3)</li>
+              <li>· Bot AI conversationnel + landing page dédiée</li>
+            </ul>
+          </div>
+          <button className={`${ORNG.bg} ${ORNG.bgHover} text-white text-sm font-semibold px-5 py-3 rounded-full transition-colors`}>
+            Discuter de ce forfait
+          </button>
+        </div>
+      </section>
+
+      {/* ═════════ SECTION 05 · COMPARAISON ═════════ */}
+      <section className="space-y-8">
+        <div className="flex items-baseline gap-6">
+          <span className="text-[11px] font-mono text-muted-foreground">05</span>
+          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Comparaison</h2>
+        </div>
+
+        <div className="rounded-2xl border border-border/40 overflow-hidden">
+          {/* Header row */}
+          <div className="grid grid-cols-[300px_1fr_1fr] gap-4 px-6 py-4 bg-muted/20 border-b border-border/40 items-center">
+            <span className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">Dimension</span>
+            <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full ${BLUE.bgSoft} border ${BLUE.border} text-xs font-medium ${BLUE.text} w-fit`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${BLUE.dot}`} /> Forfait 01
+            </span>
+            <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full ${ORNG.bgSoft} border ${ORNG.border} text-xs font-medium ${ORNG.text} w-fit`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${ORNG.dot}`} /> Forfait 02
+            </span>
+          </div>
+
+          {/* Rows */}
+          {[
+            { dim: "Objectif",              f1: "Générer des RDV qualifiés rapidement",       f2: "Bâtir la marque + générer sur le long terme" },
+            { dim: "Résultats visibles",    f1: "En 4 à 8 semaines",                          f2: "En 3 à 6 mois" },
+            { dim: "Contenu vidéo",         f1: "1 tournage / 2 mois",                        f2: "1 tournage / mois · 8 à 10 vidéos publiées" },
+            { dim: "Publicités Meta",       f1: "Gestion complète incluse",                    f2: "Gestion complète incluse" },
+            { dim: "CRM + automatisations", f1: "Sur mesure, inclus dès la signature",         f2: "Upsell à partir du mois 3" },
+            { dim: "Logiciel IA",           f1: "Qualification personnalisée + dashboard",     f2: "Qualification personnalisée + dashboard" },
+            { dim: "Ton implication",       f1: "1 demi-journée / 2 mois",                    f2: "1 demi-journée / mois + coaching caméra" },
+          ].map((row) => (
+            <div key={row.dim} className="grid grid-cols-[300px_1fr_1fr] gap-4 px-6 py-4 border-b border-border/30 last:border-0 items-start text-sm">
+              <span className="text-muted-foreground font-medium">{row.dim}</span>
+              <span className="text-foreground">{row.f1}</span>
+              <span className="text-foreground">{row.f2}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ═════════ CTA FINAL ═════════ */}
+      <section className="flex items-end justify-between pt-10 border-t border-border/40 gap-6 flex-wrap">
+        <h2 className="text-3xl md:text-4xl font-bold tracking-tight max-w-xl">
+          On regarde ensemble <span style={{ fontFamily: "Georgia, serif" }} className={`italic ${BLUE.text}`}>ce qui te va</span>.
+        </h2>
+        <button className={`${BLUE.bg} ${BLUE.bgHover} text-white text-sm font-semibold px-6 py-3.5 rounded-full transition-colors inline-flex items-center gap-2`}>
+          Réserver un appel
+          <ArrowRightIcon className="w-4 h-4" />
+        </button>
+      </section>
     </div>
   );
 }
 
+// ─── Sub-components ─────────────────────────────────────────────────────────
 
+function IncludedBlock({ title, items }: { title: string; items: string[] }) {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-[250px_1fr] gap-6">
+      <h3 className="text-lg font-semibold text-foreground">{title}</h3>
+      <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 divide-y sm:divide-y-0 divide-border/20 border-t border-border/20">
+        {items.map((it, i) => (
+          <li key={i} className="flex items-start gap-3 py-3 text-sm text-foreground border-t sm:border-t border-border/20 first:border-t-0 sm:first:border-t sm:[&:nth-child(2)]:border-t">
+            <Check className="w-3.5 h-3.5 text-foreground/50 flex-shrink-0 mt-1" />
+            <span>{it}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function ArrowRightIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M5 12h14M13 6l6 6-6 6" />
+    </svg>
+  );
+}
+
+// Brand marks — all white / currentColor for uniform white-on-dark treatment.
+function MetaMark()      { return <svg viewBox="0 0 32 24" fill="currentColor"><path d="M16 6.5C13 2.5 10 1 7 2.5 3 4.5 2 10 4 15c1.5 4 4 6 7 6 2 0 4-1 5-2.5 1 1.5 3 2.5 5 2.5 3 0 5.5-2 7-6 2-5 1-10.5-3-12.5-3-1.5-6 0-9 4zm-9 8c-1-3 0-6 2-7 1.5-.7 3.5.3 5 2.5-.7 1.7-1.5 3.5-2.3 4.7C10.5 16 9 16.5 8 16c-.5-.3-1-1-1-1.5zm18 0c0 .5-.5 1.2-1 1.5-1 .5-2.5 0-3.7-1.3-.8-1.2-1.6-3-2.3-4.7 1.5-2.2 3.5-3.2 5-2.5 2 1 3 4 2 7z"/></svg>; }
+function StarburstMark() { return <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2v6L15 5l1 1-3 3h6v2h-6l3 3-1 1-3-3v6h-2v-6l-3 3-1-1 3-3H3v-2h6L6 6l1-1 3 3V2z"/></svg>; }
+function ArrowsUpMark()  { return <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 20V10l3-3 3 3v10H4zm7 0V6l3-3 3 3v14h-6zm7 0V13l2-2 2 2v7h-4z"/></svg>; }
+function InfinityMark()  { return <svg viewBox="0 0 32 16" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M8 8c0-3 2-5 5-5s5 2 5 5-2 5-5 5-5-2-5-5m10 0c0-3 2-5 5-5s5 2 5 5-2 5-5 5-5-2-5-5" transform="translate(-4)"/></svg>; }
+function ClickUpMark()   { return <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 18l3.5-2.7c1.9 2.5 4 3.6 6.4 3.6 2.4 0 4.5-1.1 6.4-3.6L21.9 18C19.2 21.4 16 23 12 23s-7.2-1.6-10-5zM12 5.6L6.1 10.7l-2.8-3.2L12 0l8.7 7.5-2.8 3.2L12 5.6z"/></svg>; }
+function TikTokMark()    { return <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.6 6.3c-1.7-.2-3.2-1-4.2-2.3-.5-.7-.9-1.5-1-2.4h-3.5v13.9c0 1.5-1.2 2.7-2.7 2.7-1.5 0-2.7-1.2-2.7-2.7 0-1.5 1.2-2.7 2.7-2.7.3 0 .6.1.9.2v-3.5c-.3-.1-.6-.1-.9-.1-3.4 0-6.2 2.8-6.2 6.2S4.7 21.8 8.1 21.8s6.2-2.8 6.2-6.2V8.9c1.5 1 3.3 1.6 5.3 1.6V7c0-.2 0-.5 0-.7z"/></svg>; }
+function InstagramSVG()  { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.4a4 4 0 1 1-7.9 1.2 4 4 0 0 1 7.9-1.2"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>; }
+function FacebookSVG()   { return <svg viewBox="0 0 24 24" fill="currentColor"><path d="M22 12a10 10 0 1 0-11.6 9.9v-7H8v-3h2.4V9.8c0-2.4 1.4-3.7 3.6-3.7 1 0 2.1.2 2.1.2v2.3h-1.2c-1.2 0-1.5.7-1.5 1.5V12h2.6l-.4 3h-2.2v7A10 10 0 0 0 22 12z"/></svg>; }
+function YouTubeSVG()    { return <svg viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.6 3.6 12 3.6 12 3.6s-7.6 0-9.4.5A3 3 0 0 0 .5 6.2C0 8 0 12 0 12s0 4 .5 5.8a3 3 0 0 0 2.1 2.1c1.8.5 9.4.5 9.4.5s7.6 0 9.4-.5a3 3 0 0 0 2.1-2.1C24 16 24 12 24 12s0-4-.5-5.8zM9.6 15.6V8.4l6.3 3.6-6.3 3.6z"/></svg>; }
 // ─── Calculateur de prix — forfait + extras ─────────────────────────────────
 // Installation = fixe. Le mensuel s'ajuste selon les extras cochés.
 // Les prix des extras sont éditables inline (aucune source de vérité codée en dur).
