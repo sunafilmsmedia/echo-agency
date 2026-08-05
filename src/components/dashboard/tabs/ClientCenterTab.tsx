@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, getContractEndDate, monthsUntil } from "@/lib/utils";
 import {
   ExternalLink, FolderOpen, Link, Check, X, Copy, ChevronDown, ChevronUp,
   Users, ClipboardList, Mail, Phone, FileText, Loader2, Sparkles, Lock, RefreshCw,
@@ -16,7 +16,7 @@ import {
 import type { Client } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { askClaudeText } from "@/lib/claude-client";
-import { clientAdsTotals, clientAvgCpl, clientContentTotals } from "@/lib/kpi-ads";
+import { clientAdsTotals, clientAvgCpl, clientContentTotals, clientMonthSnapshot, clientMomChange } from "@/lib/kpi-ads";
 import { downloadClientKpiReport } from "@/lib/kpi-report";
 
 function slugify(s: string): string {
@@ -422,6 +422,26 @@ const statusColors: Record<string, string> = {
   completed: "secondary",
 };
 
+// Kept in sync with ClientsTab SERVICE_OPTIONS — used to render chips on
+// each client card in the Center. Unknown IDs are simply skipped.
+const SERVICE_LABELS: Record<string, { label: string; emoji: string }> = {
+  leadgen:          { label: "Lead Gen",       emoji: "🚀" },
+  contenu16:        { label: "Contenu 16",     emoji: "🎬" },
+  contenu20:        { label: "Contenu 20",     emoji: "🎬" },
+  botai_forfait:    { label: "Bot AI",         emoji: "💬" },
+  videos:           { label: "Vidéos",         emoji: "🎥" },
+  ads:              { label: "Meta Ads",       emoji: "📣" },
+  ai:               { label: "Form. IA",       emoji: "🤖" },
+  crm:              { label: "CRM",            emoji: "📇" },
+  web:              { label: "Landing",        emoji: "🌐" },
+  brand_direction:  { label: "Direction",      emoji: "🎨" },
+  bot_ai:           { label: "Bot AI",         emoji: "💬" },
+  social:           { label: "Contenu org.",   emoji: "📱" },
+  personal_brand:   { label: "Marque perso",   emoji: "🎯" },
+};
+
+const MONTHS_FR_SHORT = ["Jan","Fév","Mar","Avr","Mai","Juin","Juil","Août","Sept","Oct","Nov","Déc"];
+
 export function ClientCenterTab() {
   const { data: clients = [] } = useClients();
   const updateClient = useUpdateClient();
@@ -684,43 +704,106 @@ export function ClientCenterTab() {
                         <p className="font-medium text-sm text-foreground">{client.name}</p>
                         <Badge variant={statusColors[client.status] as any}>{client.status}</Badge>
                       </div>
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5 flex-wrap">
                         {client.industry && <span>{client.industry}</span>}
-                        {client.monthly_recurring_revenue && <span>{formatCurrency(client.monthly_recurring_revenue)}/mois</span>}
-                        {client.contract_start_date && <span>Depuis {formatDate(client.contract_start_date)}</span>}
+                        {client.monthly_recurring_revenue && (
+                          <span className="text-foreground font-medium">{formatCurrency(client.monthly_recurring_revenue)}/mois</span>
+                        )}
+                        {(() => {
+                          const end = getContractEndDate(client.contract_start_date, client.contract_length_months, client.contract_end_date);
+                          const left = monthsUntil(end);
+                          if (left === null) return client.contract_start_date ? <span>Depuis {formatDate(client.contract_start_date)}</span> : null;
+                          const color = left < 0 ? "text-destructive" : left <= 1 ? "text-destructive" : left <= 3 ? "text-amber-400" : "text-emerald-400";
+                          return (
+                            <span className={color}>
+                              {left < 0 ? "Contrat expiré" : `${left} mois restants`}
+                            </span>
+                          );
+                        })()}
                       </div>
+
+                      {/* Services chips (from client.services) */}
+                      {(client.services ?? []).length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {(client.services as string[] ?? []).slice(0, 6).map((sid) => {
+                            const meta = SERVICE_LABELS[sid];
+                            if (!meta) return null;
+                            return (
+                              <span key={sid} className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted/40 text-foreground/80 border border-border/40">
+                                {meta.emoji} {meta.label}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* This-month KPIs with MoM comparison */}
                       {(() => {
-                        const ads     = clientAdsTotals(client.id, 3);
-                        const content = clientContentTotals(client.id, 3);
-                        const avgCpl  = clientAvgCpl(client.id, 3);
-                        const hasAny  = ads.months > 0 || content.months > 0;
+                        const thisMonth = clientMonthSnapshot(client.id, 0);
+                        const ads3m     = clientAdsTotals(client.id, 3);
+                        const content3m = clientContentTotals(client.id, 3);
+                        const avgCpl3m  = clientAvgCpl(client.id, 3);
+                        const hasAny    = thisMonth || ads3m.months > 0 || content3m.months > 0;
                         if (!hasAny) return null;
+
+                        const mm = MONTHS_FR_SHORT[new Date().getMonth()];
+                        const leadsMoM  = clientMomChange(client.id, "leads");
+                        const budgetMoM = clientMomChange(client.id, "budget");
+
                         return (
-                          <div className="flex items-center gap-1.5 mt-1.5 flex-wrap text-[11px]">
-                            {content.views > 0 && (
-                              <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-                                <Eye className="w-3 h-3" />
-                                {content.views.toLocaleString("fr-CA")} vues
-                              </span>
+                          <div className="mt-3 rounded-lg border border-border/40 bg-muted/10 px-3 py-2 space-y-1.5">
+                            {/* This month row */}
+                            {thisMonth && (
+                              <div className="flex items-center gap-3 text-[11px] flex-wrap">
+                                <span className="text-[9px] font-bold uppercase tracking-wider text-primary">{mm}</span>
+                                {thisMonth.budget > 0 && (
+                                  <span className="text-foreground">
+                                    Budget : <span className="font-semibold">{formatCurrency(thisMonth.budget)}</span>
+                                    {budgetMoM !== null && (
+                                      <span className={`ml-1 text-[10px] ${budgetMoM >= 0 ? "text-emerald-400" : "text-destructive"}`}>
+                                        {budgetMoM >= 0 ? "▲" : "▼"}{Math.abs(budgetMoM)}%
+                                      </span>
+                                    )}
+                                  </span>
+                                )}
+                                {thisMonth.leads > 0 && (
+                                  <span className="text-foreground">
+                                    Leads : <span className="font-semibold">{thisMonth.leads}</span>
+                                    {leadsMoM !== null && (
+                                      <span className={`ml-1 text-[10px] ${leadsMoM >= 0 ? "text-emerald-400" : "text-destructive"}`}>
+                                        {leadsMoM >= 0 ? "▲" : "▼"}{Math.abs(leadsMoM)}%
+                                      </span>
+                                    )}
+                                  </span>
+                                )}
+                                {thisMonth.cpl !== null && (
+                                  <span className="text-foreground">
+                                    CPL : <span className="font-semibold">${thisMonth.cpl.toFixed(2)}</span>
+                                  </span>
+                                )}
+                              </div>
                             )}
-                            {content.videos > 0 && (
-                              <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-                                <Video className="w-3 h-3" />
-                                {content.videos} vidéos
-                              </span>
+                            {/* 3-month totals row */}
+                            {(ads3m.months > 0 || content3m.months > 0) && (
+                              <div className="flex items-center gap-1.5 flex-wrap text-[10px] text-muted-foreground pt-1 border-t border-border/30">
+                                <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">3M</span>
+                                {content3m.views > 0 && (
+                                  <span className="flex items-center gap-1"><Eye className="w-2.5 h-2.5" />{content3m.views.toLocaleString("fr-CA")} vues</span>
+                                )}
+                                {content3m.videos > 0 && (
+                                  <span className="flex items-center gap-1"><Video className="w-2.5 h-2.5" />{content3m.videos} vidéos</span>
+                                )}
+                                {ads3m.leads > 0 && (
+                                  <span className="flex items-center gap-1"><Megaphone className="w-2.5 h-2.5" />{ads3m.leads} leads</span>
+                                )}
+                                {ads3m.budget > 0 && (
+                                  <span>· {formatCurrency(ads3m.budget)} dépensé</span>
+                                )}
+                                {avgCpl3m !== null && (
+                                  <span>· CPL moyen ${avgCpl3m.toFixed(2)}</span>
+                                )}
+                              </div>
                             )}
-                            {ads.leads > 0 && (
-                              <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-                                <Megaphone className="w-3 h-3" />
-                                {ads.leads} leads
-                              </span>
-                            )}
-                            {avgCpl !== null && (
-                              <span className="text-muted-foreground">
-                                CPL : <span className="font-semibold text-foreground">${avgCpl.toFixed(2)}</span>
-                              </span>
-                            )}
-                            <span className="text-[10px] text-muted-foreground italic">(3m)</span>
                           </div>
                         );
                       })()}

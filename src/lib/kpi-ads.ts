@@ -71,3 +71,33 @@ export function clientAvgCpl(clientId: string, lookbackMonths = 3): number | nul
 export function clientTotalLeads(clientId: string, lookbackMonths = 3): number {
   return clientAdsTotals(clientId, lookbackMonths).leads;
 }
+
+/**
+ * Data for a specific month, offset from today (0 = current month, 1 = last month, etc.).
+ * Returns null when nothing was recorded that month.
+ */
+export function clientMonthSnapshot(clientId: string, monthOffset = 0): { views: number; videos: number; budget: number; leads: number; cpl: number | null } | null {
+  const now = new Date();
+  const d = new Date(now.getFullYear(), now.getMonth() - monthOffset, 1);
+  const row = loadMonth(d.getFullYear(), d.getMonth() + 1)[clientId];
+  if (!row) return null;
+  const budget = typeof row.budget === "number" ? row.budget : 0;
+  const leads  = typeof row.leads  === "number" ? row.leads  : 0;
+  const views  = typeof row.views  === "number" ? row.views  : 0;
+  const videos = typeof row.videos === "number" ? row.videos : 0;
+  if (budget === 0 && leads === 0 && views === 0 && videos === 0) return null;
+  return {
+    views, videos, budget, leads,
+    cpl: leads > 0 ? Math.round((budget / leads) * 100) / 100 : null,
+  };
+}
+
+/** Month-over-month % change for a specific metric. null if either month lacks data. */
+export function clientMomChange(clientId: string, metric: "budget" | "leads" | "views" | "videos"): number | null {
+  const cur = clientMonthSnapshot(clientId, 0);
+  const prev = clientMonthSnapshot(clientId, 1);
+  if (!cur || !prev) return null;
+  const p = prev[metric];
+  if (p === 0) return null;
+  return Math.round(((cur[metric] - p) / p) * 100);
+}
