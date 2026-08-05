@@ -530,7 +530,7 @@ function ContentKpiDetail({ employee, onBack }: { employee: Employee; onBack: ()
 
 // ─── Ads import — reusable rows for JSON paste ───────────────────────────────
 
-interface AdImportRow { name: string; budget?: number; leads?: number }
+interface AdImportRow { name: string; budget?: number; leads?: number; views?: number; videos?: number }
 
 // Default pasteable payload — July 2026 from the SFM monthly report.
 // Users can overwrite the textarea with any month's data.
@@ -550,7 +550,7 @@ const JULY_2026_ADS_JSON = JSON.stringify(
     { name: "Suna Films Media",          budget: 2593.94, leads: 42  }, // c'est nous — notre propre acquisition
     { name: "Philippe Laroche",          budget:  446.64, leads:  5  },
     { name: "Sacha De Santis",           budget: 1333.03, leads:  5  },
-    { name: "Kelly et Félix",            leads: 31 },                    // report: SBD équipe immobilière
+    { name: "Kelly et Félix",            leads: 31, views: 500000 },     // report: SBD équipe immobilière · 500k+ vues organiques juillet
   ],
   null, 2,
 );
@@ -574,6 +574,121 @@ function findClientMatch(reportName: string, clients: { id: string; name: string
     return n.includes(r) || r.includes(n);
   });
   return partial ?? null;
+}
+
+// ── Beautiful ranked leads bar chart ────────────────────────────────────────
+// Sorted horizontal bars, one per client, colored by CPL tier (matching the
+// report's aesthetic: green = excellent, blue = good, amber = watch, red = problem).
+
+function LeadsRanking({
+  clients, monthData, qMonths, year,
+}: {
+  clients: { id: string; name: string }[];
+  monthData: [MonthData, MonthData, MonthData];
+  qMonths: number[];
+  year: number;
+}) {
+  const [pickedIdx, setPickedIdx] = useState<0 | 1 | 2>(() => {
+    // Default: pick the most recent month in the quarter that has any data
+    for (let i = 2; i >= 0; i--) {
+      const anyData = Object.values(monthData[i]).some((r: any) => (r?.leads ?? 0) > 0 || (r?.budget ?? 0) > 0);
+      if (anyData) return i as 0 | 1 | 2;
+    }
+    return 2 as 0 | 1 | 2;
+  });
+
+  const rows = clients.map((c) => {
+    const r = (monthData[pickedIdx] as any)[c.id] ?? {};
+    const budget = typeof r.budget === "number" ? r.budget : 0;
+    const leads  = typeof r.leads  === "number" ? r.leads  : 0;
+    const cpl    = leads > 0 ? budget / leads : null;
+    return { id: c.id, name: c.name, budget, leads, cpl };
+  })
+    .filter((r) => r.leads > 0 || r.budget > 0)
+    .sort((a, b) => (b.leads - a.leads));
+
+  const maxLeads = Math.max(1, ...rows.map((r) => r.leads));
+  const monthLabel = MONTHS_FR[qMonths[pickedIdx] - 1];
+
+  // CPL tier: green ≤25 · blue 25-45 · amber 45-70 · red >70 (matches SFM report)
+  const tierColor = (cpl: number | null) => {
+    if (cpl === null) return { bg: "bg-muted/40", text: "text-muted-foreground", dot: "bg-muted-foreground" };
+    if (cpl <= 25)   return { bg: "bg-emerald-500/70", text: "text-emerald-400",   dot: "bg-emerald-500" };
+    if (cpl <= 45)   return { bg: "bg-primary/70",     text: "text-primary",       dot: "bg-primary" };
+    if (cpl <= 70)   return { bg: "bg-amber-500/70",   text: "text-amber-400",     dot: "bg-amber-500" };
+    return              { bg: "bg-destructive/70",  text: "text-destructive",   dot: "bg-destructive" };
+  };
+
+  if (rows.length === 0) {
+    return (
+      <div className="rounded-2xl border border-border/40 bg-card p-8 text-center">
+        <p className="text-sm text-muted-foreground">
+          Aucune donnée de leads pour {monthLabel} {year}. Importe des données via le bouton « Importer » en haut.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-2xl border border-border/40 bg-card p-6 space-y-5">
+      {/* Header + month picker */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Classement par leads</p>
+          <h3 className="text-lg font-semibold text-foreground mt-0.5">
+            {monthLabel} {year} · {rows.length} clients actifs
+          </h3>
+        </div>
+        <div className="flex gap-1 rounded-lg border border-border/40 p-0.5">
+          {[0, 1, 2].map((mi) => (
+            <button key={mi} type="button" onClick={() => setPickedIdx(mi as 0 | 1 | 2)}
+              className={`px-3 py-1 rounded-md text-xs font-medium transition ${
+                pickedIdx === mi
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}>
+              {MONTHS_FR[qMonths[mi] - 1]}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Bars */}
+      <div className="space-y-2">
+        {rows.map((r, i) => {
+          const t = tierColor(r.cpl);
+          const widthPct = (r.leads / maxLeads) * 100;
+          return (
+            <div key={r.id} className="group">
+              <div className="grid grid-cols-[24px_180px_1fr_auto] gap-3 items-center">
+                <span className="text-[10px] font-bold text-muted-foreground text-right">{i + 1}.</span>
+                <span className="text-sm text-foreground font-medium truncate">{r.name}</span>
+                <div className="relative h-6 rounded-md bg-muted/25 overflow-hidden">
+                  <div className={`h-full rounded-md ${t.bg} transition-all duration-500 ease-out`}
+                       style={{ width: `${widthPct}%` }} />
+                  <span className="absolute inset-0 flex items-center px-2 text-[11px] font-semibold text-foreground/90">
+                    {r.leads} leads
+                  </span>
+                </div>
+                <span className={`text-xs font-bold tabular-nums text-right min-w-[70px] ${t.text}`}>
+                  {r.cpl === null ? "—" : `$${r.cpl.toFixed(2)}`}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Legend */}
+      <div className="flex items-center gap-4 pt-3 border-t border-border/30 text-[10px] text-muted-foreground flex-wrap">
+        <span>CPL :</span>
+        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500" />Excellent (&lt;25 $)</span>
+        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-primary" />Bon (25-45 $)</span>
+        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-500" />À surveiller (45-70 $)</span>
+        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-destructive" />Problématique (&gt;70 $)</span>
+      </div>
+    </div>
+  );
 }
 
 function AdsKpiDetail({ employee, onBack }: { employee: Employee; onBack: () => void }) {
@@ -712,6 +827,8 @@ function AdsKpiDetail({ employee, onBack }: { employee: Employee; onBack: () => 
           reportName: r.name,
           budget: typeof r.budget === "number" ? r.budget : null,
           leads:  typeof r.leads  === "number" ? r.leads  : null,
+          views:  typeof r.views  === "number" ? r.views  : null,
+          videos: typeof r.videos === "number" ? r.videos : null,
           match: findClientMatch(r.name || "", supabaseClients as any),
         }));
         const matched = preview.filter((p) => p.match !== null);
@@ -728,6 +845,8 @@ function AdsKpiDetail({ employee, onBack }: { employee: Employee; onBack: () => 
               ...(existing[c.id] ?? {}),
               ...(p.budget !== null ? { budget: p.budget } : {}),
               ...(p.leads  !== null ? { leads:  p.leads  } : {}),
+              ...(p.views  !== null ? { views:  p.views  } : {}),
+              ...(p.videos !== null ? { videos: p.videos } : {}),
             };
             // Auto-track any imported client on René's list
             if (!nextConfig[c.id]) nextConfig[c.id] = { baselineViews: 0, baselineVideos: 0, trackedByAds: true };
@@ -842,6 +961,14 @@ function AdsKpiDetail({ employee, onBack }: { employee: Employee; onBack: () => 
           </div>
         );
       })()}
+
+      {/* ── Classement par leads — beau graphique en barres horizontales ── */}
+      <LeadsRanking
+        clients={configuredClients as any}
+        monthData={monthData}
+        qMonths={qMonths}
+        year={year}
+      />
 
       {/* Quarter totals — budget spent, leads generated, avg CPL */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
