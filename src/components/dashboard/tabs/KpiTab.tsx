@@ -538,19 +538,19 @@ const JULY_2026_ADS_JSON = JSON.stringify(
   [
     { name: "Luis Ribeiro",              budget: 1434.31, leads: 86  },
     { name: "Jean-Philippe Bolduc",      budget: 1385.51, leads: 69  },
-    { name: "Sylvain Courtier",          budget:  587.78, leads: 27  },
+    { name: "Sylvain Danis",             budget:  587.78, leads: 27  }, // report: Sylvain Courtier
     { name: "Martin Ross",               budget: 1444.44, leads: 66  },
     { name: "Le Don de l'Auto",          budget: 3055.45, leads: 117 },
-    { name: "Eli Ibrahim",               budget: 1569.71, leads: 47  },
+    { name: "Élie Ibrahim",              budget: 1569.71, leads: 47  }, // report: Eli Ibrahim
     { name: "Yannick Charette",          budget:  742.24, leads: 22  },
-    { name: "Ebook publicité RB",        budget: 2230.39, leads: 48  },
+    { name: "Roux et Bachand",           budget: 2230.39, leads: 48  }, // report: Ebook publicité RB
     { name: "Emmanuel Bouchard",         budget: 1254.92, leads: 25  },
     { name: "Justin Legault",            budget: 1236.69, leads: 24  },
     { name: "Manuel",                    budget: 1605.09, leads: 29  },
-    { name: "Suna Films Media",          budget: 2593.94, leads: 42  },
+    { name: "Suna Films Media",          budget: 2593.94, leads: 42  }, // c'est nous — notre propre acquisition
     { name: "Philippe Laroche",          budget:  446.64, leads:  5  },
     { name: "Sacha De Santis",           budget: 1333.03, leads:  5  },
-    { name: "SBD équipe immobilière",    leads: 31 },
+    { name: "Kelly et Félix",            leads: 31 },                    // report: SBD équipe immobilière
   ],
   null, 2,
 );
