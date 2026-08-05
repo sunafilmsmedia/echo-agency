@@ -528,6 +528,54 @@ function ContentKpiDetail({ employee, onBack }: { employee: Employee; onBack: ()
 
 // ── Ads KPI detail (René: budget + leads → CPL — pure results, no bonus) ─────
 
+// ─── Ads import — reusable rows for JSON paste ───────────────────────────────
+
+interface AdImportRow { name: string; budget?: number; leads?: number }
+
+// Default pasteable payload — July 2026 from the SFM monthly report.
+// Users can overwrite the textarea with any month's data.
+const JULY_2026_ADS_JSON = JSON.stringify(
+  [
+    { name: "Luis Ribeiro",              budget: 1434.31, leads: 86  },
+    { name: "Jean-Philippe Bolduc",      budget: 1385.51, leads: 69  },
+    { name: "Sylvain Courtier",          budget:  587.78, leads: 27  },
+    { name: "Martin Ross",               budget: 1444.44, leads: 66  },
+    { name: "Le Don de l'Auto",          budget: 3055.45, leads: 117 },
+    { name: "Eli Ibrahim",               budget: 1569.71, leads: 47  },
+    { name: "Yannick Charette",          budget:  742.24, leads: 22  },
+    { name: "Ebook publicité RB",        budget: 2230.39, leads: 48  },
+    { name: "Emmanuel Bouchard",         budget: 1254.92, leads: 25  },
+    { name: "Justin Legault",            budget: 1236.69, leads: 24  },
+    { name: "Manuel",                    budget: 1605.09, leads: 29  },
+    { name: "Suna Films Media",          budget: 2593.94, leads: 42  },
+    { name: "Philippe Laroche",          budget:  446.64, leads:  5  },
+    { name: "Sacha De Santis",           budget: 1333.03, leads:  5  },
+    { name: "SBD équipe immobilière",    leads: 31 },
+  ],
+  null, 2,
+);
+
+// Fuzzy client-name matcher: normalize accents/punctuation/case and do a
+// two-way substring test (report name in client name OR vice-versa).
+function normalizeName(s: string): string {
+  return s.toLowerCase()
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]/g, "");
+}
+function findClientMatch(reportName: string, clients: { id: string; name: string }[]): { id: string; name: string } | null {
+  const r = normalizeName(reportName);
+  if (r.length === 0) return null;
+  // Exact first
+  const exact = clients.find((c) => normalizeName(c.name) === r);
+  if (exact) return exact;
+  // Substring (bidirectional)
+  const partial = clients.find((c) => {
+    const n = normalizeName(c.name);
+    return n.includes(r) || r.includes(n);
+  });
+  return partial ?? null;
+}
+
 function AdsKpiDetail({ employee, onBack }: { employee: Employee; onBack: () => void }) {
   const now = new Date();
   const currentQ = Math.floor(now.getMonth() / 3);
@@ -543,6 +591,9 @@ function AdsKpiDetail({ employee, onBack }: { employee: Employee; onBack: () => 
 
   const [kpiConfig, setKpiConfig] = useState<KpiClientConfig>(loadKpiConfig);
   const [showAvailable, setShowAvailable] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importMonthIdx, setImportMonthIdx] = useState<0|1|2>(0);
+  const [importJson, setImportJson] = useState<string>(JULY_2026_ADS_JSON);
 
   const { data: supabaseClients = [], isLoading } = useClients();
 
@@ -627,6 +678,10 @@ function AdsKpiDetail({ employee, onBack }: { employee: Employee; onBack: () => 
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" className="gap-1.5 text-xs h-8"
+            onClick={() => setImportOpen(true)}>
+            <Plus className="w-3.5 h-3.5" /> Importer
+          </Button>
           <button onClick={() => navigateQuarter(-1)} className="p-1.5 rounded-lg border border-border/50 hover:bg-accent transition-colors">
             <ChevronLeft className="w-4 h-4" />
           </button>
@@ -641,6 +696,152 @@ function AdsKpiDetail({ employee, onBack }: { employee: Employee; onBack: () => 
           </button>
         </div>
       </div>
+
+      {/* Import dialog */}
+      {importOpen && (() => {
+        let rows: AdImportRow[] = [];
+        let parseError: string | null = null;
+        try {
+          const parsed = JSON.parse(importJson);
+          if (!Array.isArray(parsed)) throw new Error("Le JSON doit être une liste [ … ].");
+          rows = parsed;
+        } catch (e: any) {
+          parseError = e?.message ?? "JSON invalide";
+        }
+        const preview = rows.map((r) => ({
+          reportName: r.name,
+          budget: typeof r.budget === "number" ? r.budget : null,
+          leads:  typeof r.leads  === "number" ? r.leads  : null,
+          match: findClientMatch(r.name || "", supabaseClients as any),
+        }));
+        const matched = preview.filter((p) => p.match !== null);
+        const missed  = preview.filter((p) => p.match === null);
+
+        const confirmImport = () => {
+          if (matched.length === 0) return;
+          const targetMonth = qMonths[importMonthIdx];
+          const existing = loadMonth(year, targetMonth);
+          const nextConfig = { ...kpiConfig };
+          matched.forEach((p) => {
+            const c = p.match!;
+            existing[c.id] = {
+              ...(existing[c.id] ?? {}),
+              ...(p.budget !== null ? { budget: p.budget } : {}),
+              ...(p.leads  !== null ? { leads:  p.leads  } : {}),
+            };
+            // Auto-track any imported client on René's list
+            if (!nextConfig[c.id]) nextConfig[c.id] = { baselineViews: 0, baselineVideos: 0, trackedByAds: true };
+            else nextConfig[c.id] = { ...nextConfig[c.id], trackedByAds: true };
+          });
+          saveMonth(year, targetMonth, existing);
+          setKpiConfig(nextConfig); saveKpiConfig(nextConfig);
+          // Refresh local state so grid updates immediately
+          setMonthData([
+            loadMonth(year, qMonths[0]),
+            loadMonth(year, qMonths[1]),
+            loadMonth(year, qMonths[2]),
+          ]);
+          setImportOpen(false);
+        };
+
+        return (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setImportOpen(false)}>
+            <div className="bg-card border border-border/60 rounded-2xl shadow-premium max-w-3xl w-full max-h-[85vh] overflow-hidden flex flex-col"
+              onClick={(e) => e.stopPropagation()}>
+              <div className="px-6 py-4 border-b border-border/40 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Importer des données Ads</p>
+                  <p className="text-[11px] text-muted-foreground">Colle un JSON [ &#123; name, budget, leads &#125; ] · matching automatique par nom de client</p>
+                </div>
+                <button onClick={() => setImportOpen(false)} className="text-muted-foreground hover:text-foreground text-xl">×</button>
+              </div>
+
+              <div className="p-6 space-y-4 overflow-y-auto">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Mois cible (dans le trimestre affiché)
+                  </label>
+                  <div className="flex gap-2">
+                    {[0,1,2].map((mi) => (
+                      <button key={mi} type="button" onClick={() => setImportMonthIdx(mi as 0|1|2)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${
+                          importMonthIdx === mi
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-muted/20 text-muted-foreground border-border hover:border-primary/50"
+                        }`}>
+                        {MONTHS_FR[qMonths[mi]-1]} {year}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Données JSON
+                  </label>
+                  <textarea value={importJson} onChange={(e) => setImportJson(e.target.value)}
+                    rows={10}
+                    className="w-full text-[11px] font-mono p-3 rounded-lg border border-border/40 bg-background/40 text-foreground" />
+                  {parseError && (
+                    <p className="text-[11px] text-destructive">✗ {parseError}</p>
+                  )}
+                </div>
+
+                {!parseError && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-3 text-xs">
+                      <span className="text-emerald-400 font-semibold">✓ {matched.length} matché{matched.length > 1 ? "s" : ""}</span>
+                      {missed.length > 0 && <span className="text-destructive font-semibold">✗ {missed.length} non trouvé{missed.length > 1 ? "s" : ""}</span>}
+                    </div>
+                    <div className="rounded-lg border border-border/40 overflow-hidden max-h-64 overflow-y-auto">
+                      <table className="w-full text-xs">
+                        <thead className="bg-muted/20 text-[10px] uppercase tracking-wider text-muted-foreground">
+                          <tr>
+                            <th className="text-left px-3 py-2">Rapport</th>
+                            <th className="text-left px-3 py-2">→ Client trouvé</th>
+                            <th className="text-right px-3 py-2">Budget</th>
+                            <th className="text-right px-3 py-2">Leads</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {preview.map((p, i) => (
+                            <tr key={i} className={`border-t border-border/30 ${p.match ? "" : "bg-destructive/[0.06]"}`}>
+                              <td className="px-3 py-1.5 text-foreground">{p.reportName}</td>
+                              <td className={`px-3 py-1.5 ${p.match ? "text-emerald-400" : "text-destructive"}`}>
+                                {p.match ? p.match.name : "— non trouvé —"}
+                              </td>
+                              <td className="px-3 py-1.5 text-right text-muted-foreground">
+                                {p.budget !== null ? `${p.budget.toFixed(2)} $` : "—"}
+                              </td>
+                              <td className="px-3 py-1.5 text-right text-muted-foreground">
+                                {p.leads !== null ? p.leads : "—"}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {missed.length > 0 && (
+                      <p className="text-[10px] text-muted-foreground italic">
+                        Les clients non trouvés sont ignorés — vérifie que le nom dans ta liste Client Management contient ou correspond au nom du rapport.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="px-6 py-4 border-t border-border/40 flex items-center justify-end gap-2">
+                <Button variant="ghost" onClick={() => setImportOpen(false)}>Annuler</Button>
+                <Button onClick={confirmImport} disabled={parseError !== null || matched.length === 0}
+                  className="gap-1.5 shadow-glow">
+                  <Check className="w-4 h-4" /> Importer {matched.length} ligne{matched.length > 1 ? "s" : ""} dans {MONTHS_FR[qMonths[importMonthIdx]-1]}
+                </Button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Quarter totals — budget spent, leads generated, avg CPL */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
