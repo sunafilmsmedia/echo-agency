@@ -3,6 +3,8 @@ import { ChevronLeft, ChevronRight, Trophy, Eye, Video, ArrowLeft, Plus, Chevron
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useClients } from "@/hooks/useClients";
+import { useKpiSync, pushClientMonth, pushClientConfig, pushCorrectionMonth } from "@/hooks/useKpiSync";
+import { toast } from "sonner";
 
 // ── Employees ─────────────────────────────────────────────────────────────────
 
@@ -72,7 +74,18 @@ function loadKpiConfig(): KpiClientConfig {
   catch { return {}; }
 }
 function saveKpiConfig(config: KpiClientConfig) {
+  // Local first (sync API stays fast + offline-safe)
+  const prev = loadKpiConfig();
   localStorage.setItem("kpi_client_config", JSON.stringify(config));
+  // Push only what changed to Supabase (background, non-blocking)
+  for (const [clientId, cfg] of Object.entries(config)) {
+    const before = prev[clientId];
+    const changed = !before
+      || before.baselineViews  !== cfg.baselineViews
+      || before.baselineVideos !== cfg.baselineVideos
+      || (!!before.trackedByAds) !== (!!cfg.trackedByAds);
+    if (changed) pushClientConfig(clientId, cfg);
+  }
 }
 
 // ── localStorage: monthly results ────────────────────────────────────────────
@@ -93,7 +106,17 @@ function loadMonth(year: number, month: number): MonthData {
   catch { return {}; }
 }
 function saveMonth(year: number, month: number, data: MonthData) {
+  const prev = loadMonth(year, month);
   localStorage.setItem(storageKey(year,month), JSON.stringify(data));
+  // Diff & push only changed client-rows to Supabase (background, non-blocking)
+  for (const [clientId, row] of Object.entries(data)) {
+    const before = prev[clientId] ?? {};
+    const changed = before.views  !== row.views
+                 || before.videos !== row.videos
+                 || before.budget !== row.budget
+                 || before.leads  !== row.leads;
+    if (changed) pushClientMonth(clientId, year, month, row);
+  }
 }
 
 // ── Dynamic baseline: previous quarter's average ─────────────────────────────
@@ -178,11 +201,32 @@ function ContentKpiDetail({ employee, onBack }: { employee: Employee; onBack: ()
   // KPI config (baselines per Supabase client)
   const [kpiConfig, setKpiConfig] = useState<KpiClientConfig>(loadKpiConfig);
 
+  // Refresh from localStorage after Supabase hydration completes
+  useEffect(() => {
+    const refresh = () => {
+      setMonthData([
+        loadMonth(now.getFullYear(), qMonths[0]),
+        loadMonth(now.getFullYear(), qMonths[1]),
+        loadMonth(now.getFullYear(), qMonths[2]),
+      ]);
+      setKpiConfig(loadKpiConfig());
+    };
+    window.addEventListener("kpi-hydrated", refresh);
+    return () => window.removeEventListener("kpi-hydrated", refresh);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [year, quarter]);
+
   // "Add to KPI" form
   const [addingId, setAddingId]   = useState<string | null>(null);
   const [addViews, setAddViews]   = useState("");
   const [addVideos, setAddVideos] = useState("");
   const [showAvailable, setShowAvailable] = useState(false);
+
+  // Import content KPI (Sandra) — 3 preset months pre-loaded
+  const [importOpen, setImportOpen] = useState(false);
+  const [importJson, setImportJson] = useState<string>(SANDRA_JUNE_2026);
+  const [importYear, setImportYear] = useState<number>(2026);
+  const [importMonth, setImportMonth] = useState<number>(6);
 
   // Supabase clients
   const { data: supabaseClients = [], isLoading } = useClients();
@@ -277,6 +321,10 @@ function ContentKpiDetail({ employee, onBack }: { employee: Employee; onBack: ()
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" className="gap-1.5 text-xs h-8"
+            onClick={() => setImportOpen(true)}>
+            <Plus className="w-3.5 h-3.5" /> Importer
+          </Button>
           <button onClick={() => navigateQuarter(-1)} className="p-1.5 rounded-lg border border-border/50 hover:bg-accent transition-colors">
             <ChevronLeft className="w-4 h-4" />
           </button>
@@ -291,6 +339,162 @@ function ContentKpiDetail({ employee, onBack }: { employee: Employee; onBack: ()
           </button>
         </div>
       </div>
+
+      {/* Import dialog (Sandra content) */}
+      {importOpen && (() => {
+        let rows: AdImportRow[] = [];
+        let parseError: string | null = null;
+        try {
+          const parsed = JSON.parse(importJson);
+          if (!Array.isArray(parsed)) throw new Error("Le JSON doit être une liste [ … ].");
+          rows = parsed;
+        } catch (e: any) { parseError = e?.message ?? "JSON invalide"; }
+        const preview = rows.map((r) => ({
+          reportName: r.name,
+          views:  typeof r.views  === "number" ? r.views  : null,
+          videos: typeof r.videos === "number" ? r.videos : null,
+          match: findClientMatch(r.name || "", supabaseClients as any),
+        }));
+        const matched = preview.filter((p) => p.match !== null);
+        const missed  = preview.filter((p) => p.match === null);
+
+        const loadPreset = (json: string, y: number, m: number) => {
+          setImportJson(json); setImportYear(y); setImportMonth(m);
+        };
+
+        const confirmImport = () => {
+          if (matched.length === 0) return;
+          const existing = loadMonth(importYear, importMonth);
+          const nextConfig = { ...kpiConfig };
+          matched.forEach((p) => {
+            const c = p.match!;
+            existing[c.id] = {
+              ...(existing[c.id] ?? {}),
+              ...(p.views  !== null ? { views:  p.views  } : {}),
+              ...(p.videos !== null ? { videos: p.videos } : {}),
+            };
+            // Auto-add to Sandra's config with 0-baseline so client shows in her grid
+            if (!nextConfig[c.id]) nextConfig[c.id] = { baselineViews: 0, baselineVideos: 0 };
+          });
+          saveMonth(importYear, importMonth, existing);
+          setKpiConfig(nextConfig); saveKpiConfig(nextConfig);
+          // Refresh visible grid if the imported month is in the current quarter
+          const idxInQuarter = qMonths.indexOf(importMonth);
+          if (year === importYear && idxInQuarter !== -1) {
+            setMonthData([
+              loadMonth(year, qMonths[0]),
+              loadMonth(year, qMonths[1]),
+              loadMonth(year, qMonths[2]),
+            ]);
+          }
+          toast.success(`${matched.length} clients importés dans ${MONTHS_FR[importMonth-1]} ${importYear}`);
+          setImportOpen(false);
+        };
+
+        return (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setImportOpen(false)}>
+            <div className="bg-card border border-border/60 rounded-2xl shadow-premium max-w-3xl w-full max-h-[85vh] overflow-hidden flex flex-col"
+              onClick={(e) => e.stopPropagation()}>
+              <div className="px-6 py-4 border-b border-border/40 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Importer des données Content (Sandra)</p>
+                  <p className="text-[11px] text-muted-foreground">Presets Avril / Mai / Juin 2026 pré-remplis · match automatique par nom</p>
+                </div>
+                <button onClick={() => setImportOpen(false)} className="text-muted-foreground hover:text-foreground text-xl">×</button>
+              </div>
+
+              <div className="p-6 space-y-4 overflow-y-auto">
+                {/* Presets */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Presets Suna Films</label>
+                  <div className="flex gap-2 flex-wrap">
+                    <Button size="sm" variant="outline" onClick={() => loadPreset(SANDRA_APRIL_2026, 2026, 4)}
+                      className={`text-xs h-8 ${importYear === 2026 && importMonth === 4 ? "border-primary text-primary" : ""}`}>
+                      📥 Avril 2026
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => loadPreset(SANDRA_MAY_2026, 2026, 5)}
+                      className={`text-xs h-8 ${importYear === 2026 && importMonth === 5 ? "border-primary text-primary" : ""}`}>
+                      📥 Mai 2026
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => loadPreset(SANDRA_JUNE_2026, 2026, 6)}
+                      className={`text-xs h-8 ${importYear === 2026 && importMonth === 6 ? "border-primary text-primary" : ""}`}>
+                      📥 Juin 2026
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Target month picker */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Mois cible</label>
+                  <div className="flex gap-2 items-center">
+                    <select value={importMonth} onChange={(e) => setImportMonth(parseInt(e.target.value, 10))}
+                      className="h-8 px-2 rounded-md border border-border/40 bg-background text-xs">
+                      {MONTHS_FR.map((m, i) => <option key={i} value={i+1}>{m}</option>)}
+                    </select>
+                    <Input type="number" value={importYear} onChange={(e) => setImportYear(parseInt(e.target.value, 10) || 2026)}
+                      className="h-8 w-24 text-xs" />
+                  </div>
+                </div>
+
+                {/* JSON textarea */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Données JSON</label>
+                  <textarea value={importJson} onChange={(e) => setImportJson(e.target.value)}
+                    rows={10}
+                    className="w-full text-[11px] font-mono p-3 rounded-lg border border-border/40 bg-background/40 text-foreground" />
+                  {parseError && <p className="text-[11px] text-destructive">✗ {parseError}</p>}
+                </div>
+
+                {!parseError && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-3 text-xs">
+                      <span className="text-emerald-400 font-semibold">✓ {matched.length} matché{matched.length > 1 ? "s" : ""}</span>
+                      {missed.length > 0 && <span className="text-destructive font-semibold">✗ {missed.length} non trouvé{missed.length > 1 ? "s" : ""}</span>}
+                    </div>
+                    <div className="rounded-lg border border-border/40 overflow-hidden max-h-64 overflow-y-auto">
+                      <table className="w-full text-xs">
+                        <thead className="bg-muted/20 text-[10px] uppercase tracking-wider text-muted-foreground">
+                          <tr>
+                            <th className="text-left px-3 py-2">Rapport</th>
+                            <th className="text-left px-3 py-2">→ Client trouvé</th>
+                            <th className="text-right px-3 py-2">Vues</th>
+                            <th className="text-right px-3 py-2">Vidéos 20k+</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {preview.map((p, i) => (
+                            <tr key={i} className={`border-t border-border/30 ${p.match ? "" : "bg-destructive/[0.06]"}`}>
+                              <td className="px-3 py-1.5 text-foreground">{p.reportName}</td>
+                              <td className={`px-3 py-1.5 ${p.match ? "text-emerald-400" : "text-destructive"}`}>
+                                {p.match ? p.match.name : "— non trouvé —"}
+                              </td>
+                              <td className="px-3 py-1.5 text-right text-muted-foreground">
+                                {p.views !== null ? p.views.toLocaleString("fr-CA") : "—"}
+                              </td>
+                              <td className="px-3 py-1.5 text-right text-muted-foreground">
+                                {p.videos !== null ? p.videos : "—"}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="px-6 py-4 border-t border-border/40 flex items-center justify-end gap-2">
+                <Button variant="ghost" onClick={() => setImportOpen(false)}>Annuler</Button>
+                <Button onClick={confirmImport} disabled={parseError !== null || matched.length === 0}
+                  className="gap-1.5 shadow-glow">
+                  <Check className="w-4 h-4" /> Importer {matched.length} ligne{matched.length > 1 ? "s" : ""} dans {MONTHS_FR[importMonth-1]} {importYear}
+                </Button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Quarter summary bar */}
       <div className="grid grid-cols-4 gap-3">
@@ -555,6 +759,59 @@ const JULY_2026_ADS_JSON = JSON.stringify(
   null, 2,
 );
 
+// Sandra content presets — 3 months back-filled from her weekly result tables.
+const SANDRA_APRIL_2026 = JSON.stringify(
+  [
+    { name: "Claudia Ménard",           views:   82600, videos: 1 },
+    { name: "Emmanuel Bouchard",        views:   83200, videos: 0 },
+    { name: "Kelly et Félix",           views:  218800, videos: 0 },
+    { name: "Jean-François Alexandre",  views:   64300, videos: 0 },
+    { name: "Justin Legault",           views:  210700, videos: 0 },
+    { name: "Le Don de l'Auto",         views: 1360000, videos: 5 },
+    { name: "Manuel",                   views:  146600, videos: 0 },
+    { name: "Martin Ross",              views:  149500, videos: 0 },
+    { name: "Philippe Laroche",         views:   69200, videos: 0 },
+    { name: "Roux et Bachand",          views:  112000, videos: 0 },
+    { name: "Sylvain Danis",            views:   84400, videos: 0 },
+    { name: "Vyncent Ledoux",           views:  747600, videos: 0 },
+  ], null, 2,
+);
+const SANDRA_MAY_2026 = JSON.stringify(
+  [
+    { name: "Claudia Ménard",           views:  216600, videos: 2 },
+    { name: "Emmanuel Bouchard",        views:   87100, videos: 0 },
+    { name: "Kelly et Félix",           views:  455400, videos: 2 },
+    { name: "Jean-François Alexandre",  views:   66000, videos: 0 },
+    { name: "Justin Legault",           views:  241100, videos: 1 },
+    { name: "Le Don de l'Auto",         views: 1311000, videos: 6 },
+    { name: "Manuel",                   views:   70600, videos: 0 },
+    { name: "Martin Ross",              views:  123600, videos: 1 },
+    { name: "Philippe Laroche",         views:   72000, videos: 0 },
+    { name: "Roux et Bachand",          views:  223500, videos: 0 },
+    { name: "Sylvain Danis",            views:   77100, videos: 0 },
+    { name: "Vyncent Ledoux",           views:  592000, videos: 1 },
+    { name: "Élie Ibrahim",             views:  327600, videos: 1 },
+    { name: "Luis Ribeiro",             views:   56400, videos: 0 },
+    { name: "Domaine de la Lumière",    views:   43000, videos: 0 },
+  ], null, 2,
+);
+const SANDRA_JUNE_2026 = JSON.stringify(
+  [
+    { name: "Claudia Ménard",           views:  133700, videos: 1 },
+    { name: "Emmanuel Bouchard",        views:  102300, videos: 0 },
+    { name: "Kelly et Félix",           views:  200500, videos: 0 },
+    { name: "Justin Legault",           views:  208800, videos: 0 },
+    { name: "Le Don de l'Auto",         views: 1016000, videos: 6 },
+    { name: "Martin Ross",              views:  133800, videos: 0 },
+    { name: "Philippe Laroche",         views:   57700, videos: 0 },
+    { name: "Roux et Bachand",          views:  168900, videos: 0 },
+    { name: "Sylvain Danis",            views:  207100, videos: 2 },
+    { name: "Vyncent Ledoux",           views:  716100, videos: 1 },
+    { name: "Élie Ibrahim",             views:  206900, videos: 0 },
+    { name: "Luis Ribeiro",             views:   99200, videos: 0 },
+  ], null, 2,
+);
+
 // Fuzzy client-name matcher: normalize accents/punctuation/case and do a
 // two-way substring test (report name in client name OR vice-versa).
 function normalizeName(s: string): string {
@@ -709,6 +966,21 @@ function AdsKpiDetail({ employee, onBack }: { employee: Employee; onBack: () => 
   const [importOpen, setImportOpen] = useState(false);
   const [importMonthIdx, setImportMonthIdx] = useState<0|1|2>(0);
   const [importJson, setImportJson] = useState<string>(JULY_2026_ADS_JSON);
+
+  // Refresh from localStorage after Supabase hydration completes
+  useEffect(() => {
+    const refresh = () => {
+      setMonthData([
+        loadMonth(year, qMonths[0]),
+        loadMonth(year, qMonths[1]),
+        loadMonth(year, qMonths[2]),
+      ]);
+      setKpiConfig(loadKpiConfig());
+    };
+    window.addEventListener("kpi-hydrated", refresh);
+    return () => window.removeEventListener("kpi-hydrated", refresh);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [year, quarter]);
 
   const { data: supabaseClients = [], isLoading } = useClients();
 
@@ -1130,6 +1402,10 @@ interface CorrectionMonth {
 }
 
 // Storage: { "2026-07": { total, categories, notes }, ... } — one key per employee.
+function parseMonthKeyForPush(key: string): { year: number; month: number } {
+  const [y, m] = key.split("-");
+  return { year: parseInt(y, 10), month: parseInt(m, 10) };
+}
 function loadCorrections(employeeId: string): Record<string, CorrectionMonth> {
   try {
     const raw = localStorage.getItem(`corr_${employeeId}`);
@@ -1137,7 +1413,20 @@ function loadCorrections(employeeId: string): Record<string, CorrectionMonth> {
   } catch { return {}; }
 }
 function saveCorrections(employeeId: string, data: Record<string, CorrectionMonth>) {
+  const prev = loadCorrections(employeeId);
   localStorage.setItem(`corr_${employeeId}`, JSON.stringify(data));
+  // Push only changed months to Supabase (background, non-blocking)
+  for (const [monthKey, row] of Object.entries(data)) {
+    const before = prev[monthKey];
+    const changed = !before
+      || before.total !== row.total
+      || before.notes !== row.notes
+      || JSON.stringify(before.categories ?? {}) !== JSON.stringify(row.categories ?? {});
+    if (changed) {
+      const { year, month } = parseMonthKeyForPush(monthKey);
+      if (!isNaN(year) && !isNaN(month)) pushCorrectionMonth(employeeId, year, month, row);
+    }
+  }
 }
 
 // Month helpers — keys like "2026-07".
@@ -1183,6 +1472,13 @@ function CorrectionsKpiDetail({ employee, onBack }: { employee: Employee; onBack
   const [data, setData]     = useState<Record<string, CorrectionMonth>>(() => loadCorrections(employee.id));
   const [currentKey, setCurrentKey] = useState<string>(() => monthKey(new Date()));
   const [showBreakdown, setShowBreakdown] = useState(false);
+
+  // Refresh from localStorage after Supabase hydration
+  useEffect(() => {
+    const refresh = () => setData(loadCorrections(employee.id));
+    window.addEventListener("kpi-hydrated", refresh);
+    return () => window.removeEventListener("kpi-hydrated", refresh);
+  }, [employee.id]);
 
   const month  = data[currentKey] ?? { total: 0, categories: {}, notes: "" };
   const bonus  = calcCorrectionsBonus(month.total);
@@ -1488,6 +1784,7 @@ function EmployeeList({ onSelect }: { onSelect: (e: Employee) => void }) {
 // ── Root ──────────────────────────────────────────────────────────────────────
 
 export function KpiTab() {
+  useKpiSync(); // Hydrates localStorage from Supabase on first mount, once per session
   const [selected, setSelected] = useState<Employee | null>(null);
   if (selected) return <EmployeeKpiDetail employee={selected} onBack={() => setSelected(null)} />;
   return <EmployeeList onSelect={setSelected} />;
