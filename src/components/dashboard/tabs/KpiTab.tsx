@@ -406,9 +406,9 @@ function ContentKpiDetail({ employee, onBack }: { employee: Employee; onBack: ()
 
               <div className="p-6 space-y-4 overflow-y-auto">
                 {/* Presets */}
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Presets Suna Films</label>
-                  <div className="flex gap-2 flex-wrap">
+                  <div className="flex gap-2 flex-wrap items-center">
                     <Button size="sm" variant="outline" onClick={() => loadPreset(SANDRA_APRIL_2026, 2026, 4)}
                       className={`text-xs h-8 ${importYear === 2026 && importMonth === 4 ? "border-primary text-primary" : ""}`}>
                       📥 Avril 2026
@@ -420,6 +420,44 @@ function ContentKpiDetail({ employee, onBack }: { employee: Employee; onBack: ()
                     <Button size="sm" variant="outline" onClick={() => loadPreset(SANDRA_JUNE_2026, 2026, 6)}
                       className={`text-xs h-8 ${importYear === 2026 && importMonth === 6 ? "border-primary text-primary" : ""}`}>
                       📥 Juin 2026
+                    </Button>
+                    <span className="text-[10px] text-muted-foreground mx-1">ou</span>
+                    <Button size="sm" onClick={() => {
+                      // Bulk import: run all three presets sequentially.
+                      const runs: [string, number, number, string][] = [
+                        [SANDRA_APRIL_2026, 2026, 4, "Avril"],
+                        [SANDRA_MAY_2026,   2026, 5, "Mai"],
+                        [SANDRA_JUNE_2026,  2026, 6, "Juin"],
+                      ];
+                      let totalMatched = 0;
+                      const nextConfig = { ...kpiConfig };
+                      runs.forEach(([json, y, m]) => {
+                        let parsed: AdImportRow[] = [];
+                        try { parsed = JSON.parse(json); } catch { return; }
+                        const existing = loadMonth(y, m);
+                        parsed.forEach((r) => {
+                          const match = findClientMatch(r.name || "", supabaseClients as any);
+                          if (!match) return;
+                          existing[match.id] = {
+                            ...(existing[match.id] ?? {}),
+                            ...(typeof r.views  === "number" ? { views:  r.views  } : {}),
+                            ...(typeof r.videos === "number" ? { videos: r.videos } : {}),
+                          };
+                          if (!nextConfig[match.id]) nextConfig[match.id] = { baselineViews: 0, baselineVideos: 0 };
+                          totalMatched++;
+                        });
+                        saveMonth(y, m, existing);
+                      });
+                      setKpiConfig(nextConfig); saveKpiConfig(nextConfig);
+                      setMonthData([
+                        loadMonth(year, qMonths[0]),
+                        loadMonth(year, qMonths[1]),
+                        loadMonth(year, qMonths[2]),
+                      ]);
+                      toast.success(`${totalMatched} lignes importées sur les 3 mois — sauvegardées dans Supabase`);
+                      setImportOpen(false);
+                    }} className="gap-1.5 shadow-glow text-xs h-8">
+                      <Check className="w-3.5 h-3.5" /> Importer les 3 mois d'un coup
                     </Button>
                   </div>
                 </div>
@@ -760,14 +798,20 @@ const JULY_2026_ADS_JSON = JSON.stringify(
 );
 
 // Sandra content presets — 3 months back-filled from her weekly result tables.
+// Chiffres corrigés selon la capture 'Détail par client' du 14 août 2026.
+// Corrections vs première passe :
+//   · Don de l'Auto Avril : 1 360 000 → 360 000 (typo initial)
+//   · Don de l'Auto Mai   : 1 311 000 → 311 000 (typo initial)
+//   · Justin Legault Avril: 210 700   → 208 800
+//   · Justin Legault Mai/Juin : retirés (données incomplètes)
 const SANDRA_APRIL_2026 = JSON.stringify(
   [
     { name: "Claudia Ménard",           views:   82600, videos: 1 },
     { name: "Emmanuel Bouchard",        views:   83200, videos: 0 },
     { name: "Kelly et Félix",           views:  218800, videos: 0 },
     { name: "Jean-François Alexandre",  views:   64300, videos: 0 },
-    { name: "Justin Legault",           views:  210700, videos: 0 },
-    { name: "Le Don de l'Auto",         views: 1360000, videos: 5 },
+    { name: "Justin Legault",           views:  208800, videos: 0 },
+    { name: "Le Don de l'Auto",         views:  360000, videos: 5 },
     { name: "Manuel",                   views:  146600, videos: 0 },
     { name: "Martin Ross",              views:  149500, videos: 0 },
     { name: "Philippe Laroche",         views:   69200, videos: 0 },
@@ -782,8 +826,8 @@ const SANDRA_MAY_2026 = JSON.stringify(
     { name: "Emmanuel Bouchard",        views:   87100, videos: 0 },
     { name: "Kelly et Félix",           views:  455400, videos: 2 },
     { name: "Jean-François Alexandre",  views:   66000, videos: 0 },
-    { name: "Justin Legault",           views:  241100, videos: 1 },
-    { name: "Le Don de l'Auto",         views: 1311000, videos: 6 },
+    // Justin Legault : données incomplètes en mai, retiré
+    { name: "Le Don de l'Auto",         views:  311000, videos: 6 },
     { name: "Manuel",                   views:   70600, videos: 0 },
     { name: "Martin Ross",              views:  123600, videos: 1 },
     { name: "Philippe Laroche",         views:   72000, videos: 0 },
@@ -800,7 +844,7 @@ const SANDRA_JUNE_2026 = JSON.stringify(
     { name: "Claudia Ménard",           views:  133700, videos: 1 },
     { name: "Emmanuel Bouchard",        views:  102300, videos: 0 },
     { name: "Kelly et Félix",           views:  200500, videos: 0 },
-    { name: "Justin Legault",           views:  208800, videos: 0 },
+    // Justin Legault : données incomplètes en juin, retiré
     { name: "Le Don de l'Auto",         views: 1016000, videos: 6 },
     { name: "Martin Ross",              views:  133800, videos: 0 },
     { name: "Philippe Laroche",         views:   57700, videos: 0 },
