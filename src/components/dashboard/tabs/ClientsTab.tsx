@@ -502,6 +502,37 @@ export function ClientsTab() {
     ? Math.round(active.reduce((s, c) => s + (c.videos_per_month || 0), 0) / active.length)
     : 0;
 
+  // Breakdown by industry — counts each distinct domain (case/accent-insensitive).
+  const industryCounts = (() => {
+    const norm = (s: string) => s.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+    const counts: Record<string, { label: string; count: number }> = {};
+    for (const c of clients) {
+      const raw = (c.industry || "").trim();
+      const key = raw ? norm(raw) : "__none__";
+      const label = raw || "Non précisé";
+      counts[key] ??= { label, count: 0 };
+      counts[key].count++;
+    }
+    return Object.values(counts).sort((a, b) => b.count - a.count);
+  })();
+
+  const industryEmoji = (label: string): string => {
+    const l = label.toLowerCase();
+    if (l.includes("immobilier"))  return "🏠";
+    if (l.includes("hypoth"))       return "🏦";
+    if (l.includes("golf"))         return "⛳";
+    if (l.includes("restaurant"))   return "🍽️";
+    if (l.includes("e-commerce") || l.includes("ecommerce")) return "🛒";
+    if (l.includes("coach") || l.includes("formation"))       return "🎓";
+    if (l.includes("médical") || l.includes("dentaire"))       return "🩺";
+    if (l.includes("avocat") || l.includes("comptable") || l.includes("juridique")) return "⚖️";
+    if (l.includes("beauté") || l.includes("bien-être"))       return "💆";
+    if (l.includes("fitness") || l.includes("sport"))          return "🏋️";
+    if (l.includes("saas") || l.includes("tech"))              return "💻";
+    if (l.includes("non précisé"))                             return "❓";
+    return "✳️";
+  };
+
   if (isLoading) return <div className="p-6 text-muted-foreground text-sm">Chargement...</div>;
 
   const Section = ({ title, items, badge }: { title: string; items: Client[]; badge: string }) => (
@@ -528,7 +559,31 @@ export function ClientsTab() {
   );
 
   return (
-    <div className="p-6 space-y-8">
+    <div className="p-6 space-y-6">
+      {/* Domaines — répartition des clients par industrie */}
+      {industryCounts.length > 0 && (
+        <div className="rounded-2xl border border-border/30 bg-card p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+              Domaines · {clients.length} client{clients.length > 1 ? "s" : ""} au total
+            </p>
+            <p className="text-[10px] text-muted-foreground">{industryCounts.length} domaine{industryCounts.length > 1 ? "s" : ""}</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {industryCounts.map((d) => (
+              <span key={d.label}
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted/30 border border-border/40 text-xs">
+                <span>{industryEmoji(d.label)}</span>
+                <span className="text-foreground font-medium">{d.label}</span>
+                <span className="ml-1 px-1.5 py-0.5 rounded-full bg-primary/15 text-primary font-bold text-[10px] tabular-nums">
+                  {d.count}
+                </span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Stats bar */}
       <div className="flex items-center gap-6">
         <div className="text-sm">
