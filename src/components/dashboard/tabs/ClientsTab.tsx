@@ -502,36 +502,52 @@ export function ClientsTab() {
     ? Math.round(active.reduce((s, c) => s + (c.videos_per_month || 0), 0) / active.length)
     : 0;
 
-  // Breakdown by industry — counts each distinct domain (case/accent-insensitive).
+  // Breakdown by industry — regroupe les synonymes en libellés canoniques.
+  // Ex: "immobilier" / "courtier immobilier" / "courtière immobilière" → "Courtier immobilier"
+  //     "hypothèque" / "hypothécaire" / "courtier hypothécaire" → "Courtier hypothécaire"
   const industryCounts = (() => {
     const norm = (s: string) => s.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
-    const counts: Record<string, { label: string; count: number }> = {};
+
+    // Chaque entrée : { canonical, emoji, matches[] } — la première regex qui matche gagne.
+    const CANONICAL: { canonical: string; emoji: string; matches: RegExp[] }[] = [
+      { canonical: "Courtier immobilier",   emoji: "🏠", matches: [/immobili/, /courtiere?\s*immo/] },
+      { canonical: "Courtier hypothécaire", emoji: "🏦", matches: [/hypoth/, /courtiere?\s*hypoth/] },
+      { canonical: "Golf",                  emoji: "⛳", matches: [/golf/] },
+      { canonical: "Restaurant / café",     emoji: "🍽️", matches: [/restaur/, /\bcafe\b/, /bistro/] },
+      { canonical: "E-commerce",            emoji: "🛒", matches: [/e[-\s]?commerce/, /\bdtc\b/, /shopify/] },
+      { canonical: "Coach / formation",     emoji: "🎓", matches: [/coach/, /formation/, /training/] },
+      { canonical: "Médical / dentaire",    emoji: "🩺", matches: [/medic/, /dentaire/, /dentist/, /clinique/] },
+      { canonical: "Services professionnels", emoji: "⚖️", matches: [/avocat/, /comptable/, /juridique/, /notaire/] },
+      { canonical: "Beauté / bien-être",    emoji: "💆", matches: [/beaute/, /bien\s*etre/, /spa/, /esthet/] },
+      { canonical: "Fitness / sport",       emoji: "🏋️", matches: [/fitness/, /\bgym\b/, /sport/, /crossfit/] },
+      { canonical: "SaaS / tech",           emoji: "💻", matches: [/\bsaas\b/, /\btech\b/, /startup/, /logiciel/] },
+      { canonical: "Automobile",            emoji: "🚗", matches: [/\bauto\b/, /voiture/, /concessionnaire/] },
+    ];
+
+    const canonicalize = (raw: string): { key: string; label: string; emoji: string } => {
+      const n = norm(raw);
+      for (const c of CANONICAL) {
+        if (c.matches.some((rx) => rx.test(n))) {
+          return { key: norm(c.canonical), label: c.canonical, emoji: c.emoji };
+        }
+      }
+      return { key: n, label: raw, emoji: "✳️" };
+    };
+
+    const counts: Record<string, { label: string; emoji: string; count: number }> = {};
     for (const c of clients) {
       const raw = (c.industry || "").trim();
-      const key = raw ? norm(raw) : "__none__";
-      const label = raw || "Non précisé";
-      counts[key] ??= { label, count: 0 };
+      if (!raw) {
+        counts["__none__"] ??= { label: "Non précisé", emoji: "❓", count: 0 };
+        counts["__none__"].count++;
+        continue;
+      }
+      const { key, label, emoji } = canonicalize(raw);
+      counts[key] ??= { label, emoji, count: 0 };
       counts[key].count++;
     }
     return Object.values(counts).sort((a, b) => b.count - a.count);
   })();
-
-  const industryEmoji = (label: string): string => {
-    const l = label.toLowerCase();
-    if (l.includes("immobilier"))  return "🏠";
-    if (l.includes("hypoth"))       return "🏦";
-    if (l.includes("golf"))         return "⛳";
-    if (l.includes("restaurant"))   return "🍽️";
-    if (l.includes("e-commerce") || l.includes("ecommerce")) return "🛒";
-    if (l.includes("coach") || l.includes("formation"))       return "🎓";
-    if (l.includes("médical") || l.includes("dentaire"))       return "🩺";
-    if (l.includes("avocat") || l.includes("comptable") || l.includes("juridique")) return "⚖️";
-    if (l.includes("beauté") || l.includes("bien-être"))       return "💆";
-    if (l.includes("fitness") || l.includes("sport"))          return "🏋️";
-    if (l.includes("saas") || l.includes("tech"))              return "💻";
-    if (l.includes("non précisé"))                             return "❓";
-    return "✳️";
-  };
 
   if (isLoading) return <div className="p-6 text-muted-foreground text-sm">Chargement...</div>;
 
@@ -560,29 +576,82 @@ export function ClientsTab() {
 
   return (
     <div className="p-6 space-y-6">
-      {/* Domaines — répartition des clients par industrie */}
-      {industryCounts.length > 0 && (
-        <div className="rounded-2xl border border-border/30 bg-card p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-              Domaines · {clients.length} client{clients.length > 1 ? "s" : ""} au total
-            </p>
-            <p className="text-[10px] text-muted-foreground">{industryCounts.length} domaine{industryCounts.length > 1 ? "s" : ""}</p>
+      {/* Domaines — hero card style (même vibe que la Marge de Profit) */}
+      {industryCounts.length > 0 && (() => {
+        const total = clients.length;
+        const top = industryCounts[0];
+        const topPct = total > 0 ? Math.round((top.count / total) * 100) : 0;
+        return (
+          <div
+            className="relative rounded-2xl border-2 border-primary/40 bg-primary/[0.04] p-6 overflow-hidden"
+            style={{ boxShadow: "0 0 80px -20px rgba(147,51,234,0.35)" }}
+          >
+            {/* Corner glow */}
+            <div aria-hidden className="absolute -top-10 -right-10 w-48 h-48 rounded-full pointer-events-none"
+                 style={{ background: "radial-gradient(circle, rgba(147,51,234,0.35), transparent 65%)", filter: "blur(30px)" }} />
+
+            <div className="relative grid grid-cols-1 lg:grid-cols-[minmax(0,320px)_1fr] gap-8">
+              {/* Left — hero total + top domain */}
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-primary mb-2">
+                  🎯 Portefeuille clients
+                </p>
+                <p className="text-6xl md:text-7xl font-bold tracking-tight text-primary leading-none">
+                  {total}
+                </p>
+                <p className="text-sm text-muted-foreground mt-3">
+                  Réparti sur <span className="font-semibold text-foreground">{industryCounts.length} domaine{industryCounts.length > 1 ? "s" : ""}</span>
+                </p>
+                <div className="mt-4 pt-4 border-t border-border/30">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Domaine dominant</p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl">{top.emoji}</span>
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">{top.label}</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {top.count} client{top.count > 1 ? "s" : ""} · {topPct}% du portefeuille
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right — grid des domaines avec grosse tuile chacun */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
+                {industryCounts.map((d, i) => {
+                  const pct = total > 0 ? (d.count / total) * 100 : 0;
+                  const isTop = i === 0;
+                  return (
+                    <div key={d.label}
+                      className={`relative rounded-xl border p-3 overflow-hidden ${
+                        isTop
+                          ? "border-primary/50 bg-primary/[0.08]"
+                          : "border-border/40 bg-background/40"
+                      }`}>
+                      {/* Fond qui se remplit selon la % */}
+                      <div aria-hidden className="absolute inset-y-0 left-0 pointer-events-none transition-all duration-500 ease-out"
+                           style={{
+                             width: `${Math.max(6, pct)}%`,
+                             background: `linear-gradient(90deg, ${isTop ? "hsl(var(--primary) / 0.20)" : "hsl(var(--primary) / 0.10)"}, transparent 100%)`,
+                           }} />
+                      <div className="relative">
+                        <div className="flex items-center justify-between">
+                          <span className="text-lg">{d.emoji}</span>
+                          <span className={`text-2xl font-bold tabular-nums ${isTop ? "text-primary" : "text-foreground"}`}>
+                            {d.count}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-foreground font-medium mt-2 leading-tight truncate">{d.label}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">{Math.round(pct)}%</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {industryCounts.map((d) => (
-              <span key={d.label}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted/30 border border-border/40 text-xs">
-                <span>{industryEmoji(d.label)}</span>
-                <span className="text-foreground font-medium">{d.label}</span>
-                <span className="ml-1 px-1.5 py-0.5 rounded-full bg-primary/15 text-primary font-bold text-[10px] tabular-nums">
-                  {d.count}
-                </span>
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Stats bar */}
       <div className="flex items-center gap-6">
