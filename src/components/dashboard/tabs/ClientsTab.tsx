@@ -511,7 +511,8 @@ export function ClientsTab() {
     // Chaque entrée : { canonical, emoji, matches[] } — la première regex qui matche gagne.
     const CANONICAL: { canonical: string; emoji: string; matches: RegExp[] }[] = [
       { canonical: "Courtier immobilier",   emoji: "🏠", matches: [/immobili/, /courtiere?\s*immo/] },
-      { canonical: "Courtier hypothécaire", emoji: "🏦", matches: [/hypoth/, /courtiere?\s*hypoth/] },
+      // "hypo" attrape hypothèque, hypothécaire, "courtage hypo", "hypo.", etc.
+      { canonical: "Courtier hypothécaire", emoji: "🏦", matches: [/hypo/, /courtage\s*hypo/] },
       { canonical: "Golf",                  emoji: "⛳", matches: [/golf/] },
       { canonical: "Restaurant / café",     emoji: "🍽️", matches: [/restaur/, /\bcafe\b/, /bistro/] },
       { canonical: "E-commerce",            emoji: "🛒", matches: [/e[-\s]?commerce/, /\bdtc\b/, /shopify/] },
