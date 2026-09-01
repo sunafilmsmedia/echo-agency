@@ -222,11 +222,11 @@ function ContentKpiDetail({ employee, onBack }: { employee: Employee; onBack: ()
   const [addVideos, setAddVideos] = useState("");
   const [showAvailable, setShowAvailable] = useState(false);
 
-  // Import content KPI (Sandra) — 3 preset months pre-loaded
+  // Import content KPI (Sandra) — 4 preset months pré-remplis (avril → août 2026)
   const [importOpen, setImportOpen] = useState(false);
-  const [importJson, setImportJson] = useState<string>(SANDRA_JUNE_2026);
+  const [importJson, setImportJson] = useState<string>(SANDRA_AUGUST_2026);
   const [importYear, setImportYear] = useState<number>(2026);
-  const [importMonth, setImportMonth] = useState<number>(6);
+  const [importMonth, setImportMonth] = useState<number>(8);
 
   // Supabase clients
   const { data: supabaseClients = [], isLoading } = useClients();
@@ -421,13 +421,18 @@ function ContentKpiDetail({ employee, onBack }: { employee: Employee; onBack: ()
                       className={`text-xs h-8 ${importYear === 2026 && importMonth === 6 ? "border-primary text-primary" : ""}`}>
                       📥 Juin 2026
                     </Button>
+                    <Button size="sm" variant="outline" onClick={() => loadPreset(SANDRA_AUGUST_2026, 2026, 8)}
+                      className={`text-xs h-8 ${importYear === 2026 && importMonth === 8 ? "border-primary text-primary" : ""}`}>
+                      📥 Août 2026
+                    </Button>
                     <span className="text-[10px] text-muted-foreground mx-1">ou</span>
                     <Button size="sm" onClick={() => {
-                      // Bulk import: run all three presets sequentially.
+                      // Bulk import: run all four presets sequentially.
                       const runs: [string, number, number, string][] = [
-                        [SANDRA_APRIL_2026, 2026, 4, "Avril"],
-                        [SANDRA_MAY_2026,   2026, 5, "Mai"],
-                        [SANDRA_JUNE_2026,  2026, 6, "Juin"],
+                        [SANDRA_APRIL_2026,  2026, 4, "Avril"],
+                        [SANDRA_MAY_2026,    2026, 5, "Mai"],
+                        [SANDRA_JUNE_2026,   2026, 6, "Juin"],
+                        [SANDRA_AUGUST_2026, 2026, 8, "Août"],
                       ];
                       let totalMatched = 0;
                       const nextConfig = { ...kpiConfig };
@@ -454,10 +459,10 @@ function ContentKpiDetail({ employee, onBack }: { employee: Employee; onBack: ()
                         loadMonth(year, qMonths[1]),
                         loadMonth(year, qMonths[2]),
                       ]);
-                      toast.success(`${totalMatched} lignes importées sur les 3 mois — sauvegardées dans Supabase`);
+                      toast.success(`${totalMatched} lignes importées sur les 4 mois — sauvegardées dans Supabase`);
                       setImportOpen(false);
                     }} className="gap-1.5 shadow-glow text-xs h-8">
-                      <Check className="w-3.5 h-3.5" /> Importer les 3 mois d'un coup
+                      <Check className="w-3.5 h-3.5" /> Importer les 4 mois d'un coup
                     </Button>
                   </div>
                 </div>
@@ -774,6 +779,30 @@ function ContentKpiDetail({ employee, onBack }: { employee: Employee; onBack: ()
 
 interface AdImportRow { name: string; budget?: number; leads?: number; views?: number; videos?: number }
 
+// August 2026 — from the SFM monthly report generated 1er septembre.
+// Includes 2 problem accounts (Claudia, Sacha — 0 leads) intentionally
+// so they show up in the ranking chart as red bars.
+const AUGUST_2026_ADS_JSON = JSON.stringify(
+  [
+    { name: "Eli Ibrahim",           budget: 1778.98, leads: 140 },
+    { name: "Sylvain Danis",         budget: 1089.02, leads:  84 }, // report: Sylvain Courtier
+    { name: "Jean-Philippe Bolduc",  budget:  938.53, leads:  61 },
+    { name: "Yannick Charette",      budget: 1254.77, leads:  70 },
+    { name: "Martin Ross",           budget: 2005.60, leads:  93 },
+    { name: "Luis Ribeiro",          budget: 1247.21, leads:  56 },
+    { name: "Alexandre Monfette",    budget: 1113.07, leads:  38 },
+    { name: "Philippe Laroche",      budget: 1201.88, leads:  38 },
+    { name: "Le Don de l'Auto",      budget: 5579.61, leads: 166 },
+    { name: "Manuel",                budget: 1550.60, leads:  46 }, // report: Manuel (Remax)
+    { name: "Justin Legault",        budget: 1245.86, leads:  29 },
+    { name: "Éloïse Legault",        budget:  995.97, leads:  23 },
+    { name: "Roux et Bachand",       budget: 2241.64, leads:  51 },
+    { name: "Suna Films Media",      budget: 2663.96, leads:  49 },
+    { name: "Claudia Ménard",        budget:  134.83, leads:   0 }, // ⚠ Typeform inactif depuis mars
+    { name: "Sacha De Santis",       budget:  182.83, leads:   0 }, // ⚠ aucune conversion configurée
+  ], null, 2,
+);
+
 // Default pasteable payload — July 2026 from the SFM monthly report.
 // Users can overwrite the textarea with any month's data.
 const JULY_2026_ADS_JSON = JSON.stringify(
@@ -839,6 +868,25 @@ const SANDRA_MAY_2026 = JSON.stringify(
     { name: "Domaine de la Lumière",    views:   43000, videos: 0 },
   ], null, 2,
 );
+// Août 2026 — vues Metricool = IG + FB combinées (per report du 1er sept.).
+// Videos 20k+ non détaillées dans ce rapport (=0). Comptes sans Metricool
+// (Martin Ross, Manuel, Éloïse Legault, Claudia Ménard, Sacha De Santis)
+// sont volontairement omis.
+const SANDRA_AUGUST_2026 = JSON.stringify(
+  [
+    { name: "Eli Ibrahim",            views:  216741, videos: 0 },
+    { name: "Jean-Philippe Bolduc",   views:  141946, videos: 0 },
+    { name: "Yannick Charette",       views:   71511, videos: 0 },
+    { name: "Luis Ribeiro",           views:  109775, videos: 0 },
+    { name: "Alexandre Monfette",     views:   41351, videos: 0 },
+    { name: "Philippe Laroche",       views:  123318, videos: 0 },
+    { name: "Le Don de l'Auto",       views: 1258875, videos: 0 },
+    { name: "Justin Legault",         views:   91028, videos: 0 },
+    { name: "Roux et Bachand",        views:  224060, videos: 0 },
+    { name: "Suna Films Media",       views:  183750, videos: 0 },
+  ], null, 2,
+);
+
 const SANDRA_JUNE_2026 = JSON.stringify(
   [
     { name: "Claudia Ménard",           views:  133700, videos: 1 },
@@ -1009,7 +1057,8 @@ function AdsKpiDetail({ employee, onBack }: { employee: Employee; onBack: () => 
   const [showAvailable, setShowAvailable] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [importMonthIdx, setImportMonthIdx] = useState<0|1|2>(0);
-  const [importJson, setImportJson] = useState<string>(JULY_2026_ADS_JSON);
+  // Default = mois le plus récent disponible dans les presets
+  const [importJson, setImportJson] = useState<string>(AUGUST_2026_ADS_JSON);
 
   // Refresh from localStorage after Supabase hydration completes
   useEffect(() => {
@@ -1193,6 +1242,20 @@ function AdsKpiDetail({ employee, onBack }: { employee: Employee; onBack: () => 
               </div>
 
               <div className="p-6 space-y-4 overflow-y-auto">
+                {/* Presets Suna Films — Ads */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Presets Suna Films</label>
+                  <div className="flex gap-2 flex-wrap">
+                    <Button size="sm" variant="outline" onClick={() => setImportJson(JULY_2026_ADS_JSON)} className="text-xs h-8">
+                      📥 Juillet 2026
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => setImportJson(AUGUST_2026_ADS_JSON)} className="text-xs h-8">
+                      📥 Août 2026
+                    </Button>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground italic">Sélectionne aussi le mois cible ci-dessous pour matcher le preset chargé.</p>
+                </div>
+
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                     Mois cible (dans le trimestre affiché)
