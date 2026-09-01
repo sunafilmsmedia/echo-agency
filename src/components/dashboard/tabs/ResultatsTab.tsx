@@ -57,12 +57,14 @@ export function ResultatsTab() {
   // One-shot seed — walks every Suna preset (Sandra Apr/May/Jun/Aug + René Jul/Aug),
   // fuzzy-matches each row to a Supabase client, writes to localStorage AND fires
   // a Supabase upsert per row. Idempotent: re-running just re-writes the same values.
+  const [unmatched, setUnmatched] = useState<{ presetLabel: string; name: string; leads?: number; views?: number }[]>([]);
   const seedPresets = () => {
     if (supabaseClients.length === 0) {
       toast.error("Clients Supabase pas encore chargés — réessaie dans 2 secondes.");
       return;
     }
     let totalMatched = 0, totalRows = 0;
+    const misses: { presetLabel: string; name: string; leads?: number; views?: number }[] = [];
     const configPatch: Record<string, { baselineViews: number; baselineVideos: number; trackedByAds?: boolean }> = {};
 
     // Load current config once so we don't clobber existing baselines
@@ -77,7 +79,10 @@ export function ResultatsTab() {
       for (const row of preset.rows) {
         totalRows++;
         const match = findClientMatch(row.name, supabaseClients as any);
-        if (!match) continue;
+        if (!match) {
+          misses.push({ presetLabel: preset.label, name: row.name, leads: row.leads, views: row.views });
+          continue;
+        }
         totalMatched++;
 
         monthData[match.id] = {
@@ -114,7 +119,13 @@ export function ResultatsTab() {
     localStorage.setItem("kpi_client_config", JSON.stringify(mergedConfig));
 
     setTick((t) => t + 1);
-    toast.success(`${totalMatched}/${totalRows} lignes seedées sur ${ALL_PRESETS.length} mois — sauvegardé dans Supabase`);
+    setUnmatched(misses);
+    if (misses.length === 0) {
+      toast.success(`✓ ${totalMatched}/${totalRows} lignes seedées sur ${ALL_PRESETS.length} mois`);
+    } else {
+      const lostLeads = misses.reduce((s, m) => s + (m.leads ?? 0), 0);
+      toast.warning(`⚠ ${totalMatched}/${totalRows} lignes seedées — ${misses.length} noms non trouvés dans ton CRM (${lostLeads} leads perdus). Voir liste ci-dessous.`);
+    }
   };
 
   // Which months to iterate depending on the range
@@ -266,6 +277,44 @@ export function ResultatsTab() {
           }} className="p-1.5 rounded-lg border border-border/50 hover:bg-accent">
             <ChevronRight className="w-4 h-4" />
           </button>
+        </div>
+      )}
+
+      {/* Unmatched-names warning after seed */}
+      {unmatched.length > 0 && (
+        <div className="rounded-2xl border-2 border-amber-500/40 bg-amber-500/[0.06] p-5 space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-amber-400">⚠ {unmatched.length} noms non matchés dans ton CRM</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Ces lignes des presets Suna Films n'ont pas trouvé de client Supabase correspondant → leurs données ne sont pas comptées dans les totaux ci-dessous. Ajoute ces clients dans <span className="font-semibold text-foreground">Client Management</span> puis re-clique <span className="font-semibold text-foreground">Seed Suna Films</span>.
+              </p>
+            </div>
+            <button onClick={() => setUnmatched([])}
+              className="text-amber-400/60 hover:text-amber-400 text-xs">×</button>
+          </div>
+          <div className="rounded-lg border border-amber-500/20 overflow-hidden">
+            <table className="w-full text-xs">
+              <thead className="bg-amber-500/5 text-[10px] uppercase tracking-wider text-amber-400/80">
+                <tr>
+                  <th className="text-left px-3 py-2">Nom du preset</th>
+                  <th className="text-left px-3 py-2">Provenance</th>
+                  <th className="text-right px-3 py-2">Leads perdus</th>
+                  <th className="text-right px-3 py-2">Vues perdues</th>
+                </tr>
+              </thead>
+              <tbody>
+                {unmatched.map((u, i) => (
+                  <tr key={i} className="border-t border-amber-500/10">
+                    <td className="px-3 py-1.5 text-foreground font-medium">{u.name}</td>
+                    <td className="px-3 py-1.5 text-muted-foreground">{u.presetLabel}</td>
+                    <td className="px-3 py-1.5 text-right tabular-nums text-amber-400">{u.leads ?? "—"}</td>
+                    <td className="px-3 py-1.5 text-right tabular-nums text-muted-foreground">{u.views ? u.views.toLocaleString("fr-CA") : "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

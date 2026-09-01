@@ -66,7 +66,7 @@ export const SANDRA_JUNE_2026_ROWS: KpiPresetRow[] = [
 ];
 
 export const SANDRA_AUGUST_2026_ROWS: KpiPresetRow[] = [
-  { name: "Eli Ibrahim",            views:  216741, videos: 0 },
+  { name: "Élie Ibrahim",           views:  216741, videos: 0 }, // report: Eli Ibrahim
   { name: "Jean-Philippe Bolduc",   views:  141946, videos: 0 },
   { name: "Yannick Charette",       views:   71511, videos: 0 },
   { name: "Luis Ribeiro",           views:  109775, videos: 0 },
@@ -99,7 +99,7 @@ export const RENE_JULY_2026_ROWS: KpiPresetRow[] = [
 ];
 
 export const RENE_AUGUST_2026_ROWS: KpiPresetRow[] = [
-  { name: "Eli Ibrahim",           budget: 1778.98, leads: 140 },
+  { name: "Élie Ibrahim",          budget: 1778.98, leads: 140 }, // report: Eli Ibrahim
   { name: "Sylvain Danis",         budget: 1089.02, leads:  84 },
   { name: "Jean-Philippe Bolduc",  budget:  938.53, leads:  61 },
   { name: "Yannick Charette",      budget: 1254.77, leads:  70 },
