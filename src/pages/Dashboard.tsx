@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, Users, Calendar, UserCircle,
   CheckSquare, TrendingUp, Brain, Settings, GripVertical,
-  Bell, LogOut, ChevronRight, MessagesSquare, Trophy, Layers, Sun, Moon, Presentation,
+  Bell, LogOut, ChevronRight, MessagesSquare, Trophy, Layers, Sun, Moon, Presentation, BarChart3,
 } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import { SoumissionsTab } from "@/components/dashboard/tabs/SoumissionsTab";
@@ -23,6 +23,7 @@ import { AdvisorsTab } from "@/components/dashboard/tabs/AdvisorsTab";
 import { SettingsTab } from "@/components/dashboard/tabs/SettingsTab";
 import { TeamTab } from "@/components/dashboard/tabs/TeamTab";
 import { KpiTab } from "@/components/dashboard/tabs/KpiTab";
+import { ResultatsTab } from "@/components/dashboard/tabs/ResultatsTab";
 import { TasksSuivisTab } from "@/components/dashboard/tabs/TasksSuivisTab";
 import { useAgencySettings } from "@/hooks/usePortal";
 import { EchoTintedLogo } from "@/components/EchoTintedLogo";
@@ -57,6 +58,7 @@ const DEFAULT_SIDEBAR_ITEMS = [
   { id: "soumissions", label: "Soumissions",      icon: Presentation,    protected: false },
   { id: "team",      label: "Équipe & Canaux",    icon: MessagesSquare,  protected: false },
   { id: "kpi",       label: "KPI Équipe",         icon: Trophy,          protected: true  },
+  { id: "resultats", label: "Résultats",          icon: BarChart3,       protected: false },
   { id: "settings",  label: "Settings",           icon: Settings,        protected: false },
 ];
 
@@ -167,6 +169,7 @@ export default function Dashboard() {
       case "soumissions": return <SoumissionsTab />;
       case "team":      return <TeamTab />;
       case "kpi":       return <KpiTab />;
+      case "resultats": return <ResultatsTab />;
       case "settings":  return <SettingsTab />;
       default:          return <OverviewTab />;
     }
