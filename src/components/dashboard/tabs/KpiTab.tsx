@@ -4,6 +4,10 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useClients } from "@/hooks/useClients";
 import { useKpiSync, pushClientMonth, pushClientConfig, pushCorrectionMonth } from "@/hooks/useKpiSync";
+import {
+  SANDRA_APRIL_2026_ROWS, SANDRA_MAY_2026_ROWS, SANDRA_JUNE_2026_ROWS, SANDRA_AUGUST_2026_ROWS,
+  RENE_JULY_2026_ROWS, RENE_AUGUST_2026_ROWS,
+} from "@/data/kpi-presets";
 import { toast } from "sonner";
 
 // ── Employees ─────────────────────────────────────────────────────────────────
@@ -779,130 +783,14 @@ function ContentKpiDetail({ employee, onBack }: { employee: Employee; onBack: ()
 
 interface AdImportRow { name: string; budget?: number; leads?: number; views?: number; videos?: number }
 
-// August 2026 — from the SFM monthly report generated 1er septembre.
-// Includes 2 problem accounts (Claudia, Sacha — 0 leads) intentionally
-// so they show up in the ranking chart as red bars.
-const AUGUST_2026_ADS_JSON = JSON.stringify(
-  [
-    { name: "Eli Ibrahim",           budget: 1778.98, leads: 140 },
-    { name: "Sylvain Danis",         budget: 1089.02, leads:  84 }, // report: Sylvain Courtier
-    { name: "Jean-Philippe Bolduc",  budget:  938.53, leads:  61 },
-    { name: "Yannick Charette",      budget: 1254.77, leads:  70 },
-    { name: "Martin Ross",           budget: 2005.60, leads:  93 },
-    { name: "Luis Ribeiro",          budget: 1247.21, leads:  56 },
-    { name: "Alexandre Monfette",    budget: 1113.07, leads:  38 },
-    { name: "Philippe Laroche",      budget: 1201.88, leads:  38 },
-    { name: "Le Don de l'Auto",      budget: 5579.61, leads: 166 },
-    { name: "Manuel",                budget: 1550.60, leads:  46 }, // report: Manuel (Remax)
-    { name: "Justin Legault",        budget: 1245.86, leads:  29 },
-    { name: "Éloïse Legault",        budget:  995.97, leads:  23 },
-    { name: "Roux et Bachand",       budget: 2241.64, leads:  51 },
-    { name: "Suna Films Media",      budget: 2663.96, leads:  49 },
-    { name: "Claudia Ménard",        budget:  134.83, leads:   0 }, // ⚠ Typeform inactif depuis mars
-    { name: "Sacha De Santis",       budget:  182.83, leads:   0 }, // ⚠ aucune conversion configurée
-  ], null, 2,
-);
-
-// Default pasteable payload — July 2026 from the SFM monthly report.
-// Users can overwrite the textarea with any month's data.
-const JULY_2026_ADS_JSON = JSON.stringify(
-  [
-    { name: "Luis Ribeiro",              budget: 1434.31, leads: 86  },
-    { name: "Jean-Philippe Bolduc",      budget: 1385.51, leads: 69  },
-    { name: "Sylvain Danis",             budget:  587.78, leads: 27  }, // report: Sylvain Courtier
-    { name: "Martin Ross",               budget: 1444.44, leads: 66  },
-    { name: "Le Don de l'Auto",          budget: 3055.45, leads: 117 },
-    { name: "Élie Ibrahim",              budget: 1569.71, leads: 47  }, // report: Eli Ibrahim
-    { name: "Yannick Charette",          budget:  742.24, leads: 22  },
-    { name: "Roux et Bachand",           budget: 2230.39, leads: 48  }, // report: Ebook publicité RB
-    { name: "Emmanuel Bouchard",         budget: 1254.92, leads: 25  },
-    { name: "Justin Legault",            budget: 1236.69, leads: 24  },
-    { name: "Manuel",                    budget: 1605.09, leads: 29  },
-    { name: "Suna Films Media",          budget: 2593.94, leads: 42  }, // c'est nous — notre propre acquisition
-    { name: "Philippe Laroche",          budget:  446.64, leads:  5  },
-    { name: "Sacha De Santis",           budget: 1333.03, leads:  5  },
-    { name: "Kelly et Félix",            leads: 31, views: 500000 },     // report: SBD équipe immobilière · 500k+ vues organiques juillet
-  ],
-  null, 2,
-);
-
-// Sandra content presets — 3 months back-filled from her weekly result tables.
-// Chiffres corrigés selon la capture 'Détail par client' du 14 août 2026.
-// Corrections vs première passe :
-//   · Don de l'Auto Avril : 1 360 000 → 360 000 (typo initial)
-//   · Don de l'Auto Mai   : 1 311 000 → 311 000 (typo initial)
-//   · Justin Legault Avril: 210 700   → 208 800
-//   · Justin Legault Mai/Juin : retirés (données incomplètes)
-const SANDRA_APRIL_2026 = JSON.stringify(
-  [
-    { name: "Claudia Ménard",           views:   82600, videos: 1 },
-    { name: "Emmanuel Bouchard",        views:   83200, videos: 0 },
-    { name: "Kelly et Félix",           views:  218800, videos: 0 },
-    { name: "Jean-François Alexandre",  views:   64300, videos: 0 },
-    { name: "Justin Legault",           views:  208800, videos: 0 },
-    { name: "Le Don de l'Auto",         views:  360000, videos: 5 },
-    { name: "Manuel",                   views:  146600, videos: 0 },
-    { name: "Martin Ross",              views:  149500, videos: 0 },
-    { name: "Philippe Laroche",         views:   69200, videos: 0 },
-    { name: "Roux et Bachand",          views:  112000, videos: 0 },
-    { name: "Sylvain Danis",            views:   84400, videos: 0 },
-    { name: "Vyncent Ledoux",           views:  747600, videos: 0 },
-  ], null, 2,
-);
-const SANDRA_MAY_2026 = JSON.stringify(
-  [
-    { name: "Claudia Ménard",           views:  216600, videos: 2 },
-    { name: "Emmanuel Bouchard",        views:   87100, videos: 0 },
-    { name: "Kelly et Félix",           views:  455400, videos: 2 },
-    { name: "Jean-François Alexandre",  views:   66000, videos: 0 },
-    // Justin Legault : données incomplètes en mai, retiré
-    { name: "Le Don de l'Auto",         views:  311000, videos: 6 },
-    { name: "Manuel",                   views:   70600, videos: 0 },
-    { name: "Martin Ross",              views:  123600, videos: 1 },
-    { name: "Philippe Laroche",         views:   72000, videos: 0 },
-    { name: "Roux et Bachand",          views:  223500, videos: 0 },
-    { name: "Sylvain Danis",            views:   77100, videos: 0 },
-    { name: "Vyncent Ledoux",           views:  592000, videos: 1 },
-    { name: "Élie Ibrahim",             views:  327600, videos: 1 },
-    { name: "Luis Ribeiro",             views:   56400, videos: 0 },
-    { name: "Domaine de la Lumière",    views:   43000, videos: 0 },
-  ], null, 2,
-);
-// Août 2026 — vues Metricool = IG + FB combinées (per report du 1er sept.).
-// Videos 20k+ non détaillées dans ce rapport (=0). Comptes sans Metricool
-// (Martin Ross, Manuel, Éloïse Legault, Claudia Ménard, Sacha De Santis)
-// sont volontairement omis.
-const SANDRA_AUGUST_2026 = JSON.stringify(
-  [
-    { name: "Eli Ibrahim",            views:  216741, videos: 0 },
-    { name: "Jean-Philippe Bolduc",   views:  141946, videos: 0 },
-    { name: "Yannick Charette",       views:   71511, videos: 0 },
-    { name: "Luis Ribeiro",           views:  109775, videos: 0 },
-    { name: "Alexandre Monfette",     views:   41351, videos: 0 },
-    { name: "Philippe Laroche",       views:  123318, videos: 0 },
-    { name: "Le Don de l'Auto",       views: 1258875, videos: 0 },
-    { name: "Justin Legault",         views:   91028, videos: 0 },
-    { name: "Roux et Bachand",        views:  224060, videos: 0 },
-    { name: "Suna Films Media",       views:  183750, videos: 0 },
-  ], null, 2,
-);
-
-const SANDRA_JUNE_2026 = JSON.stringify(
-  [
-    { name: "Claudia Ménard",           views:  133700, videos: 1 },
-    { name: "Emmanuel Bouchard",        views:  102300, videos: 0 },
-    { name: "Kelly et Félix",           views:  200500, videos: 0 },
-    // Justin Legault : données incomplètes en juin, retiré
-    { name: "Le Don de l'Auto",         views: 1016000, videos: 6 },
-    { name: "Martin Ross",              views:  133800, videos: 0 },
-    { name: "Philippe Laroche",         views:   57700, videos: 0 },
-    { name: "Roux et Bachand",          views:  168900, videos: 0 },
-    { name: "Sylvain Danis",            views:  207100, videos: 2 },
-    { name: "Vyncent Ledoux",           views:  716100, videos: 1 },
-    { name: "Élie Ibrahim",             views:  206900, videos: 0 },
-    { name: "Luis Ribeiro",             views:   99200, videos: 0 },
-  ], null, 2,
-);
+// Presets Suna Films — moved to src/data/kpi-presets.ts (source of truth).
+// These local constants are just JSON-stringified caches for the textarea defaults.
+const AUGUST_2026_ADS_JSON = JSON.stringify(RENE_AUGUST_2026_ROWS,  null, 2);
+const JULY_2026_ADS_JSON   = JSON.stringify(RENE_JULY_2026_ROWS,    null, 2);
+const SANDRA_APRIL_2026    = JSON.stringify(SANDRA_APRIL_2026_ROWS, null, 2);
+const SANDRA_MAY_2026      = JSON.stringify(SANDRA_MAY_2026_ROWS,   null, 2);
+const SANDRA_JUNE_2026     = JSON.stringify(SANDRA_JUNE_2026_ROWS,  null, 2);
+const SANDRA_AUGUST_2026   = JSON.stringify(SANDRA_AUGUST_2026_ROWS,null, 2);
 
 // Fuzzy client-name matcher: normalize accents/punctuation/case and do a
 // two-way substring test (report name in client name OR vice-versa).

@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
-import { BarChart3, ChevronLeft, ChevronRight, Eye, Video, Megaphone, DollarSign, Users as UsersIcon } from "lucide-react";
+import { BarChart3, ChevronLeft, ChevronRight, Eye, Video, Megaphone, DollarSign, Users as UsersIcon, Download } from "lucide-react";
+import { toast } from "sonner";
 import { useClients } from "@/hooks/useClients";
-import { useKpiSync } from "@/hooks/useKpiSync";
+import { useKpiSync, pushClientMonth, pushClientConfig } from "@/hooks/useKpiSync";
+import { ALL_PRESETS } from "@/data/kpi-presets";
 
 // ─── Storage read helpers (same layout as KpiTab) ────────────────────────────
 interface Row { views?: number | null; videos?: number | null; budget?: number | null; leads?: number | null; }
@@ -15,6 +17,23 @@ function loadMonth(year: number, month: number): MonthMap {
 }
 
 const MONTHS_FR = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
+
+// Fuzzy client name matcher (same rules as KpiTab imports).
+function normalizeName(s: string): string {
+  return s.toLowerCase()
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]/g, "");
+}
+function findClientMatch(reportName: string, clients: { id: string; name: string }[]) {
+  const r = normalizeName(reportName);
+  if (r.length === 0) return null;
+  const exact = clients.find((c) => normalizeName(c.name) === r);
+  if (exact) return exact;
+  return clients.find((c) => {
+    const n = normalizeName(c.name);
+    return n.includes(r) || r.includes(n);
+  }) ?? null;
+}
 
 type Range = "current" | "3m" | "6m" | "ytd" | "year";
 
@@ -34,6 +53,69 @@ export function ResultatsTab() {
     window.addEventListener("kpi-hydrated", refresh);
     return () => window.removeEventListener("kpi-hydrated", refresh);
   }, []);
+
+  // One-shot seed — walks every Suna preset (Sandra Apr/May/Jun/Aug + René Jul/Aug),
+  // fuzzy-matches each row to a Supabase client, writes to localStorage AND fires
+  // a Supabase upsert per row. Idempotent: re-running just re-writes the same values.
+  const seedPresets = () => {
+    if (supabaseClients.length === 0) {
+      toast.error("Clients Supabase pas encore chargés — réessaie dans 2 secondes.");
+      return;
+    }
+    let totalMatched = 0, totalRows = 0;
+    const configPatch: Record<string, { baselineViews: number; baselineVideos: number; trackedByAds?: boolean }> = {};
+
+    // Load current config once so we don't clobber existing baselines
+    let existingConfig: any = {};
+    try { existingConfig = JSON.parse(localStorage.getItem("kpi_client_config") || "{}"); } catch { /* ignore */ }
+
+    for (const preset of ALL_PRESETS) {
+      const monthKey = `kpi_${preset.year}_${String(preset.month).padStart(2, "0")}`;
+      let monthData: Record<string, any> = {};
+      try { monthData = JSON.parse(localStorage.getItem(monthKey) || "{}"); } catch { /* ignore */ }
+
+      for (const row of preset.rows) {
+        totalRows++;
+        const match = findClientMatch(row.name, supabaseClients as any);
+        if (!match) continue;
+        totalMatched++;
+
+        monthData[match.id] = {
+          ...(monthData[match.id] ?? {}),
+          ...(typeof row.views  === "number" ? { views:  row.views  } : {}),
+          ...(typeof row.videos === "number" ? { videos: row.videos } : {}),
+          ...(typeof row.budget === "number" ? { budget: row.budget } : {}),
+          ...(typeof row.leads  === "number" ? { leads:  row.leads  } : {}),
+        };
+
+        // Config: mark trackedByAds if this preset has budget/leads
+        const isAdsPreset  = preset.label.startsWith("René");
+        const priorConfig  = existingConfig[match.id] ?? { baselineViews: 0, baselineVideos: 0 };
+        configPatch[match.id] = {
+          baselineViews:  priorConfig.baselineViews  ?? 0,
+          baselineVideos: priorConfig.baselineVideos ?? 0,
+          trackedByAds:   isAdsPreset ? true : (configPatch[match.id]?.trackedByAds ?? priorConfig.trackedByAds ?? false),
+        };
+
+        // Fire background push to Supabase
+        pushClientMonth(match.id, preset.year, preset.month, monthData[match.id]);
+      }
+
+      // Persist the month locally (hydration reads this)
+      localStorage.setItem(monthKey, JSON.stringify(monthData));
+    }
+
+    // Merge + persist config, push each entry
+    const mergedConfig = { ...existingConfig };
+    for (const [clientId, cfg] of Object.entries(configPatch)) {
+      mergedConfig[clientId] = { ...(mergedConfig[clientId] ?? {}), ...cfg };
+      pushClientConfig(clientId, mergedConfig[clientId]);
+    }
+    localStorage.setItem("kpi_client_config", JSON.stringify(mergedConfig));
+
+    setTick((t) => t + 1);
+    toast.success(`${totalMatched}/${totalRows} lignes seedées sur ${ALL_PRESETS.length} mois — sauvegardé dans Supabase`);
+  };
 
   // Which months to iterate depending on the range
   const monthsToScan: { year: number; month: number }[] = (() => {
@@ -134,6 +216,12 @@ export function ResultatsTab() {
           </div>
         </div>
 
+        <div className="flex items-center gap-2 flex-wrap">
+          <button onClick={seedPresets}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 transition-colors">
+            <Download className="w-3.5 h-3.5" /> Seed Suna Films
+          </button>
+
         {/* Range switcher */}
         <div className="flex items-center gap-1 rounded-lg border border-border/40 p-0.5">
           {[
@@ -152,6 +240,7 @@ export function ResultatsTab() {
               {opt.label}
             </button>
           ))}
+        </div>
         </div>
       </div>
 
