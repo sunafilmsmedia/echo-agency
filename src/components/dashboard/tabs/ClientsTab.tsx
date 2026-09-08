@@ -29,36 +29,24 @@ const INDUSTRY_PRESETS = [
   "Courtier hypothécaire",
 ];
 
-// Aligned with Suna's 2 forfaits (Lead Gen + Contenu).
-// Group 1 = ce qui identifie le forfait principal du client.
-// Group 2 = les livrables inclus / choisis.
-// Group 3 = extras (upsells).
-// IDs "setter" et "seo" sont volontairement omis de la nouvelle offre — les
-// anciens clients qui les portent verront juste un chip vide (pas de crash).
-const SERVICE_OPTIONS: { id: string; label: string; emoji: string; group: "forfait" | "core" | "extra" }[] = [
-  // ─ Forfaits ─
-  { id: "leadgen",          label: "Lead Gen (installation + gestion)",  emoji: "🚀", group: "forfait" },
-  { id: "contenu16",        label: "Contenu · Format 16 (8 vidéos/mois)", emoji: "🎬", group: "forfait" },
-  { id: "contenu20",        label: "Contenu · Format 20 (10 vidéos/mois)", emoji: "🎬", group: "forfait" },
-  { id: "botai_forfait",    label: "Bot AI (forfait autonome)",           emoji: "💬", group: "forfait" },
-
-  // ─ Livrables cœur (inclus dans un forfait) ─
-  { id: "videos",           label: "Vidéos (tournage + montage)",       emoji: "🎥", group: "core" },
-  { id: "ads",              label: "Meta Ads (vidéo + statique)",       emoji: "📣", group: "core" },
-  { id: "ai",               label: "Formulaire IA de qualification",    emoji: "🤖", group: "core" },
-  { id: "crm",              label: "CRM personnalisé + automatisations", emoji: "📇", group: "core" },
-  { id: "web",              label: "Landing page (+ tracking Pixel/CAPI)", emoji: "🌐", group: "core" },
-  { id: "brand_direction",  label: "Direction de marque + coaching caméra", emoji: "🎨", group: "core" },
+// Structure simplifiée : 2 forfaits (contenu + ads inclus dans les 2) + 3 extras.
+// Le prix mensuel et le nombre de vidéos/mois se règlent dans les champs MRR et
+// Vidéos/mois du form (éditables librement pour chaque client).
+// Anciens IDs (leadgen, contenu16, contenu20, videos, brand_direction, etc.) restent
+// tolérés par le renderer — ils ne s'affichent juste plus dans le picker.
+const SERVICE_OPTIONS: { id: string; label: string; emoji: string; group: "forfait" | "extra" }[] = [
+  // ─ Forfait principal (1 seul choix logique) ─
+  { id: "tournage_mensuel",  label: "1 tournage / mois (contenu + ads)",   emoji: "🎬", group: "forfait" },
+  { id: "tournage_bimestr",  label: "1 tournage aux 2 mois (contenu + ads)", emoji: "🎬", group: "forfait" },
 
   // ─ Extras (upsells) ─
-  { id: "bot_ai",           label: "Bot AI conversationnel",            emoji: "💬", group: "extra" },
-  { id: "social",           label: "Contenu organique / gestion page",  emoji: "📱", group: "extra" },
-  { id: "personal_brand",   label: "Marque personnelle",                emoji: "🎯", group: "extra" },
+  { id: "crm",               label: "CRM personnalisé",                    emoji: "📇", group: "extra" },
+  { id: "bot_ai",            label: "Bot AI conversationnel",              emoji: "💬", group: "extra" },
+  { id: "ai",                label: "Logiciel IA de qualification",        emoji: "🤖", group: "extra" },
 ];
 
-const SERVICE_GROUP_LABELS: Record<"forfait" | "core" | "extra", string> = {
+const SERVICE_GROUP_LABELS: Record<"forfait" | "extra", string> = {
   forfait: "Forfait principal",
-  core:    "Livrables inclus",
   extra:   "Extras / upsells",
 };
 
@@ -106,7 +94,7 @@ function ServicesPicker({
   const toggle = (id: string) => {
     onChange(value.includes(id) ? value.filter((s) => s !== id) : [...value, id]);
   };
-  const groups: ("forfait" | "core" | "extra")[] = ["forfait", "core", "extra"];
+  const groups: ("forfait" | "extra")[] = ["forfait", "extra"];
   return (
     <div className="space-y-2.5">
       {groups.map((g) => {
@@ -215,9 +203,9 @@ function ClientCard({ client, onEdit, onDelete }: { client: Client; onEdit: () =
           {(client.services ?? []).length === 0 && (
             <span className="text-sm">{serviceIcon}</span>
           )}
-          {client.videos_per_month > 0 && (client.services ?? []).includes("videos") && (
+          {client.videos_per_month > 0 && (
             <span className="text-[10px] text-primary flex items-center gap-1 ml-1">
-              <Video className="w-3 h-3" /> {client.videos_per_month}/mois
+              <Video className="w-3 h-3" /> {client.videos_per_month} vid/mois
             </span>
           )}
           {client.monthly_recurring_revenue && (
@@ -334,7 +322,7 @@ function ClientAddDialog({ open, onClose }: { open: boolean; onClose: () => void
               <Input type="number" value={form.contract_length_months} onChange={(e) => setForm({ ...form, contract_length_months: e.target.value })} />
             </div>
           </div>
-          {form.services.includes("videos") && (
+          {(form.services.includes("tournage_mensuel") || form.services.includes("tournage_bimestr") || form.services.includes("videos")) && (
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>Vidéos/mois</Label>
@@ -441,7 +429,7 @@ function ClientEditDialog({ client, onClose }: { client: Client; onClose: () => 
               <Input type="number" value={form.contract_value} onChange={(e) => setForm({ ...form, contract_value: e.target.value })} />
             </div>
           </div>
-          {form.services.includes("videos") && (
+          {(form.services.includes("tournage_mensuel") || form.services.includes("tournage_bimestr") || form.services.includes("videos")) && (
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>Vidéos/mois</Label>
@@ -535,8 +523,10 @@ export function ClientsTab() {
       return { key: n, label: raw, emoji: "✳️" };
     };
 
+    // Ne compter QUE les clients actifs — pipeline/perdu/on_hold/complété exclus
+    // du portefeuille "vivant" affiché en haut.
     const counts: Record<string, { label: string; emoji: string; count: number }> = {};
-    for (const c of clients) {
+    for (const c of active) {
       const raw = (c.industry || "").trim();
       if (!raw) {
         counts["__none__"] ??= { label: "Non précisé", emoji: "❓", count: 0 };
@@ -579,7 +569,8 @@ export function ClientsTab() {
     <div className="p-6 space-y-6">
       {/* Domaines — hero card style (même vibe que la Marge de Profit) */}
       {industryCounts.length > 0 && (() => {
-        const total = clients.length;
+        // Total = clients ACTIFS seulement (pipeline / perdu / on_hold exclus)
+        const total = active.length;
         const top = industryCounts[0];
         const topPct = total > 0 ? Math.round((top.count / total) * 100) : 0;
         return (
@@ -595,13 +586,13 @@ export function ClientsTab() {
               {/* Left — hero total + top domain */}
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-widest text-primary mb-2">
-                  🎯 Portefeuille clients
+                  🎯 Portefeuille actif
                 </p>
                 <p className="text-6xl md:text-7xl font-bold tracking-tight text-primary leading-none">
                   {total}
                 </p>
                 <p className="text-sm text-muted-foreground mt-3">
-                  Réparti sur <span className="font-semibold text-foreground">{industryCounts.length} domaine{industryCounts.length > 1 ? "s" : ""}</span>
+                  <span className="text-[10px] uppercase tracking-wider">Actifs seulement</span> · Réparti sur <span className="font-semibold text-foreground">{industryCounts.length} domaine{industryCounts.length > 1 ? "s" : ""}</span>
                 </p>
                 <div className="mt-4 pt-4 border-t border-border/30">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Domaine dominant</p>
