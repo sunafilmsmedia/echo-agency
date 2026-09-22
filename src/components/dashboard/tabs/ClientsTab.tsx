@@ -11,8 +11,13 @@ import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { formatCurrency, formatDate, getContractEndDate, monthsUntil } from "@/lib/utils";
-import { Plus, Pencil, Trash2, ChevronDown, Video } from "lucide-react";
+import { Plus, Pencil, Trash2, ChevronDown, Video, Mail } from "lucide-react";
+import { toast } from "sonner";
 import type { Client, ClientStatus } from "@/integrations/supabase/client";
+
+// Basic RFC-ish email validation — good enough to catch typos before hitting Resend.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const isValidEmail = (v: string) => EMAIL_RE.test(v.trim());
 
 // ─── Status config ────────────────────────────────────────────
 const STATUS_CONFIG: Record<ClientStatus, { label: string; variant: any }> = {
@@ -135,6 +140,17 @@ function ServicesPicker({
 function ClientCard({ client, onEdit, onDelete }: { client: Client; onEdit: () => void; onDelete: () => void }) {
   const updateStatus = useUpdateClientStatus();
 
+  // Empêche la transition vers 'active' si le client n'a pas d'email valide :
+  // sans email, l'automation ne peut pas envoyer le code d'accès.
+  const handleStatusChange = (nextStatus: ClientStatus) => {
+    if (nextStatus === "active" && !isValidEmail(client.email ?? "")) {
+      toast.error("Ajoute d'abord un email valide au client (nécessaire pour l'envoi automatique du code d'accès).");
+      onEdit();
+      return;
+    }
+    updateStatus.mutate({ id: client.id, status: nextStatus });
+  };
+
   const endDate = getContractEndDate(client.contract_start_date, client.contract_length_months, client.contract_end_date);
   const monthsLeft = monthsUntil(endDate);
 
@@ -170,6 +186,11 @@ function ClientCard({ client, onEdit, onDelete }: { client: Client; onEdit: () =
           <div className="min-w-0">
             <p className="font-semibold text-sm text-foreground truncate">{client.name}</p>
             {client.industry && <p className="text-xs text-muted-foreground">{client.industry}</p>}
+            {client.email && (
+              <p className="text-[10px] text-muted-foreground/80 flex items-center gap-1 mt-0.5 truncate">
+                <Mail className="w-3 h-3 shrink-0" /> {client.email}
+              </p>
+            )}
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -181,7 +202,7 @@ function ClientCard({ client, onEdit, onDelete }: { client: Client; onEdit: () =
             </DropdownMenuTrigger>
             <DropdownMenuContent>
               {(Object.entries(STATUS_CONFIG) as [ClientStatus, typeof STATUS_CONFIG[ClientStatus]][]).map(([key, cfg]) => (
-                <DropdownMenuItem key={key} onClick={() => updateStatus.mutate({ id: client.id, status: key })}>
+                <DropdownMenuItem key={key} onClick={() => handleStatusChange(key)}>
                   {cfg.label}
                 </DropdownMenuItem>
               ))}
@@ -257,17 +278,31 @@ function ClientCard({ client, onEdit, onDelete }: { client: Client; onEdit: () =
 function ClientAddDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const create = useCreateClient();
   const [form, setForm] = useState({
-    name: "", industry: "", status: "pipeline" as ClientStatus,
+    name: "", email: "", industry: "", status: "pipeline" as ClientStatus,
     monthly_recurring_revenue: "", contract_length_months: "",
     videos_per_month: "", next_shoot_date: "", notes: "",
     services: [] as string[],
   });
 
+  const emailTrimmed = form.email.trim();
+  const emailFilled  = emailTrimmed.length > 0;
+  const emailValid   = emailFilled ? isValidEmail(emailTrimmed) : true;
+  const activeBlocked = form.status === "active" && !isValidEmail(emailTrimmed);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name) return;
+    if (activeBlocked) {
+      toast.error("Un email valide est requis pour passer le client en 'Actif'.");
+      return;
+    }
+    if (emailFilled && !emailValid) {
+      toast.error("Format d'email invalide.");
+      return;
+    }
     await create.mutateAsync({
       name: form.name,
+      email: emailFilled ? emailTrimmed : null,
       industry: form.industry || null,
       status: form.status,
       monthly_recurring_revenue: form.monthly_recurring_revenue ? Number(form.monthly_recurring_revenue) : null,
@@ -292,6 +327,22 @@ function ClientAddDialog({ open, onClose }: { open: boolean; onClose: () => void
             <Input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </div>
           <div className="space-y-1">
+            <Label>Email du client {form.status === "active" && <span className="text-destructive">*</span>}</Label>
+            <Input
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              placeholder="client@exemple.com"
+              className={emailFilled && !emailValid ? "border-destructive" : ""}
+            />
+            <p className="text-[10px] text-muted-foreground">
+              Requis pour le passage en statut « Actif » — le code d'accès est envoyé à cet email.
+            </p>
+            {emailFilled && !emailValid && (
+              <p className="text-[10px] text-destructive">Format d'email invalide.</p>
+            )}
+          </div>
+          <div className="space-y-1">
             <Label>Domaine</Label>
             <IndustryPicker value={form.industry} onChange={(v) => setForm({ ...form, industry: v })} />
           </div>
@@ -311,6 +362,9 @@ function ClientAddDialog({ open, onClose }: { open: boolean; onClose: () => void
                 <SelectItem value="lost">Perdu</SelectItem>
               </SelectContent>
             </Select>
+            {activeBlocked && (
+              <p className="text-[10px] text-destructive">Ajoute un email valide pour permettre le statut « Actif ».</p>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
@@ -340,7 +394,7 @@ function ClientAddDialog({ open, onClose }: { open: boolean; onClose: () => void
           </div>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={onClose}>Annuler</Button>
-            <Button type="submit" disabled={create.isPending}>
+            <Button type="submit" disabled={create.isPending || activeBlocked || (emailFilled && !emailValid)}>
               {create.isPending ? "Création..." : "Créer"}
             </Button>
           </DialogFooter>
@@ -355,6 +409,7 @@ function ClientEditDialog({ client, onClose }: { client: Client; onClose: () => 
   const update = useUpdateClient();
   const [form, setForm] = useState({
     name: client.name,
+    email: client.email || "",
     industry: client.industry || "",
     status: client.status,
     monthly_recurring_revenue: client.monthly_recurring_revenue?.toString() || "",
@@ -367,11 +422,25 @@ function ClientEditDialog({ client, onClose }: { client: Client; onClose: () => 
     services: client.services ?? [],
   });
 
+  const emailTrimmed = form.email.trim();
+  const emailFilled  = emailTrimmed.length > 0;
+  const emailValid   = emailFilled ? isValidEmail(emailTrimmed) : true;
+  const activeBlocked = form.status === "active" && !isValidEmail(emailTrimmed);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (activeBlocked) {
+      toast.error("Un email valide est requis pour passer le client en 'Actif'.");
+      return;
+    }
+    if (emailFilled && !emailValid) {
+      toast.error("Format d'email invalide.");
+      return;
+    }
     await update.mutateAsync({
       id: client.id,
       name: form.name,
+      email: emailFilled ? emailTrimmed : null,
       industry: form.industry || null,
       status: form.status as ClientStatus,
       monthly_recurring_revenue: form.monthly_recurring_revenue ? Number(form.monthly_recurring_revenue) : null,
@@ -398,6 +467,22 @@ function ClientEditDialog({ client, onClose }: { client: Client; onClose: () => 
             <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </div>
           <div className="space-y-1">
+            <Label>Email du client {form.status === "active" && <span className="text-destructive">*</span>}</Label>
+            <Input
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              placeholder="client@exemple.com"
+              className={emailFilled && !emailValid ? "border-destructive" : ""}
+            />
+            <p className="text-[10px] text-muted-foreground">
+              Requis pour le statut « Actif » — le code d'accès est envoyé à cet email.
+            </p>
+            {emailFilled && !emailValid && (
+              <p className="text-[10px] text-destructive">Format d'email invalide.</p>
+            )}
+          </div>
+          <div className="space-y-1">
             <Label>Domaine</Label>
             <IndustryPicker value={form.industry} onChange={(v) => setForm({ ...form, industry: v })} />
           </div>
@@ -418,6 +503,9 @@ function ClientEditDialog({ client, onClose }: { client: Client; onClose: () => 
                 <SelectItem value="completed">Complété</SelectItem>
               </SelectContent>
             </Select>
+            {activeBlocked && (
+              <p className="text-[10px] text-destructive">Ajoute un email valide pour permettre le statut « Actif ».</p>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
@@ -457,7 +545,7 @@ function ClientEditDialog({ client, onClose }: { client: Client; onClose: () => 
           </div>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={onClose}>Annuler</Button>
-            <Button type="submit" disabled={update.isPending}>
+            <Button type="submit" disabled={update.isPending || activeBlocked || (emailFilled && !emailValid)}>
               {update.isPending ? "Sauvegarde..." : "Sauvegarder"}
             </Button>
           </DialogFooter>

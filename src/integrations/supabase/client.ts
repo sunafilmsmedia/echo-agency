@@ -18,6 +18,7 @@ export type ClientStatus = "active" | "pipeline" | "on_hold" | "lost" | "complet
 export interface Client {
   id: string;
   name: string;
+  email: string | null;
   industry: string | null;
   contract_value: number | null;
   status: ClientStatus;
