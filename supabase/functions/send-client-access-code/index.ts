@@ -81,16 +81,19 @@ Deno.serve(async (req) => {
     return json({ skipped: true, reason: "no_record_in_payload" });
   }
 
-  // ── Guard #2: statut vient DE passer à 'active' ──
-  //    - record.status === 'active' → cible actuelle
-  //    - old_record?.status !== 'active' → transition (pas déjà actif avant)
-  //    - Si old_record est null (ex: INSERT), on considère que ce n'est pas une transition
-  //      contrôlée depuis pipeline → skip aussi (l'utilisateur veut fire seulement UPDATE).
+  // ── Guard #2: le client est ou vient d'être 'active' ──
+  //    Accepte :
+  //     - INSERT avec status='active' (old_record est null)
+  //     - UPDATE d'un statut ≠ active vers active
+  //    Rejette :
+  //     - status actuel ≠ 'active'
+  //     - déjà 'active' avant (UPDATE active→active, ou UPDATE active→X→active — c'est
+  //       le guard access_code_sent_at ci-dessous qui rattrapera ce dernier cas)
   if (record.status !== "active") {
     return json({ skipped: true, reason: "status_not_active" });
   }
-  if (!old_record || old_record.status === "active") {
-    return json({ skipped: true, reason: "not_a_transition_to_active" });
+  if (old_record && old_record.status === "active") {
+    return json({ skipped: true, reason: "already_active_before" });
   }
 
   // ── Guard #3: email du client rempli ? ──
