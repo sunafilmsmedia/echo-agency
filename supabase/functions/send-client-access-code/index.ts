@@ -204,9 +204,9 @@ Deno.serve(async (req) => {
 </body>
 </html>`;
 
-  // Note : Resend impose un domaine vérifié pour "from" ; on garde le sandbox
-  // onboarding@resend.dev tant que le domaine n'est pas vérifié.
-  const from = `${agencyName} <onboarding@resend.dev>`;
+  // Domaine sunafilmsmedia.com vérifié dans Resend → envoi depuis contact@ qui
+  // est une vraie mailbox monitorée : les replies y arrivent naturellement.
+  const from = `${agencyName} <contact@sunafilmsmedia.com>`;
 
   const rRes = await fetch("https://api.resend.com/emails", {
     method: "POST",
