@@ -15,7 +15,6 @@ import { Plus, Pencil, Trash2, ChevronDown, Video, Mail, MapPin } from "lucide-r
 import { toast } from "sonner";
 import type { Client, ClientStatus } from "@/integrations/supabase/client";
 import { KNOWN_QUEBEC_CITIES, lookupCityCoords } from "@/data/quebec-cities";
-import { ClientsMap } from "@/components/dashboard/ClientsMap";
 import { canonicalizeIndustry } from "@/lib/industry-categories";
 
 // Basic RFC-ish email validation — good enough to catch typos before hitting Resend.
@@ -681,9 +680,6 @@ export function ClientsTab() {
 
   return (
     <div className="p-6 space-y-6">
-      {/* Carte du Québec — répartition géographique par catégorie */}
-      <ClientsMap clients={clients} />
-
       {/* Domaines — hero card style (même vibe que la Marge de Profit) */}
       {industryCounts.length > 0 && (() => {
         // Total = clients ACTIFS seulement (pipeline / perdu / on_hold exclus)
