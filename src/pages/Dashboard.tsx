@@ -5,9 +5,9 @@ import { PinDialog } from "@/components/dashboard/PinDialog";
 import { AIChat } from "@/components/dashboard/AIChat";
 import { Button } from "@/components/ui/button";
 import {
-  LayoutDashboard, Users, Calendar, UserCircle,
-  CheckSquare, TrendingUp, Brain, Settings, GripVertical,
-  Bell, LogOut, ChevronRight, MessagesSquare, Trophy, Layers, Sun, Moon, Presentation, BarChart3,
+  LayoutDashboard, Users, UserCircle,
+  TrendingUp, Brain, Settings, GripVertical,
+  Bell, LogOut, ChevronRight, MessagesSquare, Trophy, Sun, Moon, Presentation, BarChart3, MapPin,
 } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import { SoumissionsTab } from "@/components/dashboard/tabs/SoumissionsTab";
@@ -15,16 +15,14 @@ import { SoumissionsTab } from "@/components/dashboard/tabs/SoumissionsTab";
 // Tab imports (we'll add these as we build them)
 import { OverviewTab } from "@/components/dashboard/tabs/OverviewTab";
 import { ClientsTab } from "@/components/dashboard/tabs/ClientsTab";
-import { CalendarTab } from "@/components/dashboard/tabs/CalendarTab";
+import { SecteursTab } from "@/components/dashboard/tabs/SecteursTab";
 import { ClientCenterTab } from "@/components/dashboard/tabs/ClientCenterTab";
-import { DailyTasksTab } from "@/components/dashboard/tabs/DailyTasksTab";
 import { RevenueTab } from "@/components/dashboard/tabs/RevenueTab";
 import { AdvisorsTab } from "@/components/dashboard/tabs/AdvisorsTab";
 import { SettingsTab } from "@/components/dashboard/tabs/SettingsTab";
 import { TeamTab } from "@/components/dashboard/tabs/TeamTab";
 import { KpiTab } from "@/components/dashboard/tabs/KpiTab";
 import { ResultatsTab } from "@/components/dashboard/tabs/ResultatsTab";
-import { TasksSuivisTab } from "@/components/dashboard/tabs/TasksSuivisTab";
 import { useAgencySettings } from "@/hooks/usePortal";
 import { EchoTintedLogo } from "@/components/EchoTintedLogo";
 
@@ -49,10 +47,8 @@ function hexToHsl(hex: string): string {
 const DEFAULT_SIDEBAR_ITEMS = [
   { id: "overview",  label: "Dashboard",          icon: LayoutDashboard, protected: false },
   { id: "clients",   label: "Client Management",  icon: Users,           protected: true  },
-  { id: "calendar",  label: "Calendar",           icon: Calendar,        protected: false },
+  { id: "secteurs",  label: "Secteurs",           icon: MapPin,          protected: false },
   { id: "center",    label: "Client Center",      icon: UserCircle,      protected: false },
-  { id: "tasks",     label: "Tâches du Jour",     icon: CheckSquare,     protected: false },
-  { id: "suivis",    label: "Tâches & Suivis",    icon: Layers,          protected: false },
   { id: "revenue",   label: "Revenue & Growth",   icon: TrendingUp,      protected: true  },
   { id: "advisors",  label: "Marketing Advisors", icon: Brain,           protected: false },
   { id: "soumissions", label: "Soumissions",      icon: Presentation,    protected: false },
@@ -160,10 +156,8 @@ export default function Dashboard() {
     switch (activeTab) {
       case "overview":  return <OverviewTab />;
       case "clients":   return <ClientsTab />;
-      case "calendar":  return <CalendarTab />;
+      case "secteurs":  return <SecteursTab />;
       case "center":    return <ClientCenterTab />;
-      case "tasks":     return <DailyTasksTab />;
-      case "suivis":    return <TasksSuivisTab />;
       case "revenue":   return <RevenueTab />;
       case "advisors":  return <AdvisorsTab />;
       case "soumissions": return <SoumissionsTab />;
