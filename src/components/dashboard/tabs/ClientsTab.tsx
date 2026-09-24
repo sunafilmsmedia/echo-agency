@@ -11,9 +11,12 @@ import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { formatCurrency, formatDate, getContractEndDate, monthsUntil } from "@/lib/utils";
-import { Plus, Pencil, Trash2, ChevronDown, Video, Mail } from "lucide-react";
+import { Plus, Pencil, Trash2, ChevronDown, Video, Mail, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import type { Client, ClientStatus } from "@/integrations/supabase/client";
+import { KNOWN_QUEBEC_CITIES, lookupCityCoords } from "@/data/quebec-cities";
+import { ClientsMap } from "@/components/dashboard/ClientsMap";
+import { canonicalizeIndustry } from "@/lib/industry-categories";
 
 // Basic RFC-ish email validation — good enough to catch typos before hitting Resend.
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -282,12 +285,16 @@ function ClientAddDialog({ open, onClose }: { open: boolean; onClose: () => void
     monthly_recurring_revenue: "", contract_length_months: "",
     videos_per_month: "", next_shoot_date: "", notes: "",
     services: [] as string[],
+    city: "",
   });
 
   const emailTrimmed = form.email.trim();
   const emailFilled  = emailTrimmed.length > 0;
   const emailValid   = emailFilled ? isValidEmail(emailTrimmed) : true;
   const activeBlocked = form.status === "active" && !isValidEmail(emailTrimmed);
+
+  const cityCoords = lookupCityCoords(form.city);
+  const cityUnknown = form.city.trim().length > 0 && !cityCoords;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -311,6 +318,9 @@ function ClientAddDialog({ open, onClose }: { open: boolean; onClose: () => void
       next_shoot_date: form.next_shoot_date || null,
       notes: form.notes || null,
       services: form.services,
+      city: form.city.trim() || null,
+      latitude:  cityCoords?.lat ?? null,
+      longitude: cityCoords?.lng ?? null,
     });
     onClose();
   };
@@ -340,6 +350,29 @@ function ClientAddDialog({ open, onClose }: { open: boolean; onClose: () => void
             </p>
             {emailFilled && !emailValid && (
               <p className="text-[10px] text-destructive">Format d'email invalide.</p>
+            )}
+          </div>
+          <div className="space-y-1">
+            <Label>Ville (Québec)</Label>
+            <Input
+              list="quebec-cities-list"
+              value={form.city}
+              onChange={(e) => setForm({ ...form, city: e.target.value })}
+              placeholder="Ex: Montréal, Sherbrooke, Gatineau..."
+              className={cityUnknown ? "border-amber-500/60" : ""}
+            />
+            <datalist id="quebec-cities-list">
+              {KNOWN_QUEBEC_CITIES.map((c) => <option key={c} value={c} />)}
+            </datalist>
+            {cityUnknown && (
+              <p className="text-[10px] text-amber-500">
+                Ville inconnue de notre table — le client ne sera pas affiché sur la carte. Choisis dans la liste pour le géolocaliser.
+              </p>
+            )}
+            {cityCoords && (
+              <p className="text-[10px] text-emerald-400 flex items-center gap-1">
+                <MapPin className="w-3 h-3" /> géolocalisé
+              </p>
             )}
           </div>
           <div className="space-y-1">
@@ -420,12 +453,16 @@ function ClientEditDialog({ client, onClose }: { client: Client; onClose: () => 
     contract_end_date: client.contract_end_date || "",
     notes: client.notes || "",
     services: client.services ?? [],
+    city: client.city || "",
   });
 
   const emailTrimmed = form.email.trim();
   const emailFilled  = emailTrimmed.length > 0;
   const emailValid   = emailFilled ? isValidEmail(emailTrimmed) : true;
   const activeBlocked = form.status === "active" && !isValidEmail(emailTrimmed);
+
+  const cityCoords = lookupCityCoords(form.city);
+  const cityUnknown = form.city.trim().length > 0 && !cityCoords;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -451,6 +488,9 @@ function ClientEditDialog({ client, onClose }: { client: Client; onClose: () => 
       contract_end_date: form.contract_end_date || null,
       notes: form.notes || null,
       services: form.services,
+      city: form.city.trim() || null,
+      latitude:  cityCoords?.lat ?? null,
+      longitude: cityCoords?.lng ?? null,
     });
     onClose();
   };
@@ -480,6 +520,29 @@ function ClientEditDialog({ client, onClose }: { client: Client; onClose: () => 
             </p>
             {emailFilled && !emailValid && (
               <p className="text-[10px] text-destructive">Format d'email invalide.</p>
+            )}
+          </div>
+          <div className="space-y-1">
+            <Label>Ville (Québec)</Label>
+            <Input
+              list="quebec-cities-list-edit"
+              value={form.city}
+              onChange={(e) => setForm({ ...form, city: e.target.value })}
+              placeholder="Ex: Montréal, Sherbrooke, Gatineau..."
+              className={cityUnknown ? "border-amber-500/60" : ""}
+            />
+            <datalist id="quebec-cities-list-edit">
+              {KNOWN_QUEBEC_CITIES.map((c) => <option key={c} value={c} />)}
+            </datalist>
+            {cityUnknown && (
+              <p className="text-[10px] text-amber-500">
+                Ville inconnue — le client ne sera pas affiché sur la carte. Choisis dans la liste pour le géolocaliser.
+              </p>
+            )}
+            {cityCoords && (
+              <p className="text-[10px] text-emerald-400 flex items-center gap-1">
+                <MapPin className="w-3 h-3" /> géolocalisé
+              </p>
             )}
           </div>
           <div className="space-y-1">
@@ -578,52 +641,15 @@ export function ClientsTab() {
     ? Math.round(active.reduce((s, c) => s + (c.videos_per_month || 0), 0) / active.length)
     : 0;
 
-  // Breakdown by industry — regroupe les synonymes en libellés canoniques.
-  // Ex: "immobilier" / "courtier immobilier" / "courtière immobilière" → "Courtier immobilier"
-  //     "hypothèque" / "hypothécaire" / "courtier hypothécaire" → "Courtier hypothécaire"
+  // Breakdown by industry — délégué au canonicalizer partagé (utilisé aussi
+  // par la carte, garantit qu'un client est classé dans la même bucket ici et
+  // sur la carte). Actifs seulement — pipeline/perdu/on_hold/complété exclus.
   const industryCounts = (() => {
-    const norm = (s: string) => s.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
-
-    // Chaque entrée : { canonical, emoji, matches[] } — la première regex qui matche gagne.
-    const CANONICAL: { canonical: string; emoji: string; matches: RegExp[] }[] = [
-      { canonical: "Courtier immobilier",   emoji: "🏠", matches: [/immobili/, /courtiere?\s*immo/] },
-      // "hypo" attrape hypothèque, hypothécaire, "courtage hypo", "hypo.", etc.
-      { canonical: "Courtier hypothécaire", emoji: "🏦", matches: [/hypo/, /courtage\s*hypo/] },
-      { canonical: "Golf",                  emoji: "⛳", matches: [/golf/] },
-      { canonical: "Restaurant / café",     emoji: "🍽️", matches: [/restaur/, /\bcafe\b/, /bistro/] },
-      { canonical: "E-commerce",            emoji: "🛒", matches: [/e[-\s]?commerce/, /\bdtc\b/, /shopify/] },
-      { canonical: "Coach / formation",     emoji: "🎓", matches: [/coach/, /formation/, /training/] },
-      { canonical: "Médical / dentaire",    emoji: "🩺", matches: [/medic/, /dentaire/, /dentist/, /clinique/] },
-      { canonical: "Services professionnels", emoji: "⚖️", matches: [/avocat/, /comptable/, /juridique/, /notaire/] },
-      { canonical: "Beauté / bien-être",    emoji: "💆", matches: [/beaute/, /bien\s*etre/, /spa/, /esthet/] },
-      { canonical: "Fitness / sport",       emoji: "🏋️", matches: [/fitness/, /\bgym\b/, /sport/, /crossfit/] },
-      { canonical: "SaaS / tech",           emoji: "💻", matches: [/\bsaas\b/, /\btech\b/, /startup/, /logiciel/] },
-      { canonical: "Automobile",            emoji: "🚗", matches: [/\bauto\b/, /voiture/, /concessionnaire/] },
-    ];
-
-    const canonicalize = (raw: string): { key: string; label: string; emoji: string } => {
-      const n = norm(raw);
-      for (const c of CANONICAL) {
-        if (c.matches.some((rx) => rx.test(n))) {
-          return { key: norm(c.canonical), label: c.canonical, emoji: c.emoji };
-        }
-      }
-      return { key: n, label: raw, emoji: "✳️" };
-    };
-
-    // Ne compter QUE les clients actifs — pipeline/perdu/on_hold/complété exclus
-    // du portefeuille "vivant" affiché en haut.
     const counts: Record<string, { label: string; emoji: string; count: number }> = {};
     for (const c of active) {
-      const raw = (c.industry || "").trim();
-      if (!raw) {
-        counts["__none__"] ??= { label: "Non précisé", emoji: "❓", count: 0 };
-        counts["__none__"].count++;
-        continue;
-      }
-      const { key, label, emoji } = canonicalize(raw);
-      counts[key] ??= { label, emoji, count: 0 };
-      counts[key].count++;
+      const cat = canonicalizeIndustry(c.industry);
+      counts[cat.key] ??= { label: cat.label, emoji: cat.emoji, count: 0 };
+      counts[cat.key].count++;
     }
     return Object.values(counts).sort((a, b) => b.count - a.count);
   })();
@@ -655,6 +681,9 @@ export function ClientsTab() {
 
   return (
     <div className="p-6 space-y-6">
+      {/* Carte du Québec — répartition géographique par catégorie */}
+      <ClientsMap clients={clients} />
+
       {/* Domaines — hero card style (même vibe que la Marge de Profit) */}
       {industryCounts.length > 0 && (() => {
         // Total = clients ACTIFS seulement (pipeline / perdu / on_hold exclus)

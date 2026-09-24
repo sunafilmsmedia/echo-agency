@@ -32,6 +32,9 @@ export interface Client {
   contract_length_months: number | null;
   videos_per_month: number;
   services: string[];
+  city: string | null;
+  latitude: number | null;
+  longitude: number | null;
   created_at: string;
   updated_at: string;
 }
