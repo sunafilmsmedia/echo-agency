@@ -211,7 +211,7 @@ export function SettingsTab() {
       </Card>
 
       {/* ─────────────── Invitation équipe ─────────────── */}
-      {agency?.invite_code && (
+      {agencyData?.invite_code && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
@@ -228,14 +228,14 @@ export function SettingsTab() {
               <div className="flex-1 px-4 py-3 rounded-md bg-primary/5 border-2 border-dashed border-primary/40 text-center">
                 <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Code d'invitation</p>
                 <p className="text-2xl font-bold font-mono tracking-widest text-primary">
-                  {agency.invite_code}
+                  {agencyData.invite_code}
                 </p>
               </div>
               <Button
                 variant="outline"
                 size="icon"
                 className="h-11 w-11"
-                onClick={() => { navigator.clipboard.writeText(agency.invite_code!); toast.success("Code copié"); }}
+                onClick={() => { navigator.clipboard.writeText(agencyData.invite_code!); toast.success("Code copié"); }}
                 title="Copier le code"
               >
                 <Copy className="w-4 h-4" />
@@ -246,7 +246,7 @@ export function SettingsTab() {
                 className="h-11 w-11"
                 onClick={() => {
                   const url = `${window.location.origin}/signup`;
-                  navigator.clipboard.writeText(`Rejoins l'espace ${name} sur Echo :\n${url}\nCode : ${agency.invite_code}`);
+                  navigator.clipboard.writeText(`Rejoins l'espace ${name} sur Echo :\n${url}\nCode : ${agencyData.invite_code}`);
                   toast.success("Message d'invitation copié");
                 }}
                 title="Copier un message d'invitation complet"
