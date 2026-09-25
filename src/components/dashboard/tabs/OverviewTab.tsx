@@ -5,6 +5,7 @@ import { formatCurrency, getDayOfYear, getContractEndDate, monthsUntil } from "@
 import { Users, DollarSign, Target, TrendingUp, AlertTriangle, Clock, DollarSign as DollarIcon, TrendingDown, PauseCircle } from "lucide-react";
 import { EchoTintedLogo } from "@/components/EchoTintedLogo";
 import { useAgencySettings } from "@/hooks/usePortal";
+import { useCurrentUser, displayFirstName } from "@/hooks/useCurrentUser";
 
 // Salutation qui suit l'heure de la journée — meilleure UX que "Bonjour" fixe.
 function greetingForNow(): string {
@@ -43,8 +44,11 @@ export function OverviewTab() {
   const { data: ytdMetrics = [] } = useRevenueMetricsYTD();
   const { data: expenseItems = [] } = useExpenseItems();
   const { data: agency } = useAgencySettings();
+  const currentUser = useCurrentUser();
   const agencyColor = agency?.color || "#7c3aed";
-  const firstName   = agency?.owner_first_name?.trim() || "";
+  // Priorité : nom du user connecté (metadata du signup) → fallback prénom de l'owner
+  // d'agence pour les comptes créés avant la refonte signup (ex: Josué).
+  const firstName   = displayFirstName(currentUser, agency?.owner_first_name);
   const greeting    = greetingForNow();
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth(); // 0-indexed
