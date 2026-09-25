@@ -210,6 +210,58 @@ export function SettingsTab() {
         </CardContent>
       </Card>
 
+      {/* ─────────────── Invitation équipe ─────────────── */}
+      {agency?.invite_code && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Lock className="w-4 h-4 text-primary" /> Inviter un membre de l'équipe
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Partage ce code avec les membres qui doivent rejoindre l'espace <span className="font-semibold text-foreground">{name}</span>.
+              Ils entrent leur nom + email + mot de passe + ce code sur <span className="font-mono">/signup</span>.
+            </p>
+
+            <div className="flex items-center gap-2">
+              <div className="flex-1 px-4 py-3 rounded-md bg-primary/5 border-2 border-dashed border-primary/40 text-center">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Code d'invitation</p>
+                <p className="text-2xl font-bold font-mono tracking-widest text-primary">
+                  {agency.invite_code}
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-11 w-11"
+                onClick={() => { navigator.clipboard.writeText(agency.invite_code!); toast.success("Code copié"); }}
+                title="Copier le code"
+              >
+                <Copy className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-11 w-11"
+                onClick={() => {
+                  const url = `${window.location.origin}/signup`;
+                  navigator.clipboard.writeText(`Rejoins l'espace ${name} sur Echo :\n${url}\nCode : ${agency.invite_code}`);
+                  toast.success("Message d'invitation copié");
+                }}
+                title="Copier un message d'invitation complet"
+              >
+                <Mail className="w-4 h-4" />
+              </Button>
+            </div>
+
+            <p className="text-[10px] text-muted-foreground">
+              Note : ce code n'est pas un secret cryptographique — c'est une barrière UX qui empêche les inscriptions accidentelles. Ne le partage qu'à ton équipe.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* ─────────────── Intégrations ─────────────── */}
       <Card>
         <CardHeader>

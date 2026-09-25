@@ -7,6 +7,7 @@ import type { Session } from "@supabase/supabase-js";
 
 import Landing from "@/pages/Landing";
 import Login from "@/pages/Login";
+import Signup from "@/pages/Signup";
 import Dashboard from "@/pages/Dashboard";
 import Tasks from "@/pages/Tasks";
 import WorkspaceSetup from "@/pages/WorkspaceSetup";
@@ -76,6 +77,7 @@ export default function App() {
           {/* Public */}
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
           <Route path="/preview" element={<Preview />} />
           <Route path="/portail" element={<ClientPortal />} />
           <Route path="/clients/:slug" element={<ClientLanding />} />

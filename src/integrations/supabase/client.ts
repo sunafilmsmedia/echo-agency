@@ -114,6 +114,7 @@ export interface AgencySettings {
   slug: string;
   color: string;
   owner_first_name: string | null;
+  invite_code: string | null;
   script_gpt_url: string | null;
   brand_guide_url: string | null;
   gamma_api_key: string | null;

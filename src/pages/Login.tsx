@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -149,7 +149,7 @@ export default function Login() {
           {/* Footer links */}
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <a href="#" className="hover:text-primary transition-colors">Mot de passe oublié ?</a>
-            <a href="#" className="hover:text-primary transition-colors">Créer un compte</a>
+            <Link to="/signup" className="hover:text-primary transition-colors">Créer un compte</Link>
           </div>
         </div>
       </div>
