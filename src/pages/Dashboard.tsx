@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, Users, UserCircle,
   TrendingUp, Brain, Settings, GripVertical,
-  Bell, LogOut, ChevronRight, MessagesSquare, Trophy, Sun, Moon, Presentation, BarChart3, MapPin,
+  Bell, LogOut, ChevronRight, MessagesSquare, Trophy, Sun, Moon, Presentation, BarChart3, MapPin, Clapperboard,
 } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import { SoumissionsTab } from "@/components/dashboard/tabs/SoumissionsTab";
@@ -16,6 +16,7 @@ import { SoumissionsTab } from "@/components/dashboard/tabs/SoumissionsTab";
 import { OverviewTab } from "@/components/dashboard/tabs/OverviewTab";
 import { ClientsTab } from "@/components/dashboard/tabs/ClientsTab";
 import { SecteursTab } from "@/components/dashboard/tabs/SecteursTab";
+import { EquipesTournageTab } from "@/components/dashboard/tabs/EquipesTournageTab";
 import { ClientCenterTab } from "@/components/dashboard/tabs/ClientCenterTab";
 import { RevenueTab } from "@/components/dashboard/tabs/RevenueTab";
 import { AdvisorsTab } from "@/components/dashboard/tabs/AdvisorsTab";
@@ -48,6 +49,7 @@ const DEFAULT_SIDEBAR_ITEMS = [
   { id: "overview",  label: "Dashboard",          icon: LayoutDashboard, protected: false },
   { id: "clients",   label: "Client Management",  icon: Users,           protected: true  },
   { id: "secteurs",  label: "Secteurs",           icon: MapPin,          protected: false },
+  { id: "equipes_tournage", label: "Équipes de tournage", icon: Clapperboard, protected: false },
   { id: "center",    label: "Client Center",      icon: UserCircle,      protected: false },
   { id: "revenue",   label: "Revenue & Growth",   icon: TrendingUp,      protected: true  },
   { id: "advisors",  label: "Marketing Advisors", icon: Brain,           protected: false },
@@ -157,6 +159,7 @@ export default function Dashboard() {
       case "overview":  return <OverviewTab />;
       case "clients":   return <ClientsTab />;
       case "secteurs":  return <SecteursTab />;
+      case "equipes_tournage": return <EquipesTournageTab />;
       case "center":    return <ClientCenterTab />;
       case "revenue":   return <RevenueTab />;
       case "advisors":  return <AdvisorsTab />;

@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import type { Client, ClientStatus } from "@/integrations/supabase/client";
 import { KNOWN_QUEBEC_CITIES, lookupCityCoords } from "@/data/quebec-cities";
 import { canonicalizeIndustry } from "@/lib/industry-categories";
+import { useShootTeams } from "@/hooks/useShootTeams";
 
 // Basic RFC-ish email validation — good enough to catch typos before hitting Resend.
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -279,12 +280,14 @@ function ClientCard({ client, onEdit, onDelete }: { client: Client; onEdit: () =
 // ─── Add Dialog ───────────────────────────────────────────────
 function ClientAddDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const create = useCreateClient();
+  const { data: teams = [] } = useShootTeams();
   const [form, setForm] = useState({
     name: "", email: "", industry: "", status: "pipeline" as ClientStatus,
     monthly_recurring_revenue: "", contract_length_months: "",
     videos_per_month: "", next_shoot_date: "", notes: "",
     services: [] as string[],
     city: "",
+    shoot_team_id: "" as string,
   });
 
   const emailTrimmed = form.email.trim();
@@ -320,6 +323,7 @@ function ClientAddDialog({ open, onClose }: { open: boolean; onClose: () => void
       city: form.city.trim() || null,
       latitude:  cityCoords?.lat ?? null,
       longitude: cityCoords?.lng ?? null,
+      shoot_team_id: form.shoot_team_id || null,
     });
     onClose();
   };
@@ -384,6 +388,28 @@ function ClientAddDialog({ open, onClose }: { open: boolean; onClose: () => void
             <p className="text-[10px] text-muted-foreground">Coche tous les services inclus dans le contrat.</p>
           </div>
           <div className="space-y-1">
+            <Label>Équipe de tournage</Label>
+            <Select
+              value={form.shoot_team_id || "__none__"}
+              onValueChange={(v) => setForm({ ...form, shoot_team_id: v === "__none__" ? "" : v })}
+            >
+              <SelectTrigger><SelectValue placeholder="Aucune équipe" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">Aucune équipe</SelectItem>
+                {teams.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    🎬 {t.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {teams.length === 0 && (
+              <p className="text-[10px] text-muted-foreground">
+                Crée d'abord une équipe dans l'onglet « Équipes de tournage ».
+              </p>
+            )}
+          </div>
+          <div className="space-y-1">
             <Label>Statut *</Label>
             <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as ClientStatus })}>
               <SelectTrigger><SelectValue /></SelectTrigger>
@@ -439,6 +465,7 @@ function ClientAddDialog({ open, onClose }: { open: boolean; onClose: () => void
 // ─── Edit Dialog ──────────────────────────────────────────────
 function ClientEditDialog({ client, onClose }: { client: Client; onClose: () => void }) {
   const update = useUpdateClient();
+  const { data: teams = [] } = useShootTeams();
   const [form, setForm] = useState({
     name: client.name,
     email: client.email || "",
@@ -453,6 +480,7 @@ function ClientEditDialog({ client, onClose }: { client: Client; onClose: () => 
     notes: client.notes || "",
     services: client.services ?? [],
     city: client.city || "",
+    shoot_team_id: client.shoot_team_id || "" as string,
   });
 
   const emailTrimmed = form.email.trim();
@@ -490,6 +518,7 @@ function ClientEditDialog({ client, onClose }: { client: Client; onClose: () => 
       city: form.city.trim() || null,
       latitude:  cityCoords?.lat ?? null,
       longitude: cityCoords?.lng ?? null,
+      shoot_team_id: form.shoot_team_id || null,
     });
     onClose();
   };
@@ -552,6 +581,28 @@ function ClientEditDialog({ client, onClose }: { client: Client; onClose: () => 
             <Label>Services fournis</Label>
             <ServicesPicker value={form.services} onChange={(v) => setForm({ ...form, services: v })} />
             <p className="text-[10px] text-muted-foreground">Coche tous les services inclus dans le contrat.</p>
+          </div>
+          <div className="space-y-1">
+            <Label>Équipe de tournage</Label>
+            <Select
+              value={form.shoot_team_id || "__none__"}
+              onValueChange={(v) => setForm({ ...form, shoot_team_id: v === "__none__" ? "" : v })}
+            >
+              <SelectTrigger><SelectValue placeholder="Aucune équipe" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">Aucune équipe</SelectItem>
+                {teams.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    🎬 {t.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {teams.length === 0 && (
+              <p className="text-[10px] text-muted-foreground">
+                Crée d'abord une équipe dans l'onglet « Équipes de tournage ».
+              </p>
+            )}
           </div>
           <div className="space-y-1">
             <Label>Statut</Label>

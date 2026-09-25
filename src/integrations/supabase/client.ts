@@ -35,6 +35,17 @@ export interface Client {
   city: string | null;
   latitude: number | null;
   longitude: number | null;
+  shoot_team_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ShootTeam {
+  id: string;
+  name: string;
+  color: string;
+  members: string | null;
+  notes: string | null;
   created_at: string;
   updated_at: string;
 }
