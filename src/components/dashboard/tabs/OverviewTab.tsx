@@ -1,10 +1,21 @@
 import { useClients } from "@/hooks/useClients";
-import { useRevenueMetrics } from "@/hooks/useRevenueMetrics";
+import { useRevenueMetrics, useRevenueMetricsYTD } from "@/hooks/useRevenueMetrics";
 import { useExpenseItems } from "@/hooks/useExpenseItems";
 import { formatCurrency, getDayOfYear, getContractEndDate, monthsUntil } from "@/lib/utils";
 import { Users, DollarSign, Target, TrendingUp, AlertTriangle, Clock, DollarSign as DollarIcon, TrendingDown, PauseCircle } from "lucide-react";
 import { EchoTintedLogo } from "@/components/EchoTintedLogo";
 import { useAgencySettings } from "@/hooks/usePortal";
+
+// Salutation qui suit l'heure de la journée — meilleure UX que "Bonjour" fixe.
+function greetingForNow(): string {
+  const h = new Date().getHours();
+  if (h < 5)  return "Bonne nuit";
+  if (h < 12) return "Bonjour";
+  if (h < 18) return "Bon après-midi";
+  return "Bonsoir";
+}
+
+const MONTHS_FR_SHORT = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Août", "Sep", "Oct", "Nov", "Déc"];
 
 const ECHO_TIPS = [
   "Contactez vos clients inactifs depuis plus de 30 jours pour prévenir le churn.",
@@ -29,9 +40,31 @@ interface Urgency {
 export function OverviewTab() {
   const { data: clients = [] } = useClients();
   const { data: metrics } = useRevenueMetrics();
+  const { data: ytdMetrics = [] } = useRevenueMetricsYTD();
   const { data: expenseItems = [] } = useExpenseItems();
   const { data: agency } = useAgencySettings();
   const agencyColor = agency?.color || "#7c3aed";
+  const firstName   = agency?.owner_first_name?.trim() || "";
+  const greeting    = greetingForNow();
+  const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().getMonth(); // 0-indexed
+
+  // Reconstitue les 12 mois de l'année en cours à partir du YTD, même les mois
+  // absents de la DB (revenue = 0 mais on veut la barre visible).
+  const monthlyRevenue = Array.from({ length: 12 }, (_, i) => {
+    const startPrefix = `${currentYear}-${String(i + 1).padStart(2, "0")}`;
+    const found = ytdMetrics.find((m) => m.period_start.startsWith(startPrefix));
+    return {
+      monthIdx: i,
+      label: MONTHS_FR_SHORT[i],
+      total: (found?.total_revenue ?? 0) + (found?.extra_revenue ?? 0),
+      isFuture: i > currentMonth,
+    };
+  });
+  const ytdTotal = monthlyRevenue.reduce((s, m) => s + m.total, 0);
+  const monthsElapsed = currentMonth + 1;
+  const monthlyAvg = monthsElapsed > 0 ? ytdTotal / monthsElapsed : 0;
+  const maxMonth = Math.max(...monthlyRevenue.map((m) => m.total), 1); // guard div/0
 
   const activeClients = clients.filter((c) => c.status === "active");
   const pipelineClients = clients.filter((c) => c.status === "pipeline");
@@ -198,6 +231,107 @@ export function OverviewTab() {
 
   return (
     <div className="p-8 space-y-6 max-w-7xl mx-auto">
+      {/* Hero salutation — revenu YTD + rythme mensuel + snapshot */}
+      <div
+        className="relative rounded-2xl border overflow-hidden"
+        style={{ borderColor: `${agencyColor}55`, background: `linear-gradient(135deg, ${agencyColor}12, ${agencyColor}03 55%)` }}
+      >
+        {/* Glow décoratif */}
+        <div
+          aria-hidden
+          className="absolute -top-16 -right-16 w-64 h-64 rounded-full pointer-events-none"
+          style={{ background: `radial-gradient(circle, ${agencyColor}35, transparent 70%)`, filter: "blur(40px)" }}
+        />
+
+        <div className="relative grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-6 p-6 md:p-7">
+          {/* ─── Left column: greeting + YTD total ─── */}
+          <div className="space-y-4">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: agencyColor }}>
+                Aperçu {currentYear}
+              </p>
+              <h1 className="text-2xl md:text-3xl font-bold text-foreground mt-1 tracking-tight">
+                {greeting}{firstName ? `, ${firstName}` : ""} 👋
+              </h1>
+              <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">
+                Voici combien tu as fait cette année.
+              </p>
+            </div>
+
+            <div className="flex items-baseline gap-3 flex-wrap">
+              <p className="text-4xl md:text-5xl font-bold tabular-nums" style={{ color: agencyColor }}>
+                {formatCurrency(ytdTotal)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                sur <span className="font-semibold text-foreground">{monthsElapsed} mois</span>
+                {" · "}moyenne <span className="font-semibold text-foreground">{formatCurrency(monthlyAvg)}/mois</span>
+              </p>
+            </div>
+
+            {/* Mini stats en pastilles */}
+            <div className="flex flex-wrap gap-2 pt-1">
+              <span className="text-xs px-2.5 py-1 rounded-full border border-primary/30 bg-primary/10 text-primary flex items-center gap-1.5">
+                <Users className="w-3 h-3" /> {activeClients.length} clients actifs
+              </span>
+              <span className="text-xs px-2.5 py-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 flex items-center gap-1.5">
+                <DollarSign className="w-3 h-3" /> {formatCurrency(mrr)}/mois MRR
+              </span>
+              {pipelineClients.length > 0 && (
+                <span className="text-xs px-2.5 py-1 rounded-full border border-blue-500/30 bg-blue-500/10 text-blue-400 flex items-center gap-1.5">
+                  <TrendingUp className="w-3 h-3" /> {pipelineClients.length} au pipeline
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* ─── Right column: bar chart par mois ─── */}
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-3">
+              Par mois — {currentYear}
+            </p>
+            <div className="flex items-end gap-1.5 h-[140px]">
+              {monthlyRevenue.map((m) => {
+                const heightPct = m.total > 0 ? Math.max(4, (m.total / maxMonth) * 100) : 2;
+                const isCurrent = m.monthIdx === currentMonth;
+                return (
+                  <div key={m.monthIdx} className="flex-1 flex flex-col items-center gap-1 min-w-0 group">
+                    <div className="w-full flex-1 flex items-end relative">
+                      <div
+                        className="w-full rounded-t transition-all duration-500"
+                        title={`${m.label} : ${formatCurrency(m.total)}`}
+                        style={{
+                          height: `${heightPct}%`,
+                          background: m.isFuture
+                            ? "hsl(var(--muted-foreground) / 0.15)"
+                            : isCurrent
+                            ? `linear-gradient(180deg, ${agencyColor}, ${agencyColor}aa)`
+                            : `${agencyColor}88`,
+                          border: isCurrent ? `1px solid ${agencyColor}` : "none",
+                        }}
+                      />
+                      {/* Tooltip on hover — small floating chip above the bar */}
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                        <div className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-foreground text-background">
+                          {formatCurrency(m.total)}
+                        </div>
+                      </div>
+                    </div>
+                    <span
+                      className={`text-[9px] uppercase tracking-wider ${
+                        m.isFuture ? "text-muted-foreground/40" : isCurrent ? "font-bold" : "text-muted-foreground"
+                      }`}
+                      style={isCurrent ? { color: agencyColor } : undefined}
+                    >
+                      {m.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Echo advice — subtle, spacious */}
       <div className="rounded-2xl border border-border/30 bg-card p-5 flex items-start gap-4">
         <EchoTintedLogo color={agencyColor} pose="thinking" size="w-10 h-10" rounded="rounded-full" />
