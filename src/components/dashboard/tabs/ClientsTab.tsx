@@ -832,17 +832,39 @@ export function ClientsTab() {
         );
       })()}
 
+      {/* Durée moyenne client — carré dédié */}
+      <div className="rounded-2xl border-2 border-emerald-500/40 bg-emerald-500/[0.04] p-5">
+        <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] gap-5 items-center">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-400 mb-2">
+              ⏳ Durée moyenne d'un client
+            </p>
+            <p className="text-5xl font-bold tracking-tight text-emerald-400 leading-none tabular-nums">
+              {tenure.all === null ? "—" : tenure.all.toFixed(1).replace(".", ",")}
+              {tenure.all !== null && <span className="text-xl font-semibold ml-2">mois</span>}
+            </p>
+            <p className="text-xs text-muted-foreground mt-3">
+              {tenure.all !== null && tenure.all >= 12 && <>≈ {(tenure.all / 12).toFixed(1).replace(".", ",")} an{tenure.all >= 24 ? "s" : ""} · </>}
+              Calculé depuis la date du 1er contrat, sur {tenure.count} client{tenure.count > 1 ? "s" : ""} signé{tenure.count > 1 ? "s" : ""}
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-2.5 sm:w-72">
+            <div className="rounded-xl border border-border/40 bg-background/40 p-3">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Encore là</p>
+              <p className="text-xl font-bold text-foreground tabular-nums mt-1">{fmtMonths(tenure.stillHere)}</p>
+              <p className="text-[10px] text-muted-foreground">{tenure.count - tenure.departedCount} client{tenure.count - tenure.departedCount > 1 ? "s" : ""}</p>
+            </div>
+            <div className="rounded-xl border border-border/40 bg-background/40 p-3">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Partis</p>
+              <p className="text-xl font-bold text-foreground tabular-nums mt-1">{fmtMonths(tenure.departed)}</p>
+              <p className="text-[10px] text-muted-foreground">{tenure.departedCount} client{tenure.departedCount > 1 ? "s" : ""}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Stats bar */}
       <div className="flex items-center gap-6">
-        <div className="text-sm"
-          title={`Calculé sur ${tenure.count} client${tenure.count > 1 ? "s" : ""} signé${tenure.count > 1 ? "s" : ""} (date du 1er contrat → aujourd'hui, ou → fin de contrat si parti)`}>
-          <span className="text-muted-foreground">Durée moy. client </span>
-          <span className="font-semibold text-foreground">{fmtMonths(tenure.all)}</span>
-          <span className="text-[11px] text-muted-foreground ml-1.5">
-            · encore là {fmtMonths(tenure.stillHere)}
-            {tenure.departedCount > 0 && <> · partis {fmtMonths(tenure.departed)}</>}
-          </span>
-        </div>
         <div className="text-sm">
           <span className="text-muted-foreground">Vidéos/client </span>
           <span className="font-semibold text-foreground">{avgVideos}</span>
