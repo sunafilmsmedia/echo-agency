@@ -4,11 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { PinDialog } from "@/components/dashboard/PinDialog";
 import { AIChat } from "@/components/dashboard/AIChat";
 import { Button } from "@/components/ui/button";
-import {
-  LayoutDashboard, Users, UserCircle,
-  TrendingUp, Brain, Settings, GripVertical,
-  Bell, LogOut, ChevronRight, MessagesSquare, Trophy, Sun, Moon, Presentation, BarChart3, MapPin, Clapperboard,
-} from "lucide-react";
+import { GripVertical, Bell, LogOut, Sun, Moon } from "lucide-react";
+import { DEFAULT_SIDEBAR_ITEMS } from "@/lib/dashboard-tabs";
 import { useTheme } from "@/hooks/useTheme";
 import { SoumissionsTab } from "@/components/dashboard/tabs/SoumissionsTab";
 
@@ -25,6 +22,8 @@ import { TeamTab } from "@/components/dashboard/tabs/TeamTab";
 import { KpiTab } from "@/components/dashboard/tabs/KpiTab";
 import { ResultatsTab } from "@/components/dashboard/tabs/ResultatsTab";
 import { useAgencySettings } from "@/hooks/usePortal";
+import { useMyAccess } from "@/hooks/useTeamAccess";
+import { setMoneyHidden } from "@/lib/utils";
 import { EchoTintedLogo } from "@/components/EchoTintedLogo";
 
 /** Convert #rrggbb to "H S% L%" string used by Tailwind/shadcn CSS vars */
@@ -45,20 +44,6 @@ function hexToHsl(hex: string): string {
   return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
 }
 
-const DEFAULT_SIDEBAR_ITEMS = [
-  { id: "overview",  label: "Dashboard",          icon: LayoutDashboard, protected: false },
-  { id: "clients",   label: "Client Management",  icon: Users,           protected: true  },
-  { id: "secteurs",  label: "Secteurs",           icon: MapPin,          protected: false },
-  { id: "equipes_tournage", label: "Équipes de tournage", icon: Clapperboard, protected: false },
-  { id: "center",    label: "Client Center",      icon: UserCircle,      protected: false },
-  { id: "revenue",   label: "Revenue & Growth",   icon: TrendingUp,      protected: true  },
-  { id: "advisors",  label: "Marketing Advisors", icon: Brain,           protected: false },
-  { id: "soumissions", label: "Soumissions",      icon: Presentation,    protected: false },
-  { id: "team",      label: "Équipe & Canaux",    icon: MessagesSquare,  protected: false },
-  { id: "kpi",       label: "KPI Équipe",         icon: Trophy,          protected: true  },
-  { id: "resultats", label: "Résultats",          icon: BarChart3,       protected: false },
-  { id: "settings",  label: "Settings",           icon: Settings,        protected: false },
-];
 
 type TabId = typeof DEFAULT_SIDEBAR_ITEMS[number]["id"];
 
@@ -69,6 +54,11 @@ export default function Dashboard() {
   const agencyColor = agency?.color || "#7c3aed";
   const agencyName  = agency?.name  || "Echo";
   const themeHsl    = hexToHsl(agencyColor);
+
+  // Accès employé : onglets choisis par le propriétaire + montants masqués.
+  // Réglé pendant le render pour que les onglets enfants formatent déjà masqué.
+  const access = useMyAccess();
+  setMoneyHidden(!access.canSeeMoney);
 
   // Sidebar order (persisted)
   const [sidebarOrder, setSidebarOrder] = useState<string[]>(() => {
@@ -109,7 +99,8 @@ export default function Dashboard() {
   }, []);
 
   const handleTabClick = (item: typeof DEFAULT_SIDEBAR_ITEMS[number]) => {
-    if (item.protected && !unlockedSections.has(item.id)) {
+    // Employés : les onglets ouverts par le propriétaire ne demandent pas le NIP.
+    if (item.protected && !access.isEmployee && !unlockedSections.has(item.id)) {
       setPinTarget(item.id as TabId);
       setShowPin(true);
     } else {
@@ -152,10 +143,26 @@ export default function Dashboard() {
 
   const orderedItems = sidebarOrder
     .map((id) => DEFAULT_SIDEBAR_ITEMS.find((i) => i.id === id))
-    .filter(Boolean) as typeof DEFAULT_SIDEBAR_ITEMS;
+    .filter(Boolean)
+    .filter((i) => access.allowedTabs === null || access.allowedTabs.includes(i!.id)) as typeof DEFAULT_SIDEBAR_ITEMS;
+
+  const currentTab: TabId = orderedItems.some((i) => i.id === activeTab)
+    ? activeTab
+    : (orderedItems[0]?.id ?? "overview");
 
   const renderTab = () => {
-    switch (activeTab) {
+    if (orderedItems.length === 0) {
+      return (
+        <div className="h-full flex items-center justify-center p-8 text-center">
+          <p className="text-sm text-muted-foreground max-w-sm">
+            {access.member && !access.member.active
+              ? "Ton accès a été désactivé. Contacte le responsable de l'agence."
+              : "Aucune section ne t'a encore été ouverte. Le responsable de l'agence peut te donner accès depuis Settings."}
+          </p>
+        </div>
+      );
+    }
+    switch (currentTab) {
       case "overview":  return <OverviewTab />;
       case "clients":   return <ClientsTab />;
       case "secteurs":  return <SecteursTab />;
@@ -171,6 +178,14 @@ export default function Dashboard() {
       default:          return <OverviewTab />;
     }
   };
+
+  if (access.isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div
@@ -195,8 +210,8 @@ export default function Dashboard() {
         <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-0.5">
           {orderedItems.map((item) => {
             const Icon = item.icon;
-            const isActive = activeTab === item.id;
-            const isProtected = item.protected && !unlockedSections.has(item.id);
+            const isActive = currentTab === item.id;
+            const isProtected = item.protected && !access.isEmployee && !unlockedSections.has(item.id);
 
             return (
               <div
@@ -249,7 +264,7 @@ export default function Dashboard() {
         {/* Header */}
         <header className="flex items-center justify-between px-8 py-4 border-b border-border/30 bg-background/80 backdrop-blur-sm flex-shrink-0">
           <h1 className="text-base font-semibold text-foreground tracking-tight">
-            {orderedItems.find((i) => i.id === activeTab)?.label || "Dashboard"}
+            {orderedItems.find((i) => i.id === currentTab)?.label || "Dashboard"}
           </h1>
           <div className="flex items-center gap-1.5">
             <button
@@ -270,15 +285,15 @@ export default function Dashboard() {
 
         {/* Tab content */}
         <main className="flex-1 overflow-hidden">
-          {activeTab === "team" || activeTab === "suivis"
+          {currentTab === "team" || currentTab === "suivis"
             ? <div className="h-full">{renderTab()}</div>
             : <div className="h-full overflow-y-auto">{renderTab()}</div>
           }
         </main>
       </div>
 
-      {/* AI Chat */}
-      <AIChat />
+      {/* AI Chat — caché aux employés sans accès aux $ (l'IA peut lire les revenus) */}
+      {access.canSeeMoney && <AIChat />}
 
       {/* PIN dialog */}
       <PinDialog

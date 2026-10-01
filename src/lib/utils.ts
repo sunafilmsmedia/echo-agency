@@ -5,7 +5,12 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+// Masquage des montants pour les employés sans accès aux $ (réglé par le Dashboard).
+let moneyHidden = false;
+export function setMoneyHidden(hidden: boolean) { moneyHidden = hidden; }
+
 export function formatCurrency(amount: number | null | undefined): string {
+  if (moneyHidden) return "$ •••";
   if (amount == null) return "$0";
   return new Intl.NumberFormat("en-US", {
     style: "currency",

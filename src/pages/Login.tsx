@@ -5,8 +5,90 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Loader2, Eye, EyeOff } from "lucide-react";
+import { Loader2, Eye, EyeOff, Mail, ArrowLeft } from "lucide-react";
+import { requestLoginCode } from "@/hooks/useTeamAccess";
 import { EchoTintedLogo } from "@/components/EchoTintedLogo";
+
+// ─── Connexion employé : code à 6 chiffres reçu par courriel ──────────────────
+function CodeLogin({ initialEmail, onDone, onBack }: { initialEmail: string; onDone: () => void; onBack: () => void }) {
+  const [email, setEmail] = useState(initialEmail);
+  const [code, setCode] = useState("");
+  const [step, setStep] = useState<"email" | "code">("email");
+  const [loading, setLoading] = useState(false);
+
+  const sendCode = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!email.trim()) return;
+    setLoading(true);
+    try {
+      await requestLoginCode(email);
+      setStep("code");
+      toast.success("Code envoyé — vérifie tes courriels");
+    } catch (err: any) {
+      toast.error(err?.code === "NOT_INVITED"
+        ? "Ce courriel n'a pas accès. Demande au responsable de l'agence de t'ajouter."
+        : err?.message ?? "Erreur lors de l'envoi du code");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const verify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    const { error } = await supabase.auth.verifyOtp({ email: email.trim().toLowerCase(), token: code.trim(), type: "email" });
+    setLoading(false);
+    if (error) toast.error("Code invalide ou expiré");
+    else onDone();
+  };
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <p className="text-sm font-semibold text-foreground flex items-center gap-2"><Mail className="w-4 h-4 text-primary" /> Connexion par code</p>
+        <p className="text-xs text-muted-foreground mt-1">
+          {step === "email"
+            ? "Entre ton courriel : on t'envoie un code à 6 chiffres. Pas de mot de passe."
+            : <>Code envoyé à <span className="text-foreground font-medium">{email}</span>.</>}
+        </p>
+      </div>
+
+      {step === "email" ? (
+        <form onSubmit={sendCode} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="code-email">Email</Label>
+            <Input id="code-email" type="email" placeholder="vous@agence.com" value={email}
+              onChange={(e) => setEmail(e.target.value)} autoComplete="email" autoFocus required />
+          </div>
+          <Button type="submit" className="w-full shadow-glow" disabled={loading}>
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Recevoir mon code"}
+          </Button>
+        </form>
+      ) : (
+        <form onSubmit={verify} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="otp">Code</Label>
+            <Input id="otp" inputMode="numeric" autoComplete="one-time-code" placeholder="123456" maxLength={10}
+              value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} autoFocus required
+              className="text-center font-mono text-xl tracking-[0.4em]" />
+          </div>
+          <Button type="submit" className="w-full shadow-glow" disabled={loading || code.length < 6}>
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Se connecter"}
+          </Button>
+          <button type="button" onClick={() => sendCode()} disabled={loading}
+            className="w-full text-xs text-muted-foreground hover:text-primary transition-colors">
+            Je n'ai rien reçu — renvoyer un code
+          </button>
+        </form>
+      )}
+
+      <button type="button" onClick={onBack}
+        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors">
+        <ArrowLeft className="w-3 h-3" /> Connexion avec mot de passe
+      </button>
+    </div>
+  );
+}
 
 export default function Login() {
   const navigate = useNavigate();
@@ -19,7 +101,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
+  const [mode, setMode] = useState<"password" | "code">(params.get("mode") === "password" ? "password" : "code");
 
   // Redirect if already logged in
   useEffect(() => {
@@ -41,21 +123,6 @@ export default function Login() {
     }
   };
 
-  const handleGoogleLogin = async () => {
-    setGoogleLoading(true);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        scopes: "https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/drive.readonly",
-        redirectTo: `${window.location.origin}${redirect}`,
-      },
-    });
-    if (error) {
-      toast.error(error.message);
-      setGoogleLoading(false);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       {/* Background glow */}
@@ -73,36 +140,9 @@ export default function Login() {
 
         {/* Card */}
         <div className="card-premium border border-border/50 space-y-6">
-          {/* Google OAuth */}
-          <Button
-            variant="outline"
-            className="w-full h-10 border-border/60 hover:border-primary/40 hover:bg-primary/5"
-            onClick={handleGoogleLogin}
-            disabled={googleLoading}
-          >
-            {googleLoading ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <svg className="w-4 h-4" viewBox="0 0 24 24">
-                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-              </svg>
-            )}
-            Continuer avec Google
-          </Button>
-
-          {/* Divider */}
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-border/40" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card px-2 text-muted-foreground">ou</span>
-            </div>
-          </div>
-
+          {mode === "code" ? (
+            <CodeLogin initialEmail={params.get("email") ?? ""} onDone={() => navigate(redirect, { replace: true })} onBack={() => setMode("password")} />
+          ) : (<>
           {/* Email/Password form */}
           <form onSubmit={handleEmailLogin} className="space-y-4">
             <div className="space-y-2">
@@ -151,6 +191,11 @@ export default function Login() {
             <a href="#" className="hover:text-primary transition-colors">Mot de passe oublié ?</a>
             <Link to="/signup" className="hover:text-primary transition-colors">Créer un compte</Link>
           </div>
+
+          <Button type="button" variant="ghost" className="w-full gap-2 text-xs text-muted-foreground" onClick={() => setMode("code")}>
+            <Mail className="w-3.5 h-3.5" /> Se connecter avec un code par courriel
+          </Button>
+          </>)}
         </div>
       </div>
     </div>

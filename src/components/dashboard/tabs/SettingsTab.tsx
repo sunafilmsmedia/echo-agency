@@ -9,6 +9,7 @@ import { useAgencySettings, useUpdateAgencySettings } from "@/hooks/usePortal";
 import { useIntegration, useConnectIntegration, useDisconnectIntegration } from "@/hooks/useIntegrations";
 import { EchoTintedLogo } from "@/components/EchoTintedLogo";
 import { useTheme } from "@/hooks/useTheme";
+import { TeamAccessCard } from "@/components/dashboard/TeamAccessCard";
 
 const COLOR_PALETTE = [
   "#7c3aed", "#2563eb", "#0891b2", "#059669",
@@ -121,6 +122,9 @@ export function SettingsTab() {
 
   return (
     <div className="p-6 space-y-6 max-w-3xl">
+      {/* ─────────────── Accès équipe ─────────────── */}
+      <TeamAccessCard />
+
       {/* ─────────────── Branding ─────────────── */}
       <Card>
         <CardHeader>
