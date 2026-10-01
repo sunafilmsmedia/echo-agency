@@ -679,13 +679,36 @@ export function ClientsTab() {
   const pipeline  = clients.filter((c) => c.status === "pipeline");
   const lost      = clients.filter((c) => ["lost", "completed", "on_hold"].includes(c.status));
 
-  const avgRetention = active.length > 0
-    ? Math.round(active.reduce((s, c) => {
-        if (!c.contract_start_date) return s;
-        const months = Math.max(0, Math.floor((Date.now() - new Date(c.contract_start_date).getTime()) / (1000 * 60 * 60 * 24 * 30)));
-        return s + months;
-      }, 0) / active.length)
-    : 0;
+  // Durée moyenne qu'un client reste avec nous : du 1er contrat signé
+  // (contract_start_date) jusqu'à aujourd'hui s'il est encore là (actif / en pause),
+  // ou jusqu'à sa fin de contrat s'il est parti (perdu / complété).
+  // Pipeline exclu (pas encore signé), clients sans date de début ignorés.
+  const tenure = (() => {
+    const MS_PER_MONTH = 1000 * 60 * 60 * 24 * 30.44;
+    const now = Date.now();
+    const stillHere: number[] = [];
+    const departed: number[] = [];
+    for (const c of clients) {
+      if (c.status === "pipeline" || !c.contract_start_date) continue;
+      const start = new Date(c.contract_start_date).getTime();
+      let end = now;
+      if (c.status === "lost" || c.status === "completed") {
+        const contractEnd = getContractEndDate(c.contract_start_date, c.contract_length_months, c.contract_end_date);
+        end = Math.min(now, contractEnd ? new Date(contractEnd).getTime() : new Date(c.updated_at).getTime());
+      }
+      const months = Math.max(0, (end - start) / MS_PER_MONTH);
+      (c.status === "lost" || c.status === "completed" ? departed : stillHere).push(months);
+    }
+    const avg = (xs: number[]) => xs.length ? xs.reduce((s, x) => s + x, 0) / xs.length : null;
+    return {
+      all: avg([...stillHere, ...departed]),
+      stillHere: avg(stillHere),
+      departed: avg(departed),
+      count: stillHere.length + departed.length,
+      departedCount: departed.length,
+    };
+  })();
+  const fmtMonths = (m: number | null) => m === null ? "—" : `${m.toFixed(1).replace(".", ",")} mois`;
 
   const avgVideos = active.length > 0
     ? Math.round(active.reduce((s, c) => s + (c.videos_per_month || 0), 0) / active.length)
@@ -811,9 +834,14 @@ export function ClientsTab() {
 
       {/* Stats bar */}
       <div className="flex items-center gap-6">
-        <div className="text-sm">
-          <span className="text-muted-foreground">Rétention moy. </span>
-          <span className="font-semibold text-foreground">{avgRetention} mois</span>
+        <div className="text-sm"
+          title={`Calculé sur ${tenure.count} client${tenure.count > 1 ? "s" : ""} signé${tenure.count > 1 ? "s" : ""} (date du 1er contrat → aujourd'hui, ou → fin de contrat si parti)`}>
+          <span className="text-muted-foreground">Durée moy. client </span>
+          <span className="font-semibold text-foreground">{fmtMonths(tenure.all)}</span>
+          <span className="text-[11px] text-muted-foreground ml-1.5">
+            · encore là {fmtMonths(tenure.stillHere)}
+            {tenure.departedCount > 0 && <> · partis {fmtMonths(tenure.departed)}</>}
+          </span>
         </div>
         <div className="text-sm">
           <span className="text-muted-foreground">Vidéos/client </span>

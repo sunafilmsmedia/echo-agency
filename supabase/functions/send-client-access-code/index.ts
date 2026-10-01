@@ -73,8 +73,27 @@ Deno.serve(async (req) => {
     return json({ error: "BAD_JSON", message: e?.message ?? String(e) }, 400);
   }
 
-  const record     = payload?.record     ?? null;
-  const old_record = payload?.old_record ?? null;
+  // ── Mode manuel "resend" : bouton "Renvoyer l'invitation" du Centre Client ──
+  //    Payload : { action: "resend", client_id }. Exige un utilisateur connecté,
+  //    ignore les guards de statut + l'idempotence, et renvoie le code existant.
+  const isResend = payload?.action === "resend";
+
+  let record: any     = payload?.record     ?? null;
+  const old_record    = payload?.old_record ?? null;
+
+  if (isResend) {
+    const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
+    const { data: userData, error: userErr } = await supabase.auth.getUser(token);
+    if (userErr || !userData?.user) return json({ error: "UNAUTHORIZED" }, 401);
+
+    const { data: client, error: clientErr } = await supabase
+      .from("clients")
+      .select("id, name, email, status")
+      .eq("id", payload?.client_id ?? "")
+      .maybeSingle();
+    if (clientErr || !client) return json({ error: "CLIENT_NOT_FOUND" }, 404);
+    record = client;
+  }
 
   // ── Guard #1: le webhook doit être sur UPDATE public.clients ──
   if (!record || !record.id) {
@@ -89,10 +108,10 @@ Deno.serve(async (req) => {
   //     - status actuel ≠ 'active'
   //     - déjà 'active' avant (UPDATE active→active, ou UPDATE active→X→active — c'est
   //       le guard access_code_sent_at ci-dessous qui rattrapera ce dernier cas)
-  if (record.status !== "active") {
+  if (!isResend && record.status !== "active") {
     return json({ skipped: true, reason: "status_not_active" });
   }
-  if (old_record && old_record.status === "active") {
+  if (!isResend && old_record && old_record.status === "active") {
     return json({ skipped: true, reason: "already_active_before" });
   }
 
@@ -100,7 +119,7 @@ Deno.serve(async (req) => {
   const clientEmail = (record.email ?? "").trim();
   if (!clientEmail) {
     await logRow(record.id, "skipped", "client email is empty — automation cannot send");
-    return json({ skipped: true, reason: "missing_client_email" });
+    return json(isResend ? { error: "MISSING_CLIENT_EMAIL" } : { skipped: true, reason: "missing_client_email" }, isResend ? 400 : 200);
   }
 
   // ── Étape 1: récupérer ou générer le access_code ──
@@ -116,7 +135,7 @@ Deno.serve(async (req) => {
   }
 
   // Idempotency: déjà envoyé → skip (comportement demandé)
-  if (codeRow?.access_code_sent_at) {
+  if (!isResend && codeRow?.access_code_sent_at) {
     await logRow(record.id, "skipped", `code already sent at ${codeRow.access_code_sent_at}`);
     return json({ skipped: true, reason: "already_sent", sentAt: codeRow.access_code_sent_at });
   }
@@ -178,7 +197,9 @@ Deno.serve(async (req) => {
       </div>
       <div style="padding:28px 24px;">
         <p style="margin:0 0 16px;color:#111827;font-size:15px;line-height:1.55;">
-          Ton compte est activé. Voici ton code d'accès personnel pour te connecter à ton espace client&nbsp;:
+          ${isResend
+            ? "Voici à nouveau ton code d'accès personnel pour te connecter à ton espace client&nbsp;:"
+            : "Ton compte est activé. Voici ton code d'accès personnel pour te connecter à ton espace client&nbsp;:"}
         </p>
         <div style="margin:20px 0;padding:20px;text-align:center;border:2px dashed ${agencyColor};border-radius:12px;background:${agencyColor}0d;">
           <p style="margin:0 0 6px;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:1.5px;font-weight:600;">Ton code d'accès</p>

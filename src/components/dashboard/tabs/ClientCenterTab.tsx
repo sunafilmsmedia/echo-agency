@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useClients, useUpdateClient } from "@/hooks/useClients";
-import { useAgencySettings, useUpdateAgencySettings, useClientPortalCodes, useEnsureClientCode, useRegenerateClientCode, useClientJournal, useAddJournalEntry } from "@/hooks/usePortal";
+import { useAgencySettings, useUpdateAgencySettings, useClientPortalCodes, useEnsureClientCode, useRegenerateClientCode, useResendClientInvite, useClientJournal, useAddJournalEntry } from "@/hooks/usePortal";
 import { EchoTintedLogo } from "@/components/EchoTintedLogo";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -472,6 +472,7 @@ export function ClientCenterTab() {
   const { data: portalCodes = [] } = useClientPortalCodes();
   const ensureCode      = useEnsureClientCode();
   const regenerateCodeMut = useRegenerateClientCode();
+  const resendInvite    = useResendClientInvite();
   const codeForClient = (clientId: string) => portalCodes.find((c) => c.client_id === clientId)?.access_code ?? null;
 
   const [portalShown, setPortalShown] = useState<string | null>(null);
@@ -925,6 +926,17 @@ export function ClientCenterTab() {
                                 Copier le lien d'invitation
                               </Button>
                             </div>
+
+                            <Button size="sm" variant="outline"
+                              className="w-full gap-1.5 border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
+                              disabled={resendInvite.isPending || !client.email}
+                              title={client.email ? `Envoyer le code à ${client.email}` : "Aucun email pour ce client"}
+                              onClick={() => resendInvite.mutate(client.id)}>
+                              {resendInvite.isPending && resendInvite.variables === client.id
+                                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                : <Mail className="w-3.5 h-3.5" />}
+                              {client.email ? `Renvoyer l'invitation par email (${client.email})` : "Renvoyer l'invitation (aucun email)"}
+                            </Button>
                           </>
                         );
                       })()}

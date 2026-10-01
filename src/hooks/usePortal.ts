@@ -125,6 +125,28 @@ export function useRegenerateClientCode() {
   });
 }
 
+export function useResendClientInvite() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (clientId: string) => {
+      const { data, error } = await supabase.functions.invoke("send-client-access-code", {
+        body: { action: "resend", client_id: clientId },
+      });
+      if (error) {
+        const body = await (error as any).context?.json?.().catch(() => null);
+        if (body?.error === "MISSING_CLIENT_EMAIL") throw new Error("Ce client n'a pas d'email — ajoute-le dans Client Management");
+        throw new Error(body?.message ?? body?.error ?? error.message);
+      }
+      return data as { sentTo: string };
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["client-portal-codes"] });
+      toast.success(`Invitation renvoyée à ${data?.sentTo ?? "le client"}`);
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Erreur lors de l'envoi"),
+  });
+}
+
 // ─── Resolve code → client + agency snapshot (for portal) ────────────────────
 
 export interface PortalSnapshot {
