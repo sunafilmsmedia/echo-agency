@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Lock, ArrowRight, Loader2, Sparkles, Film, Megaphone, BarChart3 } from "lucide-react";
+import { Lock, ArrowRight, Loader2, Sparkles, Film, Megaphone, BarChart3, Mail, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAgencySettingsBySlug } from "@/hooks/usePortal";
@@ -14,6 +14,12 @@ export default function ClientLanding() {
   const [code, setCode]       = useState("");
   const [error, setError]     = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  // "Recevoir mon code par courriel"
+  const [showRequest, setShowRequest] = useState(false);
+  const [requestEmail, setRequestEmail] = useState("");
+  const [requesting, setRequesting] = useState(false);
+  const [requestSent, setRequestSent] = useState(false);
 
   if (isLoading) {
     return (
@@ -53,6 +59,17 @@ export default function ClientLanding() {
     if (qError) { setError("Erreur réseau. Réessaie."); return; }
     if (!data) { setError("Code introuvable. Vérifie avec ton agence."); return; }
     navigate(`/portail?code=${upperCode}`);
+  };
+
+  const handleRequestCode = async () => {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(requestEmail.trim())) return;
+    setRequesting(true);
+    const { error: fnError } = await supabase.functions.invoke("send-client-access-code", {
+      body: { action: "request", email: requestEmail.trim() },
+    });
+    setRequesting(false);
+    if (fnError) { setError("Impossible d'envoyer le code pour l'instant. Réessaie dans un moment."); return; }
+    setRequestSent(true);
   };
 
   return (
@@ -164,9 +181,36 @@ export default function ClientLanding() {
               : <>Se connecter <ArrowRight className="w-4 h-4" /></>
             }
           </Button>
-          <p className="text-center text-[11px] text-muted-foreground">
-            Pas encore de code? Contactez votre équipe {agency.name}.
-          </p>
+          {!showRequest ? (
+            <button type="button" onClick={() => setShowRequest(true)}
+              className="w-full text-center text-xs text-muted-foreground hover:text-foreground transition-colors inline-flex items-center justify-center gap-1.5">
+              <Mail className="w-3 h-3" /> Code oublié? Recevoir mon code par courriel
+            </button>
+          ) : requestSent ? (
+            <div className="rounded-xl acc-soft border acc-border p-3 text-xs text-foreground flex items-start gap-2">
+              <CheckCircle2 className="w-4 h-4 acc-c flex-shrink-0 mt-0.5" />
+              <span>
+                Si <span className="font-semibold">{requestEmail.trim()}</span> est associé à un compte client, tu vas recevoir ton code dans quelques instants. Pense à vérifier tes indésirables.
+              </span>
+            </div>
+          ) : (
+            <div className="space-y-2 pt-3 border-t border-border/40">
+              <label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                <Mail className="w-3 h-3" /> Ton courriel
+              </label>
+              <div className="flex gap-2">
+                <Input type="email" autoFocus placeholder="toi@courriel.com" value={requestEmail}
+                  onChange={(e) => setRequestEmail(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleRequestCode()}
+                  className="h-10" />
+                <Button onClick={handleRequestCode}
+                  disabled={requesting || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(requestEmail.trim())}
+                  className="h-10 acc-bg text-white hover:opacity-90 border-0 flex-shrink-0">
+                  {requesting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Recevoir"}
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="text-center">

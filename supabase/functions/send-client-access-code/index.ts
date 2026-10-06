@@ -76,12 +76,33 @@ Deno.serve(async (req) => {
   // ── Mode manuel "resend" : bouton "Renvoyer l'invitation" du Centre Client ──
   //    Payload : { action: "resend", client_id }. Exige un utilisateur connecté,
   //    ignore les guards de statut + l'idempotence, et renvoie le code existant.
-  const isResend = payload?.action === "resend";
+  // ── Mode public "request" : le client entre son courriel sur /clients/:slug ──
+  //    Payload : { action: "request", email }. Pas de connexion requise : on envoie
+  //    le code seulement AU courriel du client actif qui correspond. Réponse toujours
+  //    générique pour ne pas révéler qui est client.
+  const isRequest = payload?.action === "request";
+  const isResend  = payload?.action === "resend" || isRequest;
 
   let record: any     = payload?.record     ?? null;
   const old_record    = payload?.old_record ?? null;
 
-  if (isResend) {
+  if (isRequest) {
+    const email = String(payload?.email ?? "").trim().toLowerCase();
+    if (!email) return json({ error: "MISSING_EMAIL" }, 400);
+    const pattern = email.replace(/[\\%_]/g, (c) => `\\${c}`);
+    const { data: matches } = await supabase
+      .from("clients")
+      .select("id, name, email, status")
+      .ilike("email", pattern)
+      .eq("status", "active")
+      .order("created_at", { ascending: true })
+      .limit(1);
+    if (!matches?.length) {
+      await logRow(null, "skipped", "code requested for an email with no active client");
+      return json({ ok: true });
+    }
+    record = matches[0];
+  } else if (isResend) {
     const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
     const { data: userData, error: userErr } = await supabase.auth.getUser(token);
     if (userErr || !userData?.user) return json({ error: "UNAUTHORIZED" }, 401);
@@ -138,6 +159,12 @@ Deno.serve(async (req) => {
   if (!isResend && codeRow?.access_code_sent_at) {
     await logRow(record.id, "skipped", `code already sent at ${codeRow.access_code_sent_at}`);
     return json({ skipped: true, reason: "already_sent", sentAt: codeRow.access_code_sent_at });
+  }
+
+  // Anti-spam du mode public : max 1 envoi par minute par client.
+  if (isRequest && codeRow?.access_code_sent_at
+      && Date.now() - new Date(codeRow.access_code_sent_at).getTime() < 60_000) {
+    return json({ ok: true });
   }
 
   // Génère un code si le client n'en a pas encore (jusqu'à 5 tentatives sur collision)
