@@ -69,7 +69,7 @@ export function AIChat() {
       {/* Floating button */}
       <button
         onClick={() => setOpen((o) => !o)}
-        className="fixed bottom-6 right-6 rounded-full shadow-glow transition-all z-50 hover:opacity-90 overflow-hidden"
+        className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] md:bottom-6 right-4 md:right-6 rounded-full shadow-glow transition-all z-50 hover:opacity-90 overflow-hidden"
         style={{ width: 52, height: 52 }}
         aria-label="Echo AI"
       >
@@ -85,8 +85,8 @@ export function AIChat() {
       {/* Chat panel */}
       {open && (
         <div
-          className="fixed right-6 bg-card border border-border/60 rounded-2xl shadow-premium flex flex-col z-50 overflow-hidden"
-          style={{ bottom: 76, width: 440, maxWidth: "calc(100vw - 32px)", height: "min(640px, calc(100vh - 120px))" }}
+          className="fixed right-4 md:right-6 bottom-[calc(9rem+env(safe-area-inset-bottom))] md:bottom-[76px] h-[min(640px,calc(100dvh-200px))] md:h-[min(640px,calc(100vh-120px))] bg-card border border-border/60 rounded-2xl shadow-premium flex flex-col z-50 overflow-hidden"
+          style={{ width: 440, maxWidth: "calc(100vw - 32px)" }}
         >
           {/* Header */}
           <div className="flex items-center gap-2.5 px-4 py-3 border-b border-border/40 bg-sidebar flex-shrink-0">

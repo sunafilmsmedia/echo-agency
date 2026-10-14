@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PinDialog } from "@/components/dashboard/PinDialog";
 import { AIChat } from "@/components/dashboard/AIChat";
 import { Button } from "@/components/ui/button";
-import { GripVertical, Bell, LogOut, Sun, Moon } from "lucide-react";
+import { GripVertical, Bell, LogOut, Sun, Moon, MoreHorizontal, X } from "lucide-react";
 import { DEFAULT_SIDEBAR_ITEMS } from "@/lib/dashboard-tabs";
 import { useTheme } from "@/hooks/useTheme";
 import { SoumissionsTab } from "@/components/dashboard/tabs/SoumissionsTab";
@@ -87,6 +87,9 @@ export default function Dashboard() {
   const [dragOver, setDragOver] = useState<string | null>(null);
 
   const [userEmail, setUserEmail] = useState("");
+
+  // Mobile : feuille « Plus » de la barre du bas
+  const [moreOpen, setMoreOpen] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -191,12 +194,14 @@ export default function Dashboard() {
     <div
       className="flex h-screen bg-background overflow-hidden"
       style={{
+        // 100dvh = hauteur réelle sur mobile (barre d'adresse) ; ignoré si non supporté → h-screen
+        height: "100dvh",
         ["--primary" as any]: themeHsl,
         ["--ring"    as any]: themeHsl,
       }}
     >
       {/* Sidebar — cleaner, editorial */}
-      <aside className="w-60 flex-shrink-0 flex flex-col border-r border-sidebar-border/40 bg-sidebar">
+      <aside className="hidden md:flex w-60 flex-shrink-0 flex-col border-r border-sidebar-border/40 bg-sidebar">
         {/* Logo */}
         <div className="flex items-center gap-3 px-5 py-6 border-b border-sidebar-border/30">
           <EchoTintedLogo color={agencyColor} size="w-8 h-8" rounded="rounded-md" />
@@ -262,10 +267,15 @@ export default function Dashboard() {
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <header className="flex items-center justify-between px-8 py-4 border-b border-border/30 bg-background/80 backdrop-blur-sm flex-shrink-0">
-          <h1 className="text-base font-semibold text-foreground tracking-tight">
-            {orderedItems.find((i) => i.id === currentTab)?.label || "Dashboard"}
-          </h1>
+        <header className="flex items-center justify-between px-4 md:px-8 py-3 md:py-4 border-b border-border/30 bg-background/80 backdrop-blur-sm flex-shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="md:hidden flex-shrink-0">
+              <EchoTintedLogo color={agencyColor} size="w-7 h-7" rounded="rounded-md" />
+            </span>
+            <h1 className="text-base font-semibold text-foreground tracking-tight truncate">
+              {orderedItems.find((i) => i.id === currentTab)?.label || "Dashboard"}
+            </h1>
+          </div>
           <div className="flex items-center gap-1.5">
             <button
               onClick={toggleTheme}
@@ -277,20 +287,90 @@ export default function Dashboard() {
             <button className="p-2 rounded-lg hover:bg-accent transition-colors text-muted-foreground">
               <Bell className="w-4 h-4" />
             </button>
-            <Button size="sm" variant="outline" className="border-primary/30 text-primary hover:bg-primary/10">
+            <Button size="sm" variant="outline" className="hidden md:inline-flex border-primary/30 text-primary hover:bg-primary/10">
               New Project
             </Button>
           </div>
         </header>
 
         {/* Tab content */}
-        <main className="flex-1 overflow-hidden">
+        {/* pb mobile = hauteur de la barre du bas + zone sécurisée iPhone */}
+        <main className="flex-1 overflow-hidden pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">
           {currentTab === "team" || currentTab === "suivis"
             ? <div className="h-full">{renderTab()}</div>
             : <div className="h-full overflow-y-auto">{renderTab()}</div>
           }
         </main>
       </div>
+
+      {/* ─── Mobile : barre de navigation en bas (style ClickUp) ─── */}
+      {orderedItems.length > 0 && (() => {
+        const primary = orderedItems.slice(0, 4);
+        const moreActive = !primary.some((i) => i.id === currentTab);
+        const go = (item: typeof DEFAULT_SIDEBAR_ITEMS[number]) => { setMoreOpen(false); handleTabClick(item); };
+        return (
+          <>
+            <nav className="md:hidden fixed bottom-0 inset-x-0 z-[60] border-t border-sidebar-border/40 bg-sidebar/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)]">
+              <div className="grid grid-cols-5 h-16">
+                {primary.map((item) => {
+                  const Icon = item.icon;
+                  const active = currentTab === item.id && !moreOpen;
+                  return (
+                    <button key={item.id} onClick={() => go(item)}
+                      className={`flex flex-col items-center justify-center gap-1 px-1 text-[10px] font-medium transition-colors ${
+                        active ? "text-primary" : "text-muted-foreground"}`}>
+                      <Icon className="w-5 h-5" />
+                      <span className="truncate max-w-full">{item.label}</span>
+                    </button>
+                  );
+                })}
+                <button onClick={() => setMoreOpen((o) => !o)}
+                  className={`flex flex-col items-center justify-center gap-1 px-1 text-[10px] font-medium transition-colors ${
+                    moreActive || moreOpen ? "text-primary" : "text-muted-foreground"}`}>
+                  {moreOpen ? <X className="w-5 h-5" /> : <MoreHorizontal className="w-5 h-5" />}
+                  <span>Plus</span>
+                </button>
+              </div>
+            </nav>
+
+            {moreOpen && (
+              <div className="md:hidden fixed inset-0 z-[55]" onClick={() => setMoreOpen(false)}>
+                <div className="absolute inset-0 bg-black/50" />
+                <div onClick={(e) => e.stopPropagation()}
+                  className="absolute inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] max-h-[70vh] overflow-y-auto rounded-t-2xl border-t border-sidebar-border/40 bg-sidebar p-3 space-y-1">
+                  <div className="grid grid-cols-3 gap-2">
+                    {orderedItems.map((item) => {
+                      const Icon = item.icon;
+                      const active = currentTab === item.id;
+                      const isProtected = item.protected && !access.isEmployee && !unlockedSections.has(item.id);
+                      return (
+                        <button key={item.id} onClick={() => go(item)}
+                          className={`relative flex flex-col items-center justify-center gap-1.5 rounded-xl border px-2 py-3 text-[11px] font-medium text-center ${
+                            active ? "border-primary/50 bg-primary/10 text-primary" : "border-border/40 text-sidebar-foreground"}`}>
+                          <Icon className="w-5 h-5" />
+                          <span className="leading-tight">{item.label}</span>
+                          {isProtected && <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-primary/60" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="flex items-center gap-2 pt-3 mt-2 border-t border-sidebar-border/30">
+                    <p className="flex-1 min-w-0 text-[11px] text-muted-foreground truncate px-1">{userEmail || "User"}</p>
+                    <button onClick={toggleTheme}
+                      className="p-2 rounded-lg border border-border/40 text-muted-foreground">
+                      {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                    </button>
+                    <button onClick={handleLogout}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border/40 text-xs text-destructive">
+                      <LogOut className="w-3.5 h-3.5" /> Déconnexion
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
+        );
+      })()}
 
       {/* AI Chat — caché aux employés sans accès aux $ (l'IA peut lire les revenus) */}
       {access.canSeeMoney && <AIChat />}
