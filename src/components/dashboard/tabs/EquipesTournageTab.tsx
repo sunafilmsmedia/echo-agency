@@ -1,14 +1,22 @@
 import { useMemo, useState } from "react";
 import { useClients } from "@/hooks/useClients";
-import { useShootTeams, useCreateShootTeam, useUpdateShootTeam, useDeleteShootTeam, useAssignClientToTeam } from "@/hooks/useShootTeams";
+import { useShootTeams, useCreateShootTeam, useUpdateShootTeam, useDeleteShootTeam, useAssignClientToTeam, TEAM_KIND_CONFIG, type TeamKind } from "@/hooks/useShootTeams";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Users, Clapperboard, UserPlus, X } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, Clapperboard, Scissors, UserPlus, X } from "lucide-react";
 import type { ShootTeam, Client } from "@/integrations/supabase/client";
+
+// Textes + icône propres à chaque type d'équipe (tournage / montage)
+const KIND_UI = {
+  shoot: { Icon: Clapperboard, eyebrow: "🎬 Répartition tournages", newTitle: "Nouvelle équipe de tournage", emptyTitle: "Aucune équipe de tournage",
+           emptyExamples: ["Équipe A", "Team Nord", "Josué solo"], membersPlaceholder: "Ex: Josué, Sylvain, Sasha" },
+  edit:  { Icon: Scissors, eyebrow: "✂️ Répartition montage", newTitle: "Nouvelle équipe de montage", emptyTitle: "Aucune équipe de montage",
+           emptyExamples: ["Élodie", "Nouveau monteur", "Montage Ads"], membersPlaceholder: "Ex: Élodie, Marc" },
+} as const;
 
 // Palette proposée pour la couleur d'équipe (cohérent avec le reste du dashboard)
 const TEAM_COLOR_PALETTE = [
@@ -17,10 +25,10 @@ const TEAM_COLOR_PALETTE = [
 ];
 
 function TeamDialog({
-  team, open, onClose,
-}: { team?: ShootTeam; open: boolean; onClose: () => void }) {
-  const create = useCreateShootTeam();
-  const update = useUpdateShootTeam();
+  kind, team, open, onClose,
+}: { kind: TeamKind; team?: ShootTeam; open: boolean; onClose: () => void }) {
+  const create = useCreateShootTeam(kind);
+  const update = useUpdateShootTeam(kind);
   const isEdit = !!team;
 
   const [name, setName]     = useState(team?.name ?? "");
@@ -46,7 +54,7 @@ function TeamDialog({
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>{isEdit ? `Modifier — ${team?.name}` : "Nouvelle équipe de tournage"}</DialogTitle>
+          <DialogTitle>{isEdit ? `Modifier — ${team?.name}` : KIND_UI[kind].newTitle}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="space-y-1">
@@ -55,7 +63,7 @@ function TeamDialog({
           </div>
           <div className="space-y-1">
             <Label>Membres <span className="text-muted-foreground font-normal">(séparés par virgule)</span></Label>
-            <Input value={members} onChange={(e) => setMembers(e.target.value)} placeholder="Ex: Josué, Sylvain, Sasha" />
+            <Input value={members} onChange={(e) => setMembers(e.target.value)} placeholder={KIND_UI[kind].membersPlaceholder} />
           </div>
           <div className="space-y-1">
             <Label>Couleur</Label>
@@ -87,15 +95,17 @@ function TeamDialog({
 
 // Carte d'une équipe — nom, couleur, membres, clients assignés + assignation rapide.
 function TeamCard({
-  team, clients, unassigned, onEdit, onDelete,
+  kind, team, clients, unassigned, onEdit, onDelete,
 }: {
+  kind: TeamKind;
   team: ShootTeam;
   clients: Client[];
   unassigned: Client[];
   onEdit: () => void;
   onDelete: () => void;
 }) {
-  const assign = useAssignClientToTeam();
+  const assign = useAssignClientToTeam(kind);
+  const { Icon } = KIND_UI[kind];
   const membersList = team.members?.split(",").map((m) => m.trim()).filter(Boolean) ?? [];
 
   return (
@@ -111,7 +121,7 @@ function TeamCard({
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: team.color }}>
-              <Clapperboard className="w-4 h-4 text-white" />
+              <Icon className="w-4 h-4 text-white" />
             </div>
             <div className="min-w-0">
               <p className="text-sm font-bold text-foreground truncate">{team.name}</p>
@@ -199,10 +209,12 @@ function TeamCard({
   );
 }
 
-export function EquipesTournageTab() {
+export function EquipesTournageTab({ kind = "shoot" }: { kind?: TeamKind }) {
   const { data: clients = [], isLoading: loadingClients } = useClients();
-  const { data: teams = [], isLoading: loadingTeams } = useShootTeams();
-  const deleteTeam = useDeleteShootTeam();
+  const { data: teams = [], isLoading: loadingTeams } = useShootTeams(kind);
+  const deleteTeam = useDeleteShootTeam(kind);
+  const ui = KIND_UI[kind];
+  const teamOf = (c: Client) => c[TEAM_KIND_CONFIG[kind].column];
 
   const [showAdd, setShowAdd] = useState(false);
   const [editingTeam, setEditingTeam] = useState<ShootTeam | null>(null);
@@ -211,20 +223,21 @@ export function EquipesTournageTab() {
   // pas encombrer la répartition d'équipes).
   const activeClients = useMemo(() => clients.filter((c) => c.status === "active"), [clients]);
   const unassignedClients = useMemo(
-    () => activeClients.filter((c) => !c.shoot_team_id),
-    [activeClients],
+    () => activeClients.filter((c) => !teamOf(c)),
+    [activeClients, kind],
   );
 
   const byTeam = useMemo(() => {
     const map = new Map<string, Client[]>();
     for (const t of teams) map.set(t.id, []);
     for (const c of activeClients) {
-      if (c.shoot_team_id && map.has(c.shoot_team_id)) {
-        map.get(c.shoot_team_id)!.push(c);
+      const teamId = teamOf(c);
+      if (teamId && map.has(teamId)) {
+        map.get(teamId)!.push(c);
       }
     }
     return map;
-  }, [teams, activeClients]);
+  }, [teams, activeClients, kind]);
 
   if (loadingClients || loadingTeams) {
     return <div className="p-6 text-muted-foreground text-sm">Chargement...</div>;
@@ -236,7 +249,7 @@ export function EquipesTournageTab() {
       <div className="flex items-center gap-4">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-widest text-primary">
-            🎬 Répartition tournages
+            {ui.eyebrow}
           </p>
           <h2 className="text-lg font-bold text-foreground mt-0.5">
             {teams.length} équipe{teams.length > 1 ? "s" : ""} · {activeClients.length - unassignedClients.length}/{activeClients.length} clients assignés
@@ -252,11 +265,11 @@ export function EquipesTournageTab() {
       {/* Empty state */}
       {teams.length === 0 && (
         <div className="rounded-2xl border-2 border-dashed border-border/50 bg-muted/10 p-8 text-center space-y-3">
-          <Clapperboard className="w-10 h-10 mx-auto text-muted-foreground" />
+          <ui.Icon className="w-10 h-10 mx-auto text-muted-foreground" />
           <div>
-            <p className="text-sm font-semibold text-foreground">Aucune équipe de tournage</p>
+            <p className="text-sm font-semibold text-foreground">{ui.emptyTitle}</p>
             <p className="text-xs text-muted-foreground mt-1">
-              Crée une équipe pour commencer à répartir tes clients — ex: <span className="font-mono">Équipe A</span>, <span className="font-mono">Team Nord</span>, <span className="font-mono">Josué solo</span>.
+              Crée une équipe pour commencer à répartir tes clients — ex: <span className="font-mono">{ui.emptyExamples[0]}</span>, <span className="font-mono">{ui.emptyExamples[1]}</span>, <span className="font-mono">{ui.emptyExamples[2]}</span>.
             </p>
           </div>
           <Button onClick={() => setShowAdd(true)} size="sm" className="gap-2 mt-2">
@@ -271,6 +284,7 @@ export function EquipesTournageTab() {
           {teams.map((t) => (
             <TeamCard
               key={t.id}
+              kind={kind}
               team={t}
               clients={byTeam.get(t.id) ?? []}
               unassigned={unassignedClients}
@@ -311,8 +325,8 @@ export function EquipesTournageTab() {
       )}
 
       {/* Dialogs */}
-      {showAdd && <TeamDialog open onClose={() => setShowAdd(false)} />}
-      {editingTeam && <TeamDialog open team={editingTeam} onClose={() => setEditingTeam(null)} />}
+      {showAdd && <TeamDialog kind={kind} open onClose={() => setShowAdd(false)} />}
+      {editingTeam && <TeamDialog kind={kind} open team={editingTeam} onClose={() => setEditingTeam(null)} />}
     </div>
   );
 }

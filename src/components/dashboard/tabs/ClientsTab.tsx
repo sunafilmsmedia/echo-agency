@@ -281,6 +281,7 @@ function ClientCard({ client, onEdit, onDelete }: { client: Client; onEdit: () =
 function ClientAddDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const create = useCreateClient();
   const { data: teams = [] } = useShootTeams();
+  const { data: editTeams = [] } = useShootTeams("edit");
   const [form, setForm] = useState({
     name: "", email: "", industry: "", status: "pipeline" as ClientStatus,
     monthly_recurring_revenue: "", contract_length_months: "",
@@ -288,6 +289,7 @@ function ClientAddDialog({ open, onClose }: { open: boolean; onClose: () => void
     services: [] as string[],
     city: "",
     shoot_team_id: "" as string,
+    edit_team_id: "" as string,
   });
 
   const emailTrimmed = form.email.trim();
@@ -324,6 +326,7 @@ function ClientAddDialog({ open, onClose }: { open: boolean; onClose: () => void
       latitude:  cityCoords?.lat ?? null,
       longitude: cityCoords?.lng ?? null,
       shoot_team_id: form.shoot_team_id || null,
+      edit_team_id: form.edit_team_id || null,
     });
     onClose();
   };
@@ -410,6 +413,28 @@ function ClientAddDialog({ open, onClose }: { open: boolean; onClose: () => void
             )}
           </div>
           <div className="space-y-1">
+            <Label>Équipe de montage</Label>
+            <Select
+              value={form.edit_team_id || "__none__"}
+              onValueChange={(v) => setForm({ ...form, edit_team_id: v === "__none__" ? "" : v })}
+            >
+              <SelectTrigger><SelectValue placeholder="Aucune équipe" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">Aucune équipe</SelectItem>
+                {editTeams.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    ✂️ {t.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {editTeams.length === 0 && (
+              <p className="text-[10px] text-muted-foreground">
+                Crée d'abord une équipe dans l'onglet « Équipes de montage ».
+              </p>
+            )}
+          </div>
+          <div className="space-y-1">
             <Label>Statut *</Label>
             <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as ClientStatus })}>
               <SelectTrigger><SelectValue /></SelectTrigger>
@@ -466,6 +491,7 @@ function ClientAddDialog({ open, onClose }: { open: boolean; onClose: () => void
 function ClientEditDialog({ client, onClose }: { client: Client; onClose: () => void }) {
   const update = useUpdateClient();
   const { data: teams = [] } = useShootTeams();
+  const { data: editTeams = [] } = useShootTeams("edit");
   const [form, setForm] = useState({
     name: client.name,
     email: client.email || "",
@@ -481,6 +507,7 @@ function ClientEditDialog({ client, onClose }: { client: Client; onClose: () => 
     services: client.services ?? [],
     city: client.city || "",
     shoot_team_id: client.shoot_team_id || "" as string,
+    edit_team_id: client.edit_team_id || "" as string,
   });
 
   const emailTrimmed = form.email.trim();
@@ -519,6 +546,7 @@ function ClientEditDialog({ client, onClose }: { client: Client; onClose: () => 
       latitude:  cityCoords?.lat ?? null,
       longitude: cityCoords?.lng ?? null,
       shoot_team_id: form.shoot_team_id || null,
+      edit_team_id: form.edit_team_id || null,
     });
     onClose();
   };
@@ -601,6 +629,28 @@ function ClientEditDialog({ client, onClose }: { client: Client; onClose: () => 
             {teams.length === 0 && (
               <p className="text-[10px] text-muted-foreground">
                 Crée d'abord une équipe dans l'onglet « Équipes de tournage ».
+              </p>
+            )}
+          </div>
+          <div className="space-y-1">
+            <Label>Équipe de montage</Label>
+            <Select
+              value={form.edit_team_id || "__none__"}
+              onValueChange={(v) => setForm({ ...form, edit_team_id: v === "__none__" ? "" : v })}
+            >
+              <SelectTrigger><SelectValue placeholder="Aucune équipe" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">Aucune équipe</SelectItem>
+                {editTeams.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    ✂️ {t.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {editTeams.length === 0 && (
+              <p className="text-[10px] text-muted-foreground">
+                Crée d'abord une équipe dans l'onglet « Équipes de montage ».
               </p>
             )}
           </div>

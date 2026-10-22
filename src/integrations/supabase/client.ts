@@ -36,6 +36,7 @@ export interface Client {
   latitude: number | null;
   longitude: number | null;
   shoot_team_id: string | null;
+  edit_team_id: string | null;
   created_at: string;
   updated_at: string;
 }

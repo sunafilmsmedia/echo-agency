@@ -170,6 +170,7 @@ export default function Dashboard() {
       case "clients":   return <ClientsTab />;
       case "secteurs":  return <SecteursTab />;
       case "equipes_tournage": return <EquipesTournageTab />;
+      case "equipes_montage":  return <EquipesTournageTab kind="edit" />;
       case "center":    return <ClientCenterTab />;
       case "revenue":   return <RevenueTab />;
       case "advisors":  return <AdvisorsTab />;
