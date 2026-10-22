@@ -18,6 +18,20 @@ const KIND_UI = {
            emptyExamples: ["Élodie", "Nouveau monteur", "Montage Ads"], membersPlaceholder: "Ex: Élodie, Marc" },
 } as const;
 
+// Rangées dans chaque carte : selon le forfait de tournage du client (services).
+const FREQUENCY_GROUPS = [
+  { key: "mensuel",  label: "Mensuels",       emoji: "📅" },
+  { key: "bimestr",  label: "Aux 2 mois",     emoji: "🗓️" },
+  { key: "autre",    label: "Autres forfaits", emoji: "•" },
+] as const;
+
+function frequencyOf(c: Client): (typeof FREQUENCY_GROUPS)[number]["key"] {
+  const services = c.services ?? [];
+  if (services.includes("tournage_mensuel")) return "mensuel";
+  if (services.includes("tournage_bimestr")) return "bimestr";
+  return "autre";
+}
+
 // Palette proposée pour la couleur d'équipe (cohérent avec le reste du dashboard)
 const TEAM_COLOR_PALETTE = [
   "#8b5cf6", "#f59e0b", "#22c55e", "#ef4444", "#06b6d4", "#a855f7",
@@ -165,26 +179,41 @@ function TeamCard({
             Aucun client assigné à cette équipe.
           </p>
         ) : (
-          <div className="space-y-1.5">
-            {clients.map((c) => (
-              <div key={c.id}
-                   className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md bg-muted/20 hover:bg-muted/40 transition-colors group">
-                <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: team.color }} />
-                  <span className="text-xs font-medium text-foreground truncate">{c.name}</span>
-                  {c.city && (
-                    <span className="text-[10px] text-muted-foreground truncate">· {c.city}</span>
-                  )}
+          <div className="space-y-3">
+            {FREQUENCY_GROUPS.map((g) => {
+              const rows = clients.filter((c) => frequencyOf(c) === g.key);
+              // Mensuels + Aux 2 mois toujours affichés ; « Autres » seulement s'il y en a.
+              if (g.key === "autre" && rows.length === 0) return null;
+              return (
+                <div key={g.key} className="space-y-1.5">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                    <span>{g.emoji}</span> {g.label}
+                    <span className="font-semibold text-muted-foreground/70">· {rows.length}</span>
+                  </p>
+                  {rows.length === 0 ? (
+                    <p className="text-[11px] text-muted-foreground/60 italic px-2.5">Aucun</p>
+                  ) : rows.map((c) => (
+                    <div key={c.id}
+                         className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md bg-muted/20 hover:bg-muted/40 transition-colors group">
+                      <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: team.color }} />
+                        <span className="text-xs font-medium text-foreground truncate">{c.name}</span>
+                        {c.city && (
+                          <span className="text-[10px] text-muted-foreground truncate">· {c.city}</span>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => assign.mutate({ clientId: c.id, teamId: null })}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-destructive/20"
+                        title="Retirer de cette équipe"
+                      >
+                        <X className="w-3 h-3 text-muted-foreground hover:text-destructive" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
-                <button
-                  onClick={() => assign.mutate({ clientId: c.id, teamId: null })}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-destructive/20"
-                  title="Retirer de cette équipe"
-                >
-                  <X className="w-3 h-3 text-muted-foreground hover:text-destructive" />
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
