@@ -20,15 +20,21 @@ export function useCurrentUser() {
 
 // Extrait le prénom :
 //   1. user_metadata.full_name (set au signup) → premier mot
-//   2. fallback agencyOwnerFallback (ex: agency.owner_first_name) pour les users
-//      créés avant la refonte signup — Josué n'a pas de full_name en metadata.
-//   3. rien
+//   2. memberName (team_members.name) → premier mot — employés connectés par
+//      code courriel, qui n'ont jamais de full_name en metadata. Sans ça,
+//      chaque employé retombait sur le nom du propriétaire (ex: Josué).
+//   3. fallback agencyOwnerFallback (ex: agency.owner_first_name) pour les users
+//      créés avant la refonte signup (le propriétaire lui-même).
+//   4. rien
 export function displayFirstName(
   user: User | null | undefined,
   agencyOwnerFallback?: string | null,
+  memberName?: string | null,
 ): string {
   const fromMeta = (user?.user_metadata?.full_name as string | undefined)?.trim();
   if (fromMeta) return fromMeta.split(/\s+/)[0];
+  const fromMember = memberName?.trim();
+  if (fromMember) return fromMember.split(/\s+/)[0];
   const fallback = agencyOwnerFallback?.trim();
   if (fallback) return fallback;
   return "";

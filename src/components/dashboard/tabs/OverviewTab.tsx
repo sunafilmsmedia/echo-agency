@@ -6,6 +6,7 @@ import { Users, DollarSign, Target, TrendingUp, AlertTriangle, Clock, DollarSign
 import { EchoTintedLogo } from "@/components/EchoTintedLogo";
 import { useAgencySettings } from "@/hooks/usePortal";
 import { useCurrentUser, displayFirstName } from "@/hooks/useCurrentUser";
+import { useMyAccess } from "@/hooks/useTeamAccess";
 
 // Salutation qui suit l'heure de la journée — meilleure UX que "Bonjour" fixe.
 function greetingForNow(): string {
@@ -45,10 +46,12 @@ export function OverviewTab() {
   const { data: expenseItems = [] } = useExpenseItems();
   const { data: agency } = useAgencySettings();
   const currentUser = useCurrentUser();
+  const myAccess = useMyAccess();
   const agencyColor = agency?.color || "#7c3aed";
-  // Priorité : nom du user connecté (metadata du signup) → fallback prénom de l'owner
-  // d'agence pour les comptes créés avant la refonte signup (ex: Josué).
-  const firstName   = displayFirstName(currentUser, agency?.owner_first_name);
+  // Priorité : nom du user connecté (metadata du signup) → nom de l'employé
+  // (team_members, pour les comptes connectés par code courriel) → fallback
+  // prénom de l'owner d'agence pour les comptes créés avant la refonte signup.
+  const firstName   = displayFirstName(currentUser, agency?.owner_first_name, myAccess.member?.name);
   const greeting    = greetingForNow();
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth(); // 0-indexed

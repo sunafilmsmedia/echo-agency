@@ -440,6 +440,11 @@ export function RevenueTab() {
           { label: "Revenu Total", value: formatCurrency(totalRevenue), sub: null },
           { label: "Pipeline", value: formatCurrency(metrics?.pipeline_value ?? 0), sub: `${metrics?.pipeline_clients_count ?? 0} clients` },
           { label: "MRR Potentiel", value: formatCurrency(mrr + (metrics?.projected_pipeline_revenue ?? 0)), sub: null },
+          {
+            label: "Revenu moyen / client",
+            value: formatCurrency(growthAuto.activeNow > 0 ? mrr / growthAuto.activeNow : 0),
+            sub: `${growthAuto.activeNow} clients actifs`,
+          },
           { label: "Profit Net", value: formatCurrency(netProfit), sub: null, profit: true },
         ].map(({ label, value, sub, profit }) => (
           <Card key={label} className={profit ? (netProfit >= 0 ? "border-emerald-500/30" : "border-destructive/30") : ""}>
